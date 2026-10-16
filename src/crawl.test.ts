@@ -138,6 +138,14 @@ describe("Crawling Clock", () => {
     expect(undone).toMatchObject({ clock: 3, carry: false, last: null });
   });
 
+  it("an extra check (a loud noise, p. 112) leaves the schedule alone; a due one resets it", () => {
+    const early = rollCheck(rounds(crawl({ danger: "unsafe" }), 2), dice(6, 4));
+    expect(early).toMatchObject({ lastCheck: 0, last: { kind: "check" } });
+    expect(due(crawlRoundStarted(early), "standard")).toBe(true);
+    const onTime = rollCheck(rounds(crawl({ danger: "unsafe" }), 3), dice(6, 4));
+    expect(onTime.lastCheck).toBe(3);
+  });
+
   it("New clock for a new dangerous place; nothing to reset keeps the object", () => {
     expect(resetClock(crawl({ clock: 9 })).clock).toBe(20);
     const fresh = crawl();

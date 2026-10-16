@@ -30,7 +30,7 @@ describe("Tracker (GM)", () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
     render(<App />);
-    expect(await screen.findByText("Press ▶ to begin")).toBeInTheDocument();
+    expect(await screen.findByText("Not started")).toBeInTheDocument();
     expect(screen.getByLabelText("Previous turn")).toBeDisabled();
     fireEvent.click(screen.getByLabelText("Next turn"));
     await waitFor(() => expect(saved()).toMatchObject({ current: "a", round: 1 }));
@@ -143,7 +143,7 @@ describe("Tracker (GM)", () => {
     fireEvent.click(screen.getByText("Reset"));
     await waitFor(() => expect(saved()).toMatchObject({ current: null, round: 0 }));
     expect(saved().entries[0].roll).toBe(7);
-    expect(screen.getByText("Press ▶ to begin")).toBeInTheDocument();
+    expect(screen.getByText("Not started")).toBeInTheDocument();
   });
 
   it("a new turn moves the marker and the selection to that token", async () => {
@@ -461,16 +461,28 @@ describe("Tracker (GM)", () => {
     expect(saved().current).toBe("a");
   });
 
-  it("the roll button is always there, lit only when a roll is due on the GM's turn; R presses it", async () => {
-    scene([{ id: GM_ENTRY }], GM_ENTRY, 1, { crawl: { crawlRounds: 1 } });
+  it("the roll button is always there: plain, outlined when due, filled when due on the GM's turn; R only rolls when due", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    scene([{ id: "a" }, { id: GM_ENTRY }], GM_ENTRY, 1, { crawl: { crawlRounds: 1 } });
     render(<App />);
     const card = await screen.findByRole("region", { name: "Encounter checks" });
-    const roll = within(card).getByRole("button", { name: "Roll check (d6)" });
-    expect(roll).not.toHaveClass("bg-obr-primary");
+    const roll = () => within(card).getByRole("button", { name: "Roll check (d6)" });
+    expect(roll()).not.toHaveClass("bg-obr-primary");
+    expect(roll()).not.toHaveClass("ring-obr-primary");
+    // Not due: R does nothing (a stray press can't replace a roll).
+    fireEvent.keyDown(document.body, { key: "r" });
+    expect(saved().crawl.last).toBeNull();
+    // Due on a player's turn: outlined.
+    await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), current: "a", crawl: { crawlRounds: 3 } } });
+    expect(roll()).toHaveClass("ring-obr-primary");
+    expect(within(card).getByText("Due this round")).toHaveClass("text-obr-primary");
+    // Due on the GM's turn: filled; R rolls it.
+    await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), current: GM_ENTRY } });
+    expect(roll()).toHaveClass("bg-obr-primary");
     fireEvent.keyDown(document.body, { key: "r" });
     await waitFor(() => expect(saved().crawl.last?.kind).toBe("check"));
     // In combat the card (and R) are gone.
-    await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), phase: "combat", crawl: { crawlRounds: 3 } } });
+    await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), phase: "combat", crawl: { crawlRounds: 6 } } });
     fireEvent.keyDown(document.body, { key: "r" });
     expect(saved().crawl.last).toBeNull();
   });
@@ -484,6 +496,32 @@ describe("Tracker (GM)", () => {
     const reset = screen.getByText("Reset rounds");
     expect(list.compareDocumentPosition(reset) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(list.compareDocumentPosition(screen.getByText("Remove monsters")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("hotkeys wait while the row menu is open", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    scene([{ id: "a" }, { id: GM_ENTRY }]);
+    render(<App />);
+    fireEvent.contextMenu(await screen.findByText("Aria"));
+    await screen.findByRole("menu");
+    fireEvent.keyDown(document.body, { key: "n" });
+    expect(saved().current).toBeNull();
+  });
+
+  it("the round count sits beside the title", async () => {
+    scene([{ id: GM_ENTRY }], GM_ENTRY, 4);
+    render(<App />);
+    expect((await screen.findByText("Round 4")).closest("header")).toHaveTextContent("Crawl Keeper");
+  });
+
+  it("the modifier box shows what's stored, even when nothing changed", async () => {
+    scene([{ id: GM_ENTRY }], null, 0, { gmMod: 3 });
+    render(<App />);
+    const mod = await screen.findByLabelText("Monster DEX modifier");
+    expect(mod).toHaveValue("+3");
+    fireEvent.change(mod, { target: { value: "3" } });
+    fireEvent.blur(mod);
+    expect(screen.getByLabelText("Monster DEX modifier")).toHaveValue("+3");
   });
 
   describe("the crawl card", () => {
@@ -508,7 +546,7 @@ describe("Tracker (GM)", () => {
       const card = await screen.findByRole("region", { name: "Encounter checks" });
       fireEvent.click(within(card).getByText("deadly"));
       await waitFor(() => expect(saved().crawl.danger).toBe("deadly"));
-      fireEvent.click(within(card).getByLabelText(/Darkness/));
+      fireEvent.click(within(card).getByRole("button", { name: /Darkness/ }));
       await waitFor(() => expect(saved().crawl.dark).toBe(true));
     });
 
@@ -537,7 +575,7 @@ describe("Tracker (GM)", () => {
       scene([{ id: GM_ENTRY }], null, 0, { crawl: { clock: 4 } });
       render(<App />);
       const card = await screen.findByRole("region", { name: "Crawling Clock" });
-      expect(within(card).getByText(/Omen: the clock is at 4/)).toBeInTheDocument();
+      expect(within(card).getByText("Omen · 4")).toBeInTheDocument();
       expect(within(card).queryByText("Roll the encounter now")).not.toBeInTheDocument();
     });
 
@@ -656,7 +694,7 @@ describe("Tracker (GM)", () => {
     obr.failWrites = true;
     fireEvent.click(await screen.findByLabelText("Next turn"));
     await waitFor(() => expect(OBR.notification.show).toHaveBeenCalledWith(expect.stringContaining("Couldn't save"), "ERROR"));
-    expect(screen.getByText("Press ▶ to begin")).toBeInTheDocument();
+    expect(screen.getByText("Not started")).toBeInTheDocument();
   });
 });
 

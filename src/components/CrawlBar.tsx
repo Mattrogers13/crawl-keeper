@@ -3,13 +3,13 @@ import { useState, type ReactNode } from "react";
 import Confirm from "./Confirm";
 import {
   CLOCK_START,
+  OMEN_AT,
   cryptoRand,
   crawlDie,
   due,
   omen,
   resetClock,
-  rollCheck,
-  rollClock,
+  rollFor,
   roundsToCheck,
   setDanger,
   setDark,
@@ -22,7 +22,9 @@ import {
 
 // The GM's encounter checks or Crawling Clock, in the top bar while
 // crawling (it stays in view as the list scrolls). It lights up and asks for
-// the roll on the GM's turn when one is due; the roll button is always there.
+// the roll on the GM's turn when one is due; the roll button is always there
+// (an extra roll when the GM wants one), outlined while a roll is due and
+// filled when it's due on the GM's turn.
 const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; change: (fn: (c: Crawl) => Crawl) => void }) => {
   const { crawl, mode, change } = props;
   const [askingReset, setAskingReset] = useState(false);
@@ -68,7 +70,7 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
                   key={d}
                   type="button"
                   aria-pressed={crawl.danger === d}
-                  className={`h-7 rounded-full px-3 capitalize ${crawl.danger === d ? "bg-obr-primary text-obr-primary-contrast" : "hover:bg-obr-text/10"}`}
+                  className={`h-8 rounded-full px-3 capitalize ${FOCUS} ${crawl.danger === d ? "bg-obr-primary text-obr-primary-contrast" : "hover:bg-obr-text/10"}`}
                   onClick={() => change((c) => setDanger(c, d))}
                 >
                   {d}
@@ -76,17 +78,40 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
               ))}
             </div>
           )}
-          {/* Always here (an extra roll when the GM wants one); lit when one is due on the GM's turn. */}
-          <PillButton primary={callForRoll} onClick={() => change((c) => (clock ? rollClock(c, cryptoRand) : rollCheck(c, cryptoRand)))}>
+          <PillButton
+            look={callForRoll ? "filled" : isDue ? "outlined" : "plain"}
+            hint="R when due"
+            onClick={() => change((c) => rollFor(mode)(c, cryptoRand))}
+          >
             {clock ? `Roll d${crawlDie(crawl)}` : "Roll check (d6)"}
           </PillButton>
-          <label className="flex items-center gap-1.5 text-xs text-obr-text-secondary">
-            <input type="checkbox" checked={crawl.dark} onChange={(e) => change((c) => setDark(c, e.target.checked))} />
+          <button
+            type="button"
+            aria-pressed={crawl.dark}
+            title={clock ? "Total darkness: the crawling die is a d8" : "Total darkness: a check every crawl round (p. 84)"}
+            className={`h-8 rounded-full px-3 text-xs font-medium ${FOCUS} ${
+              crawl.dark ? "bg-obr-text text-obr-paper" : "bg-obr-paper text-obr-text-secondary hover:bg-obr-text/10"
+            }`}
+            onClick={() => change((c) => setDark(c, !c.dark))}
+          >
             Darkness · {clock ? "d8" : "every round"}
-          </label>
+          </button>
         </div>
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-obr-text-secondary">
-          <span role="status">{status}</span>
+          <span role="status" className={isDue ? "font-medium text-obr-primary" : ""}>
+            {status}
+          </span>
+          {clock && omen(crawl) && !crawl.last?.encounter && (
+            <>
+              <span aria-hidden>·</span>
+              <span
+                className="font-medium text-amber-700 dark:text-amber-400"
+                title="The clock is low. You may roll the encounter on your table now and telegraph it; it still hits when the clock reaches 0."
+              >
+                Omen · {crawl.clock}
+              </span>
+            </>
+          )}
           {crawl.undo && (
             <>
               <span aria-hidden>·</span>
@@ -112,12 +137,6 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
       </div>
 
       {crawl.last && <LastRoll roll={crawl.last} />}
-      {clock && omen(crawl) && !crawl.last?.encounter && (
-        <p className="col-span-full text-xs font-medium text-amber-500">
-          Omen: the clock is at {crawl.clock}. You may roll the encounter on your table now and telegraph it; it still
-          hits when the clock reaches 0.
-        </p>
-      )}
     </section>
   );
 };
@@ -145,7 +164,9 @@ const EDGES = [
 // The clock as a ring that empties as it runs down, around a d20 showing
 // what's left. Drawn on a 76-unit grid and scaled to `size` px; small dials
 // (the players' view) get a bolder ring and number so they still read.
-export const ClockDial = ({ value, size = 76 }: { value: number; size?: number }) => {
+// `on`: what it sits on (the number's outline matches it, so the die's edges
+// don't cut through the number).
+export const ClockDial = ({ value, size = 76, on = "bg" }: { value: number; size?: number; on?: "bg" | "paper" }) => {
   const small = size < 60;
   const stroke = small ? 7 : 5;
   const r = 38 - stroke / 2 - 1;
@@ -164,13 +185,12 @@ export const ClockDial = ({ value, size = 76 }: { value: number; size?: number }
         strokeLinecap="round"
         strokeDasharray={`${filled} ${length}`}
         transform="rotate(-90 38 38)"
-        className={value <= 5 ? "stroke-amber-500" : "stroke-obr-primary"}
+        className={value <= OMEN_AT ? "stroke-amber-600 dark:stroke-amber-500" : "stroke-obr-primary"}
       />
       <g strokeLinejoin="round">
         <path d={path(HEX)} strokeWidth={line} className="fill-obr-text/5 stroke-obr-text/45" />
         <path d={EDGES} strokeWidth={line * 0.8} className="stroke-obr-text/25" />
         <path d={path(FACE)} fill="none" strokeWidth={line} className="stroke-obr-text/45" />
-        {/* Outlined in the card's color so the die's edges don't cut through it. */}
         <text
           x="38"
           y={38 + 0.16 * D20_R + (small ? 7 : 5)}
@@ -179,7 +199,7 @@ export const ClockDial = ({ value, size = 76 }: { value: number; size?: number }
           fontWeight="700"
           strokeWidth={small ? 4 : 3}
           paintOrder="stroke"
-          className="fill-obr-text stroke-obr-bg tabular-nums"
+          className={`fill-obr-text tabular-nums ${on === "paper" ? "stroke-obr-paper" : "stroke-obr-bg"}`}
         >
           {value}
         </text>
@@ -197,7 +217,7 @@ const LastRoll = ({ roll }: { roll: CrawlRoll }) => {
         ? "Encounter!"
         : "No encounter"
       : roll.encounter
-        ? `Encounter! Next clock: ${roll.after}`
+        ? "Encounter!"
         : `Clock ${roll.before} → ${roll.after}`;
   return (
     <div
@@ -224,20 +244,32 @@ const LastRoll = ({ roll }: { roll: CrawlRoll }) => {
         </span>
       ))}
       {roll.dice.length > 1 && <span className="text-lg font-bold tabular-nums">= {total}</span>}
-      <span className={`ml-auto font-bold ${roll.encounter ? "text-base tracking-wide uppercase" : "text-base"}`}>{outcome}</span>
+      <span className="ml-auto flex flex-col items-end text-base leading-tight font-bold">
+        {outcome}
+        {roll.kind === "clock" && roll.encounter && <span className="text-xs font-medium">Next clock {roll.after}</span>}
+      </span>
     </div>
   );
 };
 
-const PillButton = ({ primary, onClick, children }: { primary?: boolean; onClick: () => void; children: ReactNode }) => (
+// One focus style for the pill controls.
+export const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-obr-primary";
+
+const PILL_LOOK = {
+  filled: "bg-obr-primary text-obr-primary-contrast",
+  outlined: "bg-obr-paper text-obr-primary ring-2 ring-obr-primary ring-inset hover:bg-obr-primary/10",
+  plain: "bg-obr-paper ring-1 ring-obr-text/20 ring-inset hover:bg-obr-text/10",
+};
+
+// `hint`: its hotkey, shown in the tooltip.
+const PillButton = (props: { look: keyof typeof PILL_LOOK; hint?: string; onClick: () => void; children: ReactNode }) => (
   <button
     type="button"
-    className={`h-9 rounded-full px-4 text-sm font-medium ${
-      primary ? "bg-obr-primary text-obr-primary-contrast" : "bg-obr-paper ring-1 ring-obr-text/20 ring-inset hover:bg-obr-text/10"
-    }`}
-    onClick={onClick}
+    title={props.hint && `Roll (${props.hint})`}
+    className={`h-9 rounded-full px-4 text-sm font-medium ${FOCUS} ${PILL_LOOK[props.look]}`}
+    onClick={props.onClick}
   >
-    {children}
+    {props.children}
   </button>
 );
 

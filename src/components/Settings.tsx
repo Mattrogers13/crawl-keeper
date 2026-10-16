@@ -117,7 +117,7 @@ const DataSize = () => {
   }, []);
 
   return (
-    <div className="flex flex-col gap-0.5 border-t border-obr-text-disabled pt-3">
+    <div className="flex flex-col gap-0.5 border-t border-obr-text/10 pt-3">
       <span>Saved data</span>
       <span className="text-xs text-obr-text-secondary" role="status">
         {error
@@ -147,7 +147,7 @@ const InstallLink = () => {
       });
 
   return (
-    <div className="flex flex-col gap-1 border-t border-obr-text-disabled pt-3">
+    <div className="flex flex-col gap-1 border-t border-obr-text/10 pt-3">
       <label htmlFor="install-link">Install link</label>
       <div className="flex gap-1">
         <input
@@ -156,9 +156,9 @@ const InstallLink = () => {
           readOnly
           value={url}
           onFocus={(e) => e.currentTarget.select()}
-          className="min-w-0 flex-1 rounded border border-obr-text-disabled bg-obr-bg px-1 py-0.5 text-xs"
+          className="h-8 min-w-0 flex-1 rounded-full bg-obr-bg px-3 text-xs focus:ring-2 focus:ring-obr-primary focus:outline-none"
         />
-        <button type="button" className="rounded border border-obr-text-disabled px-2 py-0.5 text-xs font-medium" onClick={copy}>
+        <button type="button" className="h-8 rounded-full bg-obr-bg px-4 text-xs font-medium hover:bg-obr-text/10" onClick={copy}>
           Copy
         </button>
       </div>

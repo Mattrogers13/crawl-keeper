@@ -143,12 +143,15 @@ export const roundsToCheck = (c: Crawl) => Math.max(0, cadence(c) - (c.crawlRoun
 
 const snapshot = (c: Crawl): Undo => ({ clock: c.clock, lastCheck: c.lastCheck, carry: c.carry });
 
-// Standard: roll 1d6, an encounter on 1. Counts as this round's check.
+// Standard: roll 1d6, an encounter on 1. A due roll counts as this round's
+// check; an extra one (a loud noise, p. 112: "The GM might also check for an
+// encounter if the characters create a loud disturbance") leaves the schedule
+// alone.
 export const rollCheck = (c: Crawl, rand: Rand): Crawl => {
   const d = rollDie(6, rand);
   return {
     ...c,
-    lastCheck: c.crawlRounds,
+    lastCheck: due(c, "standard") ? c.crawlRounds : c.lastCheck,
     last: { kind: "check", dice: [d], sides: 6, before: c.clock, after: c.clock, encounter: d === 1 },
     undo: snapshot(c),
   };
@@ -177,7 +180,11 @@ export const rollClock = (c: Crawl, rand: Rand): Crawl => {
 // The clock is low (1 to 5): an omen (sheet: "Spoors and Omens"). The GM
 // may roll the encounter on their table now and telegraph it; it still
 // happens when the clock hits 0. (v0.2's encounter roller can do that roll.)
-export const omen = (c: Crawl) => c.clock <= 5;
+export const OMEN_AT = 5;
+export const omen = (c: Crawl) => c.clock <= OMEN_AT;
+
+// The card's roll button (and the R hotkey): the mode's roll.
+export const rollFor = (mode: EncounterMode) => (c: Crawl, rand: Rand) => (mode === "clock" ? rollClock(c, rand) : rollCheck(c, rand));
 
 // Back to crawling after a fight: a fresh clock, unless the clock's own
 // encounter already started one (keeping its carry-over, once: a second
