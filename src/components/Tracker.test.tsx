@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, it, expect, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import OBR from "@owlbear-rodeo/sdk";
 
 import App from "./App";
@@ -18,11 +18,13 @@ const scene = (entries: { id: string; roll?: number | null; note?: string; dead?
 };
 
 describe("Tracker (GM)", () => {
-  it("starts, advances and wraps the round, saving to the scene", async () => {
+  it("begins on the first ▶, advances and wraps the round, saving to the scene", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
     render(<App />);
-    fireEvent.click(await screen.findByText("Start"));
+    expect(await screen.findByText("Press ▶ to begin")).toBeInTheDocument();
+    expect(screen.getByLabelText("Previous turn")).toBeDisabled();
+    fireEvent.click(screen.getByLabelText("Next turn"));
     await waitFor(() => expect(saved()).toMatchObject({ current: "a", round: 1 }));
     expect(rowOf("Aria")).toHaveAttribute("aria-current", "step");
     for (let i = 0; i < 3; i++) fireEvent.click(screen.getByLabelText("Next turn"));
@@ -58,10 +60,41 @@ describe("Tracker (GM)", () => {
   });
 
 
-  it("hides the round in room settings", async () => {
+  it("switches to combat: own round count, rolls cleared; back to crawl keeps the combat order", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a", roll: 15 }, { id: "b", roll: 4 }, { id: GM_ENTRY, roll: 9 }], "b", 3);
     render(<App />);
-    fireEvent.click(await screen.findByLabelText("Hide round"));
-    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toEqual({ hideRound: true }));
+    fireEvent.click(await screen.findByText("Combat"));
+    await waitFor(() => expect(saved()).toMatchObject({ phase: "combat", current: null, round: 3, combatRound: 0 }));
+    expect(saved().entries.map((e) => e.roll)).toEqual([null, null, null]);
+    expect(screen.getByText("Combat")).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByLabelText("Next turn"));
+    await waitFor(() => expect(screen.getByText("Round 1")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Crawl"));
+    await waitFor(() => expect(saved()).toMatchObject({ phase: "crawl", round: 3, combatRound: 0 }));
+    expect(saved().entries.map((e) => e.roll)).toEqual([null, null, null]);
+  });
+
+  it("keeps the rolls on combat when the setting is off", async () => {
+    obr.metadata = { [SETTINGS_KEY]: { clearRollsOnCombat: false } };
+    obr.items = [token("a", { name: "Aria" })];
+    scene([{ id: "a", roll: 15 }, { id: GM_ENTRY }]);
+    render(<App />);
+    fireEvent.click(await screen.findByText("Combat"));
+    await waitFor(() => expect(saved().phase).toBe("combat"));
+    expect(saved().entries[0].roll).toBe(15);
+  });
+
+  it("settings: the gear opens them, both checkboxes save to the room, back returns", async () => {
+    render(<App />);
+    fireEvent.click(await screen.findByLabelText("Settings"));
+    fireEvent.click(await screen.findByLabelText("Hide rounds from players", { exact: false }));
+    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toEqual({ hideRound: true, clearRollsOnCombat: true }));
+    fireEvent.click(screen.getByLabelText("Clear initiative rolls on combat", { exact: false }));
+    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toEqual({ hideRound: true, clearRollsOnCombat: false }));
+    expect(screen.getByLabelText("Install link")).toHaveValue(`${window.location.origin}/manifest.json`);
+    fireEvent.click(screen.getByLabelText("Back to tracker"));
+    expect(await screen.findByText("GM / Monsters")).toBeInTheDocument();
   });
 
   it("drops a token deleted from the map and saves without it on the next edit", async () => {
@@ -76,16 +109,63 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["b", GM_ENTRY]));
   });
 
-  it("shows move buttons only while Reorder is on", async () => {
-    obr.items = [token("a", { name: "Aria" })];
-    scene([{ id: "a" }, { id: GM_ENTRY }]);
+  it("copies the install link, or selects it when the clipboard is blocked", async () => {
+    const writeText = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("blocked"));
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     render(<App />);
-    await screen.findByText("Aria");
-    expect(screen.queryByLabelText("Move Aria down")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("Reorder"));
-    expect(screen.getByLabelText("Reorder")).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByLabelText("Move Aria down"));
-    await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual([GM_ENTRY, "a"]));
+    fireEvent.click(await screen.findByLabelText("Settings"));
+    fireEvent.click(await screen.findByText("Copy"));
+    expect(await screen.findByText("Copied")).toBeInTheDocument();
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/manifest.json`);
+    fireEvent.click(screen.getByText("Copy"));
+    expect(await screen.findByText(/Press Cmd\+C/)).toBeInTheDocument();
+  });
+
+  it("resets the rounds only after the GM confirms", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    scene([{ id: "a", roll: 7 }, { id: GM_ENTRY }], "a", 5);
+    render(<App />);
+    fireEvent.click(await screen.findByText("Reset rounds"));
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(screen.getByText("Round 5")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Reset rounds"));
+    fireEvent.click(screen.getByText("Reset"));
+    await waitFor(() => expect(saved()).toMatchObject({ current: null, round: 0, combatRound: 0 }));
+    expect(saved().entries[0].roll).toBe(7);
+    expect(screen.getByText("Press ▶ to begin")).toBeInTheDocument();
+  });
+
+  describe("drag to move", () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    // jsdom has no layout: give each row a 40px slot in list order so the
+    // keyboard drag can find its neighbours; anything else (the list itself,
+    // which drags are kept inside) gets a tall box.
+    const layOut = () =>
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+        const li = this.closest("li");
+        const top = li ? [...li.parentElement!.children].indexOf(li) * 40 : 0;
+        const height = li ? 36 : 400;
+        return { x: 0, y: top, top, left: 0, bottom: top + height, right: 300, width: 300, height, toJSON() {} } as DOMRect;
+      });
+
+    it("moves a row with the grip (Space, arrow down, Space)", async () => {
+      obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+      scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
+      render(<App />);
+      const grip = await screen.findByLabelText("Move Aria");
+      layOut();
+      grip.focus();
+      // dnd-kit measures between key presses (effects, animation frames).
+      const press = async (code: string) => {
+        fireEvent.keyDown(grip, { code });
+        await act(() => new Promise((r) => setTimeout(r, 50)));
+      };
+      await press("Space");
+      await press("ArrowDown");
+      await press("Space");
+      await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["b", "a", GM_ENTRY]));
+    });
   });
 
   it("marks a token dead: skipped on Next, and the turn passes if it was theirs", async () => {
@@ -116,9 +196,9 @@ describe("Tracker (GM)", () => {
     scene([{ id: "a" }, { id: GM_ENTRY }]);
     render(<App />);
     obr.failWrites = true;
-    fireEvent.click(await screen.findByText("Start"));
+    fireEvent.click(await screen.findByLabelText("Next turn"));
     await waitFor(() => expect(OBR.notification.show).toHaveBeenCalledWith(expect.stringContaining("Couldn't save"), "ERROR"));
-    expect(screen.getByText("Start")).toBeInTheDocument();
+    expect(screen.getByText("Press ▶ to begin")).toBeInTheDocument();
   });
 });
 
@@ -157,7 +237,7 @@ describe("Tracker (player)", () => {
     obr.metadata = { [SETTINGS_KEY]: { hideRound: true } };
     scene([{ id: GM_ENTRY }], GM_ENTRY, 4);
     render(<App />);
-    expect(await screen.findByText("In progress")).toBeInTheDocument();
+    expect(await screen.findByText("Crawl")).toBeInTheDocument();
     expect(screen.queryByText("Round 4")).not.toBeInTheDocument();
   });
 
@@ -165,9 +245,12 @@ describe("Tracker (player)", () => {
     obr.role = "PLAYER";
     scene([{ id: GM_ENTRY }]);
     render(<App />);
-    await screen.findByText("Not started");
+    await screen.findByText("Crawl");
     await writeSceneFromElsewhere({ [TRACKER_KEY]: { entries: [{ id: GM_ENTRY }], current: GM_ENTRY, round: 1 } });
     expect(screen.getByText("Round 1")).toBeInTheDocument();
+    await writeSceneFromElsewhere({ [TRACKER_KEY]: { entries: [{ id: GM_ENTRY }], phase: "combat", current: GM_ENTRY, round: 1, combatRound: 2 } });
+    expect(screen.getByText("Combat")).toBeInTheDocument();
+    expect(screen.getByText("Round 2")).toBeInTheDocument();
   });
 });
 

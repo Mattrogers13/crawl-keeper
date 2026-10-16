@@ -3,6 +3,11 @@
 //
 // `entries` is the turn order (the GM sorts it by roll or moves rows).
 // Dead entries stay in the list (so the seating holds) but get no turns.
+//
+// Shadowdark is always in turn order (core p. 82). The tracker is in one of
+// two phases: crawl or combat. Each has its own round count; the crawl count
+// pauses during combat (encounter checks run on crawl rounds only, p. 112).
+// Switching phase ends the current round: the next ▶ starts a new one.
 
 export const GM_ENTRY = "gm";
 export const MAX_ENTRIES = 40;
@@ -19,19 +24,32 @@ export type Entry = {
   dead: boolean;
 };
 
+export type Phase = "crawl" | "combat";
+
 export type Tracker = {
   entries: Entry[];
-  // Id of the entry whose turn it is; null until the GM starts.
+  phase: Phase;
+  // Id of the entry whose turn it is; null between rounds (before the first
+  // ▶, and after a phase switch).
   current: string | null;
-  // 0 until the GM starts.
+  // Crawl rounds so far (0 before the first) and rounds of this combat.
   round: number;
+  combatRound: number;
 };
 
 export const emptyTracker = (): Tracker => ({
   entries: [{ id: GM_ENTRY, roll: null, note: "", dead: false }],
+  phase: "crawl",
   current: null,
   round: 0,
+  combatRound: 0,
 });
+
+// The round count of the phase the tracker is in.
+export const phaseRound = (t: Tracker): number => (t.phase === "combat" ? t.combatRound : t.round);
+
+const withPhaseRound = (t: Tracker, n: number): Tracker =>
+  t.phase === "combat" ? { ...t, combatRound: n } : { ...t, round: n };
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
@@ -61,10 +79,21 @@ export const parseTracker = (raw: unknown): Tracker => {
     if (entries.length === MAX_ENTRIES) entries.pop();
     entries.push({ id: GM_ENTRY, roll: null, note: "", dead: false });
   }
-  const round = typeof raw.round === "number" && Number.isInteger(raw.round) && raw.round >= 0 ? Math.min(raw.round, 9999) : 0;
+  const phase: Phase = raw.phase === "combat" ? "combat" : "crawl";
+  const t: Tracker = {
+    entries,
+    phase,
+    current: null,
+    round: parseCount(raw.round),
+    combatRound: phase === "combat" ? parseCount(raw.combatRound) : 0,
+  };
+  // A turn only exists inside a round, and only for a living entry.
   const current = typeof raw.current === "string" && entries.some((e) => e.id === raw.current && !e.dead) ? raw.current : null;
-  return { entries, current: current && round > 0 ? current : null, round: current ? Math.max(round, 1) : 0 };
+  return current && phaseRound(t) > 0 ? { ...t, current } : t;
 };
+
+const parseCount = (raw: unknown): number =>
+  typeof raw === "number" && Number.isInteger(raw) && raw >= 0 ? Math.min(raw, 9999) : 0;
 
 // Entries whose token no longer exists drop out (the GM row always stays).
 // Returns the same object when nothing changed.
@@ -78,31 +107,47 @@ export const prune = (t: Tracker, exists: (id: string) => boolean): Tracker => {
 // can't die).
 export const turnOrder = (t: Tracker): Entry[] => t.entries.filter((e) => !e.dead);
 
-export const start = (t: Tracker): Tracker => ({
-  ...t,
-  current: turnOrder(t)[0]?.id ?? null,
-  round: 1,
-});
-
-export const stop = (t: Tracker): Tracker => ({ ...t, current: null, round: 0 });
-
+// ▶: the next living entry's turn. Between rounds, or after the last turn,
+// a new round of the current phase starts at the top.
 export const next = (t: Tracker): Tracker => {
-  if (t.current === null) return start(t);
   const order = turnOrder(t);
-  const i = order.findIndex((e) => e.id === t.current);
-  if (i === order.length - 1) return { ...t, current: order[0].id, round: t.round + 1 };
+  const i = t.current === null ? -1 : order.findIndex((e) => e.id === t.current);
+  if (i === -1 || i === order.length - 1) return { ...withPhaseRound(t, phaseRound(t) + 1), current: order[0].id };
   return { ...t, current: order[i + 1].id };
 };
 
+// ◀: back one turn, across rounds, but not before this phase's first turn.
 export const previous = (t: Tracker): Tracker => {
   if (t.current === null) return t;
   const order = turnOrder(t);
   const i = order.findIndex((e) => e.id === t.current);
   if (i > 0) return { ...t, current: order[i - 1].id };
-  // Back past the first turn of round 1: nothing to go back to.
-  if (t.round <= 1) return t;
-  return { ...t, current: order[order.length - 1].id, round: t.round - 1 };
+  if (phaseRound(t) <= 1) return t;
+  return { ...withPhaseRound(t, phaseRound(t) - 1), current: order[order.length - 1].id };
 };
+
+// Combat starts a fresh count of combat rounds; the crawl count waits.
+// With clearRolls (the book's "new initiative", p. 88) every roll is cleared
+// for the combat roll. The book has no rule for going back to the crawl
+// order, so the combat order simply carries on into the crawl.
+export const toCombat = (t: Tracker, clearRolls: boolean): Tracker => {
+  if (t.phase === "combat") return t;
+  return {
+    ...t,
+    phase: "combat",
+    current: null,
+    combatRound: 0,
+    entries: clearRolls ? t.entries.map((e) => (e.roll === null ? e : { ...e, roll: null })) : t.entries,
+  };
+};
+
+// Both round counts back to 0 and no one's turn; order, rolls and phase stay.
+export const resetRounds = (t: Tracker): Tracker =>
+  t.round === 0 && t.combatRound === 0 && t.current === null ? t : { ...t, current: null, round: 0, combatRound: 0 };
+
+// Back to crawling, keeping the combat order and rolls.
+export const toCrawl = (t: Tracker): Tracker =>
+  t.phase === "crawl" ? t : { ...t, phase: "crawl", current: null, combatRound: 0 };
 
 // Highest roll first; no roll goes last; ties keep their current order.
 export const sortByRoll = (t: Tracker): Tracker => {
@@ -139,7 +184,7 @@ const withEntries = (t: Tracker, entries: Entry[]): Tracker => {
   const order = turnOrder(t);
   const i = order.findIndex((e) => e.id === t.current);
   const after = [...order.slice(i + 1), ...order.slice(0, i)].find((e) => turns.has(e.id));
-  return { ...updated, current: after?.id ?? null, round: after ? t.round : 0 };
+  return { ...updated, current: after?.id ?? null };
 };
 
 // The entry list with one entry changed, or null if nothing changed.
@@ -172,13 +217,12 @@ export const setDead = (t: Tracker, id: string, dead: boolean): Tracker => {
   return entries ? withEntries(t, entries) : t;
 };
 
-// Move an entry one place up (-1) or down (+1) in the list.
-export const move = (t: Tracker, id: string, by: -1 | 1): Tracker => {
-  const i = t.entries.findIndex((e) => e.id === id);
-  const j = i + by;
-  if (i < 0 || j < 0 || j >= t.entries.length) return t;
+// Move an entry to another place in the list (the GM's drag and drop).
+export const moveTo = (t: Tracker, id: string, to: number): Tracker => {
+  const from = t.entries.findIndex((e) => e.id === id);
+  if (from < 0 || from === to || !Number.isInteger(to) || to < 0 || to >= t.entries.length) return t;
   const entries = [...t.entries];
-  [entries[i], entries[j]] = [entries[j], entries[i]];
+  entries.splice(to, 0, ...entries.splice(from, 1));
   return { ...t, entries };
 };
 

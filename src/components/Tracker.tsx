@@ -1,28 +1,43 @@
 import { useState, type ReactNode } from "react";
 import type { Item } from "@owlbear-rodeo/sdk";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 import Loading from "./Loading";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
-import { parseSettings, type Settings } from "../settings";
+import { parseSettings } from "../settings";
 import {
   GM_ENTRY,
   NOTE_MAX,
   ROLL_MAX,
   ROLL_MIN,
-  move,
+  moveTo,
   next,
   parseTracker,
+  phaseRound,
   previous,
   prune,
+  resetRounds,
   remove,
   setDead,
   setNote,
   setRoll,
   sortByRoll,
-  stop,
+  toCombat,
+  toCrawl,
   type Entry,
   type Tracker as TrackerDoc,
 } from "../tracker";
@@ -44,8 +59,12 @@ const Tracker = ({ role }: { role: Role }) => {
   const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   const doc = useSceneValue(TRACKER_KEY, parseTracker);
   const items = useSceneItems();
-  // The ▲▼ move buttons, off by default to keep rows quiet. Per GM, not saved.
-  const [reorder, setReorder] = useState(false);
+  // Drag rows by the grip (mouse, touch), or focus the grip and use Space +
+  // arrow keys.
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   if (!settings.loaded || !doc.loaded || items === null) return <Loading />;
 
@@ -59,7 +78,6 @@ const Tracker = ({ role }: { role: Role }) => {
     const updated = fn(tracker);
     if (updated !== doc.value) void doc.write(updated);
   };
-  const changeSettings = (s: Partial<Settings>) => void settings.write({ ...settings.value, ...s });
 
   // Players never see hidden tokens. If it's a hidden token's turn, players
   // see the GM row as current instead.
@@ -67,71 +85,116 @@ const Tracker = ({ role }: { role: Role }) => {
     ? tracker.entries
     : tracker.entries.filter((e) => e.id === GM_ENTRY || tokenInfo(byId.get(e.id)).visible);
   const current = gm || shown.some((e) => e.id === tracker.current) ? tracker.current : tracker.current && GM_ENTRY;
-  const roundShown = gm || !settings.value.hideRound;
+  const round = phaseRound(tracker);
+  const roundLabel =
+    round === 0 ? (gm ? "Press ▶ to begin" : "") : gm || !settings.value.hideRound ? `Round ${round}` : "";
+  const combat = tracker.phase === "combat";
+  const drop = ({ active, over }: DragEndEvent) => {
+    const to = tracker.entries.findIndex((e) => e.id === over?.id);
+    if (to >= 0) change((t) => moveTo(t, String(active.id), to));
+  };
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <h2 className="font-semibold">
-          {tracker.round === 0 ? "Not started" : roundShown ? `Round ${tracker.round}` : "In progress"}
-        </h2>
-        {gm && settings.value.hideRound && <span className="text-xs text-obr-text-secondary">(hidden from players)</span>}
+        {gm ? (
+          <div role="group" aria-label="Phase" className="flex overflow-hidden rounded border border-obr-text-disabled text-sm font-medium">
+            <button
+              type="button"
+              aria-pressed={!combat}
+              className={`px-2 py-0.5 ${combat ? "" : "bg-obr-primary text-obr-primary-contrast"}`}
+              onClick={() => change(toCrawl)}
+            >
+              Crawl
+            </button>
+            <button
+              type="button"
+              aria-pressed={combat}
+              className={`px-2 py-0.5 ${combat ? "bg-red-700 text-white" : ""}`}
+              onClick={() => change((t) => toCombat(t, settings.value.clearRollsOnCombat))}
+            >
+              Combat
+            </button>
+          </div>
+        ) : (
+          <h2 className={`font-semibold ${combat ? "text-red-500" : ""}`}>{combat ? "Combat" : "Crawl"}</h2>
+        )}
+        {roundLabel && <span className="text-sm text-obr-text-secondary">{roundLabel}</span>}
         {gm && (
           <div className="ml-auto flex gap-1">
-            {tracker.round > 0 && (
-              <>
-                <Button label="Previous turn" onClick={() => change((t) => previous(t))}>
-                  ◀
-                </Button>
-                <Button label="End" onClick={() => change(stop)}>
-                  End
-                </Button>
-              </>
-            )}
-            <Button label={tracker.round === 0 ? "Start" : "Next turn"} primary onClick={() => change((t) => next(t))}>
-              {tracker.round === 0 ? "Start" : "▶"}
+            <Button label="Previous turn" disabled={tracker.current === null} onClick={() => change(previous)}>
+              ◀
+            </Button>
+            <Button label="Next turn" primary onClick={() => change(next)}>
+              ▶
             </Button>
           </div>
         )}
       </div>
 
       {gm && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-sm">
           <Button label="Sort by roll" onClick={() => change(sortByRoll)}>
             <SortIcon />
           </Button>
-          <Button label="Reorder" pressed={reorder} onClick={() => setReorder(!reorder)}>
-            ↕
-          </Button>
-          <label className="ml-auto flex items-center gap-1">
-            <input
-              type="checkbox"
-              checked={settings.value.hideRound}
-              onChange={(e) => changeSettings({ hideRound: e.target.checked })}
-            />
-            Hide round
-          </label>
+          <ResetRounds reset={() => change(resetRounds)} />
         </div>
       )}
 
-      <ol className="flex flex-col gap-1">
-        {shown.map((entry, i) => (
-          <Row
-            key={entry.id}
-            entry={entry}
-            token={entry.id === GM_ENTRY ? null : tokenInfo(byId.get(entry.id))}
-            current={entry.id === current}
-            gm={gm}
-            isFirst={i === 0}
-            isLast={i === shown.length - 1}
-            change={change}
-            reorder={reorder}
-          />
-        ))}
-      </ol>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+        onDragEnd={drop}
+      >
+        <SortableContext items={shown.map((e) => e.id)} strategy={verticalListSortingStrategy}>
+          <ol className="flex flex-col gap-1">
+            {shown.map((entry) => (
+              <Row
+                key={entry.id}
+                entry={entry}
+                token={entry.id === GM_ENTRY ? null : tokenInfo(byId.get(entry.id))}
+                current={entry.id === current}
+                gm={gm}
+                change={change}
+              />
+            ))}
+          </ol>
+        </SortableContext>
+      </DndContext>
       {gm && tracker.entries.length === 1 && (
         <p className="text-sm text-obr-text-secondary">Right-click a token and choose “Add / Remove Initiative”.</p>
       )}
+    </div>
+  );
+};
+
+// Asks before resetting: a stray click would lose the crawl round count,
+// which the encounter checks run on.
+const ResetRounds = ({ reset }: { reset: () => void }) => {
+  const [asking, setAsking] = useState(false);
+  if (!asking)
+    return (
+      <button type="button" className="ml-auto text-xs text-obr-text-secondary underline hover:text-obr-text" onClick={() => setAsking(true)}>
+        Reset rounds
+      </button>
+    );
+  return (
+    <div role="alertdialog" aria-label="Reset rounds?" className="ml-auto flex items-center gap-1 text-xs">
+      <span>Reset both round counts to 0?</span>
+      <button
+        type="button"
+        className="rounded bg-red-700 px-2 py-0.5 font-medium text-white"
+        onClick={() => {
+          reset();
+          setAsking(false);
+        }}
+      >
+        Reset
+      </button>
+      <button type="button" className="rounded border border-obr-text-disabled px-2 py-0.5" onClick={() => setAsking(false)}>
+        Cancel
+      </button>
     </div>
   );
 };
@@ -141,20 +204,34 @@ const Row = (props: {
   token: Token | null;
   current: boolean;
   gm: boolean;
-  isFirst: boolean;
-  isLast: boolean;
-  reorder: boolean;
   change: (fn: (t: TrackerDoc) => TrackerDoc) => void;
 }) => {
   const { entry, token, gm, change } = props;
   const name = token ? token.name : "GM / Monsters";
+  // Players can't drag: no grip, and the sortable is off.
+  const sortable = useSortable({ id: entry.id, disabled: !gm });
   return (
     <li
+      ref={sortable.setNodeRef}
+      style={{ transform: CSS.Translate.toString(sortable.transform), transition: sortable.transition }}
       aria-current={props.current ? "step" : undefined}
       className={`flex items-start gap-2 rounded p-1.5 ${props.current ? "bg-obr-primary/20 ring-1 ring-obr-primary" : "bg-obr-bg"} ${
         token && !token.visible ? "opacity-60" : ""
-      }`}
+      } ${sortable.isDragging ? "relative z-10 shadow-lg" : ""}`}
     >
+      {gm && (
+        <button
+          type="button"
+          ref={sortable.setActivatorNodeRef}
+          {...sortable.attributes}
+          {...sortable.listeners}
+          aria-label={`Move ${name}`}
+          title="Drag to move"
+          className="flex h-9 w-4 shrink-0 cursor-grab touch-none items-center justify-center text-obr-text-secondary hover:text-obr-text active:cursor-grabbing"
+        >
+          <GripIcon />
+        </button>
+      )}
       <Portrait token={token} dead={entry.dead} />
       <div className="flex min-w-0 flex-1 flex-col">
         <span className={`truncate font-medium ${entry.dead ? "text-obr-text-secondary line-through" : ""}`}>
@@ -170,16 +247,6 @@ const Row = (props: {
       {gm ? (
         <>
           <RollInput key={entry.roll ?? ""} name={name} value={entry.roll} save={(r) => change((t) => setRoll(t, entry.id, r))} />
-          {props.reorder && (
-            <div className="flex flex-col">
-              <IconButton label={`Move ${name} up`} disabled={props.isFirst} onClick={() => change((t) => move(t, entry.id, -1))}>
-                ▲
-              </IconButton>
-              <IconButton label={`Move ${name} down`} disabled={props.isLast} onClick={() => change((t) => move(t, entry.id, 1))}>
-                ▼
-              </IconButton>
-            </div>
-          )}
           {/* The GM row has no dead or remove button: same-width gaps keep the roll boxes lined up. */}
           {token ? (
             <>
@@ -264,13 +331,14 @@ const NoteInput = ({ name, value, save }: { name: string; value: string; save: (
 
 type ButtonProps = { label: string; pressed?: boolean; onClick: () => void; children: ReactNode };
 
-const Button = ({ label, primary, pressed, onClick, children }: ButtonProps & { primary?: boolean }) => (
+const Button = ({ label, primary, pressed, disabled, onClick, children }: ButtonProps & { primary?: boolean; disabled?: boolean }) => (
   <button
     type="button"
     aria-label={label}
     aria-pressed={pressed}
     title={label}
-    className={`flex min-h-6 items-center rounded px-2 py-0.5 text-sm font-medium ${
+    disabled={disabled}
+    className={`flex min-h-6 items-center rounded px-2 py-0.5 text-sm font-medium disabled:opacity-40 ${
       primary || pressed ? "bg-obr-primary text-obr-primary-contrast" : "border border-obr-text-disabled"
     }`}
     onClick={onClick}
@@ -278,8 +346,6 @@ const Button = ({ label, primary, pressed, onClick, children }: ButtonProps & { 
     {children}
   </button>
 );
-
-const ICON_SLOT = "w-5 shrink-0";
 
 // Dead and remove: full-size touch targets, the same width on every row (see Row).
 const ROW_ACTION = "h-7 w-7 shrink-0";
@@ -292,22 +358,6 @@ const RowAction = (props: ButtonProps) => (
     title={props.label}
     className={`${ROW_ACTION} flex items-center justify-center rounded hover:bg-obr-paper hover:text-obr-text ${
       props.pressed ? "bg-obr-primary text-obr-primary-contrast hover:bg-obr-primary hover:text-obr-primary-contrast" : "text-obr-text-secondary"
-    }`}
-    onClick={props.onClick}
-  >
-    {props.children}
-  </button>
-);
-
-const IconButton = (props: ButtonProps & { disabled?: boolean }) => (
-  <button
-    type="button"
-    aria-label={props.label}
-    aria-pressed={props.pressed}
-    title={props.label}
-    disabled={props.disabled}
-    className={`${ICON_SLOT} text-center text-xs leading-4 hover:text-obr-text disabled:opacity-30 ${
-      props.pressed ? "text-obr-text" : "text-obr-text-secondary"
     }`}
     onClick={props.onClick}
   >
@@ -328,6 +378,13 @@ const SkullIcon = ({ className }: { className: string }) => (
 const CloseIcon = () => (
   <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
     <path d="M4 4l8 8M12 4l-8 8" />
+  </svg>
+);
+
+// Three lines: the usual drag handle.
+const GripIcon = () => (
+  <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+    <path d="M3 4h10M3 8h10M3 12h10" />
   </svg>
 );
 

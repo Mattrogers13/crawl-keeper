@@ -4,6 +4,16 @@ An [Owlbear Rodeo](https://owlbear.rodeo) extension for running old-school dunge
 
 **Status:** in development (v0.1 in progress). The plan is in [`docs/design.md`](docs/design.md).
 
+## Install
+
+In Owlbear Rodeo: Extensions → Add Custom Extension → paste this manifest URL:
+
+```
+https://crawl-keeper.editbag.workers.dev/manifest.json
+```
+
+Testing builds from the `dev` branch (named "Crawl Keeper (Dev)"): `https://dev-crawl-keeper.editbag.workers.dev/manifest.json`. Install one or the other in a room, not both.
+
 Crawl Keeper is an independent project, not affiliated with or endorsed by any game publisher. It contains no rulebook text.
 
 ## Development
