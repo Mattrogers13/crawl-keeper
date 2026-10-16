@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import OBR, { type Image } from "@owlbear-rodeo/sdk";
 
 import { MARKER_KEY, TRACKER_KEY } from "./constants";
@@ -107,6 +107,15 @@ describe("syncTurn", () => {
     await syncTurn("a", { showMarker: false, selectOnTurn: false });
     expect(markers()).toEqual([]);
     expect(OBR.player.select).not.toHaveBeenCalled();
+  });
+
+  it("overlapping syncs (quick clicks) run one at a time: one ring, no double delete", async () => {
+    obr.items = [token("a"), token("b")];
+    await syncTurn("a", ON);
+    vi.mocked(OBR.scene.items.deleteItems).mockClear();
+    await Promise.all([syncTurn("b", ON), syncTurn("b", ON)]);
+    expect(markers().map((m) => m.attachedTo)).toEqual(["b"]);
+    expect(OBR.scene.items.deleteItems).toHaveBeenCalledTimes(1);
   });
 
   it("does nothing when the token is unchanged and marked", async () => {

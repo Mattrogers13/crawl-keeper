@@ -79,3 +79,29 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 | 24 | GM: gold dots | A small gold dot on the portraits of tokens that get the turn marker; it moves when you turn the marker on/off in the row menu; players see no dots | Pass 2026-10-16 |
 | 25 | GM: gear | Each setting has a one-line plain description | Pass 2026-10-16 |
 | 26 | GM: select rows, then click anywhere in the panel outside the token rows | The dashed outlines clear | |
+
+## PR 4: encounter checks and the Crawling Clock (v0.1, 2026-10-16)
+
+Reload the room after a Dev rebuild (the background page loads once per room).
+
+| # | Steps | Expect | Result |
+|---|---|---|---|
+| 1 | GM, Crawl: look at the header | Right under "Crawl Keeper", above Crawl/Combat: a "Checks" strip with Unsafe / Risky / Deadly and "In darkness (every round)"; "Next in 3 crawl rounds"; it stays put when the list scrolls. Players see no strip | Pass 2026-10-16 |
+| 2 | GM: ▶ through 3 crawl rounds (Unsafe) | On the GM turn of round 3 the card lights up: "A check is due"; "Roll check (d6)" | Pass 2026-10-16 |
+| 3 | GM: Roll check; then Undo | Big result: the die, then "No encounter" or a red "ENCOUNTER!" block; Undo puts it back | Pass 2026-10-16 |
+| 4 | GM: Risky, then Deadly, then In darkness | Checks every 2 crawl rounds, every round, every round | Pass 2026-10-16 |
+| 5 | GM: Combat for a few rounds, then Crawl | Card hidden in combat; combat rounds don't count toward the next check | Pass 2026-10-16 |
+| 6 | GM: "Check now (loud noise)" when no check is due | An extra check rolls | Pass 2026-10-16 |
+| 7 | GM: gear → Crawling Clock | Strip shows "Clock 20 / 20"; players see "Clock 20" in their header | Pass 2026-10-16 |
+| 8 | GM: ▶ to the GM turn; Roll d6 | Big result: dice, "= total", "Clock 20 → 12"; a 6 rolls again and adds; "Roll d6 (loud noise)" after | Pass 2026-10-16 |
+| 9 | GM: In darkness; roll | The die is a d8 | Pass 2026-10-16 |
+| 10 | GM: get the clock to 5 or lower | Amber omen reminder (roll your encounter table now and telegraph it); no button | Pass 2026-10-16 |
+| 11 | GM: roll past 0 (e.g. clock 3, roll 5) | "the clock hits 0. Encounter! Next clock: 18." | Pass 2026-10-16 |
+| 12 | GM: Reset clock → Cancel; Reset clock → Reset; right-click the clock number → Reset | Cancel keeps it; Reset puts it back to 20 | Pass 2026-10-16 |
+| 13 | GM: gear → Hide the clock from players | Player's "Clock" disappears | Pass 2026-10-16 |
+| 14 | Switch to another map and back | Each map keeps its own clock, danger level and darkness | Pass 2026-10-16 |
+| 15 | Reset rounds | The crawl round count starts over too (next check in 3 again when Unsafe) | Pass 2026-10-16 |
+| 16 | GM: gear (Standard) → Show the danger level to players | Player sees "Unsafe" / "Risky" / "Deadly" in their header while crawling | Pass 2026-10-16 |
+| 17 | GM: gear → Roll automatically on the GM turn; ▶ onto GM / Monsters (clock: any crawl round; standard: when due) | The roll happens by itself and the big result shows; Undo works; no roll in Combat or on other turns | Pass 2026-10-16 |
+| 19 | GM (clock): Combat with the clock at, say, 9; then Crawl | Clock back to 20; no marker warning. If a warning appears, record its text | Pass 2026-10-16 |
+| 20 | GM: ▶ quickly several times, switch Combat / Crawl quickly | One ring, on the right token; no warnings | Pass 2026-10-16 |

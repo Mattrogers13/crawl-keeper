@@ -8,6 +8,7 @@ import {
   type MouseEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import OBR, { type Item } from "@owlbear-rodeo/sdk";
 import {
   DndContext,
@@ -22,6 +23,9 @@ import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifi
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+import Confirm from "./Confirm";
+import CrawlBar from "./CrawlBar";
+import { cryptoRand } from "../crawl";
 import Loading from "./Loading";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
@@ -36,6 +40,7 @@ import {
   NOTE_MAX,
   moveTo,
   next,
+  nextWithAutoRoll,
   parseRoll,
   parseTracker,
   playerView,
@@ -50,8 +55,9 @@ import {
   setNote,
   setRoll,
   sortByRoll,
+  backToCrawl,
   toCombat,
-  toCrawl,
+  updateCrawl,
   type Entry,
   type Tracker as TrackerDoc,
 } from "../tracker";
@@ -69,7 +75,8 @@ const tokenInfo = (item: Item | undefined): Token => {
   };
 };
 
-const Tracker = ({ role }: { role: Role }) => {
+// headerSlot: where the crawl controls go (the panel's top bar).
+const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLElement | null }) => {
   const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   const doc = useSceneValue(TRACKER_KEY, parseTracker);
   const items = useSceneItems();
@@ -99,7 +106,7 @@ const Tracker = ({ role }: { role: Role }) => {
     if (pruned === doc.value || json === lastPrune.current) return;
     lastPrune.current = json;
     void doc.write(pruned);
-    void afterTurnChange(doc.value, pruned, settings.value, items);
+    void afterTurnChange(doc.value, pruned, settings.value);
   }, [gmReady, items, doc, settings.value]);
 
   if (!settings.loaded || !doc.loaded || items === null) return <Loading />;
@@ -116,7 +123,7 @@ const Tracker = ({ role }: { role: Role }) => {
     const updated = fn(tracker);
     if (updated === doc.value) return;
     void doc.write(updated);
-    void afterTurnChange(tracker, updated, settings.value, items);
+    void afterTurnChange(tracker, updated, settings.value);
   };
 
   const { entries: shown, current } = gm
@@ -142,6 +149,9 @@ const Tracker = ({ role }: { role: Role }) => {
   const roundLabel =
     round === 0 ? (gm ? "Press ▶ to begin" : "") : gm || !settings.value.hideRound ? `Round ${round}` : "";
   const combat = tracker.phase === "combat";
+  // Players see the Crawling Clock unless the GM hides it; the GM sees it on the card.
+  const showClock = !gm && settings.value.encounterMode === "clock" && !settings.value.hideClock;
+  const showDanger = !gm && !combat && settings.value.encounterMode === "standard" && settings.value.showDanger;
   const drop = ({ active, over }: DragEndEvent) => {
     if (over) change((t) => moveTo(t, String(active.id), String(over.id)));
   };
@@ -163,7 +173,7 @@ const Tracker = ({ role }: { role: Role }) => {
               type="button"
               aria-pressed={!combat}
               className={`px-2 py-0.5 ${combat ? "" : "bg-obr-primary text-obr-primary-contrast"}`}
-              onClick={() => change(toCrawl)}
+              onClick={() => change((t) => backToCrawl(t, settings.value.encounterMode))}
             >
               Crawl
             </button>
@@ -180,12 +190,28 @@ const Tracker = ({ role }: { role: Role }) => {
           <h2 className={`font-semibold ${combat ? "text-red-500" : ""}`}>{combat ? "Combat" : "Crawl"}</h2>
         )}
         {roundLabel && <span className="text-sm text-obr-text-secondary">{roundLabel}</span>}
+        {showDanger && (
+          <span className="rounded bg-obr-bg px-1.5 text-xs font-medium capitalize" title="Danger level">
+            {tracker.crawl.danger}
+          </span>
+        )}
+        {showClock && (
+          <span className="text-sm text-obr-text-secondary" title="Crawling Clock">
+            Clock <span className="font-semibold text-obr-text tabular-nums">{tracker.crawl.clock}</span>
+          </span>
+        )}
         {gm && (
           <div className="ml-auto flex gap-1">
             <Button label="Previous turn" disabled={tracker.current === null} onClick={() => change(previous)}>
               ◀
             </Button>
-            <Button label="Next turn" primary onClick={() => change(next)}>
+            <Button
+              label="Next turn"
+              primary
+              onClick={() =>
+                change((t) => (settings.value.autoRoll ? nextWithAutoRoll(t, settings.value.encounterMode, cryptoRand) : next(t)))
+              }
+            >
               ▶
             </Button>
           </div>
@@ -212,6 +238,18 @@ const Tracker = ({ role }: { role: Role }) => {
           </div>
         </div>
       )}
+      {gm &&
+        !combat &&
+        headerSlot &&
+        createPortal(
+          <CrawlBar
+            crawl={tracker.crawl}
+            mode={settings.value.encounterMode}
+            gmTurn={tracker.current === GM_ENTRY}
+            change={(fn) => change((t) => updateCrawl(t, fn))}
+          />,
+          headerSlot,
+        )}
 
       {/* Only the list scrolls: the controls above stay in view. */}
       <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pt-px">
@@ -225,7 +263,15 @@ const Tracker = ({ role }: { role: Role }) => {
           <SortableContext items={top.map((e) => e.id)} strategy={verticalListSortingStrategy}>
             <ol className="flex flex-col gap-1">
               {top.map((entry) => (
-                <Row key={entry.id} entry={entry} token={tokenFor(entry)} current={entry.id === current} selected={selection.ids.includes(entry.id)} {...rowProps}>
+                <Row
+                  key={entry.id}
+                  entry={entry}
+                  token={tokenFor(entry)}
+                  current={entry.id === current}
+                  selected={selection.ids.includes(entry.id)}
+                  bracket={entry.id === GM_ENTRY && monsters.length > 0}
+                  {...rowProps}
+                >
                   {entry.id === GM_ENTRY && monsters.length > 0 && (
                     <SortableContext items={monsters.map((e) => e.id)} strategy={verticalListSortingStrategy}>
                       <ol aria-label="Monsters" className="mt-1 flex flex-col gap-1">
@@ -354,35 +400,6 @@ const RowMenu = (props: {
   );
 };
 
-// A link that asks before doing something hard to undo.
-const Confirm = (props: { label: string; question: string; action: string; onConfirm: () => void }) => {
-  const [asking, setAsking] = useState(false);
-  if (!asking)
-    return (
-      <button type="button" className="text-xs text-obr-text-secondary underline hover:text-obr-text" onClick={() => setAsking(true)}>
-        {props.label}
-      </button>
-    );
-  return (
-    <div role="alertdialog" aria-label={props.question} className="flex items-center gap-1 text-xs">
-      <span>{props.question}</span>
-      <button
-        type="button"
-        className="rounded bg-red-700 px-2 py-0.5 font-medium text-white"
-        onClick={() => {
-          props.onConfirm();
-          setAsking(false);
-        }}
-      >
-        {props.action}
-      </button>
-      <button type="button" className="rounded border border-obr-text-disabled px-2 py-0.5" onClick={() => setAsking(false)}>
-        Cancel
-      </button>
-    </div>
-  );
-};
-
 const Row = (props: {
   entry: Entry;
   token: Token | null;
@@ -393,8 +410,10 @@ const Row = (props: {
   openMenu: (id: string, x: number, y: number) => void;
   select: (id: string, mods: { shift: boolean; toggle: boolean }) => void;
   selected: boolean;
-  // The GM row's monsters, listed under it.
+  // The GM row's crawl card and monsters, listed under it.
   children?: ReactNode;
+  // The GM row with monsters: a red edge marks the group.
+  bracket?: boolean;
 }) => {
   const { entry, token, gm, change } = props;
   const name = token ? token.name : "GM / Monsters";
@@ -407,7 +426,7 @@ const Row = (props: {
       aria-current={props.current ? "step" : undefined}
       // The GM row and its monsters share a red edge instead of an indent
       // (an indent squeezes the monsters' notes).
-      className={`${sortable.isDragging ? "relative z-10 shadow-lg" : ""} ${props.children ? "rounded border-l-4 border-red-700/70" : ""}`}
+      className={`${sortable.isDragging ? "relative z-10 shadow-lg" : ""} ${props.bracket ? "rounded border-l-4 border-red-700/70" : ""}`}
     >
       <div
         className={`flex items-start gap-2 rounded p-1.5 ${props.current ? "bg-obr-primary/20 ring-1 ring-obr-primary" : "bg-obr-bg"} ${
