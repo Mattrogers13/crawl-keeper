@@ -12,6 +12,7 @@ import {
   previous,
   prune,
   remove,
+  setDead,
   setNote,
   setRoll,
   sortByRoll,
@@ -22,8 +23,8 @@ import {
 } from "./tracker";
 import { parseSettings } from "./settings";
 
-const tracker = (rolls: Record<string, number | null>, current: string | null = null, round = 0): Tracker => ({
-  entries: Object.entries(rolls).map(([id, roll]) => ({ id, roll, note: "" })),
+const tracker = (rolls: Record<string, number | null>, current: string | null = null, round = 0, dead: string[] = []): Tracker => ({
+  entries: Object.entries(rolls).map(([id, roll]) => ({ id, roll, note: "", dead: dead.includes(id) })),
   current,
   round,
 });
@@ -50,9 +51,9 @@ describe("parseTracker", () => {
       round: 2,
     });
     expect(t.entries).toEqual([
-      { id: "a", roll: 12, note: "hi" },
-      { id: "b", roll: null, note: "" },
-      { id: GM_ENTRY, roll: null, note: "" },
+      { id: "a", roll: 12, note: "hi", dead: false },
+      { id: "b", roll: null, note: "", dead: false },
+      { id: GM_ENTRY, roll: null, note: "", dead: false },
     ]);
     expect(t.current).toBe("b");
     expect(t.round).toBe(2);
@@ -70,6 +71,16 @@ describe("parseTracker", () => {
     expect(t.entries[0].note).toHaveLength(NOTE_MAX);
     expect(t.current).toBeNull();
     expect(t.round).toBe(0);
+  });
+
+  it("keeps dead only as true, never on the GM row, and drops a dead current turn", () => {
+    const t = parseTracker({
+      entries: [{ id: "a", dead: true }, { id: "b", dead: "yes" }, { id: GM_ENTRY, dead: true }],
+      current: "a",
+      round: 2,
+    });
+    expect(t.entries.map((e) => e.dead)).toEqual([true, false, false]);
+    expect([t.current, t.round]).toEqual([null, 0]);
   });
 });
 
@@ -107,6 +118,32 @@ describe("turn order", () => {
     expect([t.current, t.round]).toEqual(["a", 2]);
     t = previous(t, "d20");
     expect([t.current, t.round]).toEqual(["gm", 1]);
+  });
+});
+
+describe("dead", () => {
+  it("dead entries keep their seat but get no turns", () => {
+    const t = tracker({ a: 3, b: 18, gm: 10, c: 5 }, null, 0, ["b"]);
+    expect(ids(turnOrder(t, "d20"))).toEqual(["a", "gm", "c"]);
+    // b had the highest roll; the next-highest living seat starts.
+    expect(ids(turnOrder(t, "table"))).toEqual(["gm", "c", "a"]);
+    expect(ids(t.entries)).toEqual(["a", "b", "gm", "c"]);
+  });
+
+  it("killing the current entry passes the turn; reviving gives turns back", () => {
+    let t = tracker({ a: 1, b: 2, gm: 3 }, "b", 2);
+    t = setDead(t, "b", true, "d20");
+    expect([t.current, t.round]).toEqual(["gm", 2]);
+    expect(next(t, "d20")).toMatchObject({ current: "a", round: 3 });
+    t = setDead(t, "b", false, "d20");
+    expect(next(next(t, "d20"), "d20").current).toBe("b");
+  });
+
+  it("the GM row can't die; no-ops keep the object", () => {
+    const t = tracker({ a: 1, gm: 2 });
+    expect(setDead(t, GM_ENTRY, true, "d20")).toBe(t);
+    expect(setDead(t, "a", false, "d20")).toBe(t);
+    expect(setDead(t, "missing", true, "d20")).toBe(t);
   });
 });
 
@@ -177,6 +214,7 @@ describe("size", () => {
         id: `${"x".repeat(30)}-${i}`, // Owlbear ids are shorter
         roll: -99,
         note: "n".repeat(NOTE_MAX),
+        dead: true,
       })),
       current: `${"x".repeat(30)}-0`,
       round: 9999,

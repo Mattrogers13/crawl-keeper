@@ -11,9 +11,9 @@ const saved = () => parseTracker(obr.sceneMetadata[TRACKER_KEY]);
 const rows = () => screen.getAllByRole("listitem");
 const rowOf = (name: string) => rows().find((r) => within(r).queryByText(name))!;
 
-const scene = (entries: { id: string; roll?: number | null; note?: string }[], current: string | null = null, round = 0) => {
+const scene = (entries: { id: string; roll?: number | null; note?: string; dead?: boolean }[], current: string | null = null, round = 0) => {
   obr.sceneMetadata = {
-    [TRACKER_KEY]: { entries: entries.map((e) => ({ roll: null, note: "", ...e })), current, round },
+    [TRACKER_KEY]: { entries: entries.map((e) => ({ roll: null, note: "", dead: false, ...e })), current, round },
   };
 };
 
@@ -88,6 +88,32 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["b", GM_ENTRY]));
   });
 
+  it("shows move buttons only while Reorder is on", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    scene([{ id: "a" }, { id: GM_ENTRY }]);
+    render(<App />);
+    await screen.findByText("Aria");
+    expect(screen.queryByLabelText("Move Aria down")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Reorder"));
+    expect(screen.getByLabelText("Reorder")).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByLabelText("Move Aria down"));
+    await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual([GM_ENTRY, "a"]));
+  });
+
+  it("marks a token dead: skipped on Next, and the turn passes if it was theirs", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }], "a", 1);
+    render(<App />);
+    fireEvent.click(await screen.findByLabelText("Dead: Aria"));
+    await waitFor(() => expect(saved()).toMatchObject({ current: "b", round: 1 }));
+    expect(saved().entries[0].dead).toBe(true);
+    expect(screen.getByLabelText("Dead: Aria")).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByLabelText("Next turn"));
+    fireEvent.click(screen.getByLabelText("Next turn"));
+    await waitFor(() => expect(saved()).toMatchObject({ current: "b", round: 2 }));
+    expect(screen.queryByLabelText("Dead: GM / Monsters")).not.toBeInTheDocument();
+  });
+
   it("removes a token but never the GM row", async () => {
     obr.items = [token("a", { name: "Aria" })];
     scene([{ id: "a" }, { id: GM_ENTRY }]);
@@ -128,6 +154,14 @@ describe("Tracker (player)", () => {
     await screen.findByText("Aria");
     expect(screen.queryByText("Lurker")).not.toBeInTheDocument();
     expect(rowOf("GM / Monsters")).toHaveAttribute("aria-current", "step");
+  });
+
+  it("shows who's dead", async () => {
+    obr.role = "PLAYER";
+    obr.items = [token("a", { name: "Aria" })];
+    scene([{ id: "a", dead: true }, { id: GM_ENTRY }]);
+    render(<App />);
+    expect(await screen.findByText("(dead)")).toBeInTheDocument();
   });
 
   it("hides the round when the GM says so", async () => {

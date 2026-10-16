@@ -17,6 +17,16 @@ Automated tests run against an in-memory SDK; these checks need real Owlbear. On
 | 9 | GM: delete a tracked token from the map | It drops from the list; if it was current, turn passes to the next | |
 | 10 | Switch to another scene and back | Each map keeps its own tracker | |
 | 11 | Close the scene | Panel says "Open a scene to use the tracker." | |
-| 12 | **Scene metadata limit (unverified).** GM: add 40 tokens, 200-character note on each (paste), save | Saves without a "Couldn't save" error. If it fails, record the error text here | |
+| 12 | **Biggest tracker fits (unverified).** All tracker data lives in one blob on the scene; Owlbear's cap on that blob isn't documented. A full tracker (40 rows, every note maxed) is about 12 kB. Fill it once to prove it saves: put one token on the map, select it, Cmd+C / Cmd+V; select all and paste again (doubles each time) until 40; drag-select all → right-click → Add. Paste the line below into every note, mark a few dead, press Start | No "Couldn't save" error; a reload shows everything still there. If it fails, record the error text here | |
 | 13 | Theme: switch Owlbear light/dark | Panel follows | |
 | 14 | Context menu icon | Renders white (SVG is fine for menu icons; Torchlight uses one) | |
+| 15 | GM: look down the roll boxes, GM row included | All in one straight column | |
+| 16 | GM: ↕ Reorder on, move a row, Reorder off | ▲▼ appear only while on; the move saves | |
+| 17 | GM: ☠ on a token on its turn; Next through a round; ☠ again | Turn passes on; dead row greyed with a skull and skipped (player sees it greyed too); un-marking gives turns back | |
+| 18 | GM: Table order with a dead highest roller; Start | Next-highest living roller goes first | |
+
+Note for step 12 (200 characters):
+
+```
+Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-K
+```

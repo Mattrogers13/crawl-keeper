@@ -18,6 +18,7 @@ import {
   previous,
   prune,
   remove,
+  setDead,
   setNote,
   setRoll,
   sortByRoll,
@@ -44,6 +45,8 @@ const Tracker = ({ role }: { role: Role }) => {
   const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   const doc = useSceneValue(TRACKER_KEY, parseTracker);
   const items = useSceneItems();
+  // The ▲▼ move buttons, off by default to keep rows quiet. Per GM, not saved.
+  const [reorder, setReorder] = useState(false);
 
   if (!settings.loaded || !doc.loaded || items === null) return <Loading />;
 
@@ -89,7 +92,7 @@ const Tracker = ({ role }: { role: Role }) => {
               </>
             )}
             <Button label={tracker.round === 0 ? "Start" : "Next turn"} primary onClick={() => change((t) => next(t, mode))}>
-              {tracker.round === 0 ? "Start" : "Next ▶"}
+              {tracker.round === 0 ? "Start" : "▶"}
             </Button>
           </div>
         )}
@@ -112,9 +115,12 @@ const Tracker = ({ role }: { role: Role }) => {
           </div>
           {mode === "d20" && (
             <Button label="Sort by roll" onClick={() => change(sortByRoll)}>
-              Sort
+              <SortIcon />
             </Button>
           )}
+          <Button label="Reorder" pressed={reorder} onClick={() => setReorder(!reorder)}>
+            ↕
+          </Button>
           <label className="ml-auto flex items-center gap-1">
             <input
               type="checkbox"
@@ -126,7 +132,9 @@ const Tracker = ({ role }: { role: Role }) => {
         </div>
       )}
       {gm && mode === "table" && (
-        <p className="text-xs text-obr-text-secondary">List order is the seating. Highest roll goes first, then down the list.</p>
+        <p className="text-xs text-obr-text-secondary">
+          The list is the seating, clockwise from the top. Use ↕ to seat everyone. Highest roll goes first, then down the list.
+        </p>
       )}
 
       <ol className="flex flex-col gap-1">
@@ -142,6 +150,7 @@ const Tracker = ({ role }: { role: Role }) => {
             isLast={i === shown.length - 1}
             change={change}
             mode={mode}
+            reorder={reorder}
           />
         ))}
       </ol>
@@ -161,6 +170,7 @@ const Row = (props: {
   isFirst: boolean;
   isLast: boolean;
   mode: Settings["orderMode"];
+  reorder: boolean;
   change: (fn: (t: TrackerDoc) => TrackerDoc) => void;
 }) => {
   const { entry, token, gm, change } = props;
@@ -169,13 +179,14 @@ const Row = (props: {
     <li
       aria-current={props.current ? "step" : undefined}
       className={`flex items-start gap-2 rounded p-1.5 ${props.current ? "bg-obr-primary/20 ring-1 ring-obr-primary" : "bg-obr-bg"} ${
-        token && !token.visible ? "opacity-60" : ""
+        entry.dead ? "opacity-50" : token && !token.visible ? "opacity-60" : ""
       }`}
     >
-      <Portrait token={token} />
+      <Portrait token={token} dead={entry.dead} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-medium">
+        <span className={`truncate font-medium ${entry.dead ? "line-through" : ""}`}>
           {name}
+          {entry.dead && <span className="sr-only"> (dead)</span>}
           {props.first && <span className="ml-1 text-xs text-obr-text-secondary">(first)</span>}
         </span>
         {gm ? (
@@ -187,18 +198,35 @@ const Row = (props: {
       {gm ? (
         <>
           <RollInput key={entry.roll ?? ""} name={name} value={entry.roll} save={(r) => change((t) => setRoll(t, entry.id, r))} />
-          <div className="flex flex-col">
-            <IconButton label={`Move ${name} up`} disabled={props.isFirst} onClick={() => change((t) => move(t, entry.id, -1))}>
-              ▲
-            </IconButton>
-            <IconButton label={`Move ${name} down`} disabled={props.isLast} onClick={() => change((t) => move(t, entry.id, 1))}>
-              ▼
-            </IconButton>
-          </div>
-          {token && (
-            <IconButton label={`Remove ${name}`} onClick={() => change((t) => remove(t, [entry.id], props.mode))}>
-              ✕
-            </IconButton>
+          {props.reorder && (
+            <div className="flex flex-col">
+              <IconButton label={`Move ${name} up`} disabled={props.isFirst} onClick={() => change((t) => move(t, entry.id, -1))}>
+                ▲
+              </IconButton>
+              <IconButton label={`Move ${name} down`} disabled={props.isLast} onClick={() => change((t) => move(t, entry.id, 1))}>
+                ▼
+              </IconButton>
+            </div>
+          )}
+          {/* The GM row has no dead or remove button: same-width gaps keep the roll boxes lined up. */}
+          {token ? (
+            <>
+              <IconButton
+                label={`Dead: ${name}`}
+                pressed={entry.dead}
+                onClick={() => change((t) => setDead(t, entry.id, !entry.dead, props.mode))}
+              >
+                ☠
+              </IconButton>
+              <IconButton label={`Remove ${name}`} onClick={() => change((t) => remove(t, [entry.id], props.mode))}>
+                ✕
+              </IconButton>
+            </>
+          ) : (
+            <>
+              <span className={ICON_SLOT} aria-hidden />
+              <span className={ICON_SLOT} aria-hidden />
+            </>
           )}
         </>
       ) : (
@@ -208,14 +236,22 @@ const Row = (props: {
   );
 };
 
-const Portrait = ({ token }: { token: Token | null }) =>
-  token?.image ? (
-    <img src={token.image} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
-  ) : (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-obr-paper text-xs font-semibold" aria-hidden>
-      {token ? "?" : "GM"}
-    </div>
-  );
+const Portrait = ({ token, dead }: { token: Token | null; dead: boolean }) => (
+  <div className="relative h-9 w-9 shrink-0">
+    {token?.image ? (
+      <img src={token.image} alt="" className={`h-9 w-9 rounded-full object-cover ${dead ? "grayscale" : ""}`} />
+    ) : (
+      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-obr-paper text-xs font-semibold" aria-hidden>
+        {token ? "?" : "GM"}
+      </div>
+    )}
+    {dead && (
+      <span className="absolute inset-0 flex items-center justify-center text-xl" aria-hidden>
+        ☠
+      </span>
+    )}
+  </div>
+);
 
 // Saves on Enter or when focus leaves. Empty = no roll.
 const RollInput = ({ name, value, save }: { name: string; value: number | null; save: (r: number | null) => void }) => {
@@ -254,13 +290,16 @@ const NoteInput = ({ name, value, save }: { name: string; value: string; save: (
   );
 };
 
-const Button = ({ label, primary, onClick, children }: { label: string; primary?: boolean; onClick: () => void; children: ReactNode }) => (
+type ButtonProps = { label: string; pressed?: boolean; onClick: () => void; children: ReactNode };
+
+const Button = ({ label, primary, pressed, onClick, children }: ButtonProps & { primary?: boolean }) => (
   <button
     type="button"
     aria-label={label}
+    aria-pressed={pressed}
     title={label}
-    className={`rounded px-2 py-0.5 text-sm font-medium ${
-      primary ? "bg-obr-primary text-obr-primary-contrast" : "border border-obr-text-disabled"
+    className={`flex min-h-6 items-center rounded px-2 py-0.5 text-sm font-medium ${
+      primary || pressed ? "bg-obr-primary text-obr-primary-contrast" : "border border-obr-text-disabled"
     }`}
     onClick={onClick}
   >
@@ -268,17 +307,30 @@ const Button = ({ label, primary, onClick, children }: { label: string; primary?
   </button>
 );
 
-const IconButton = (props: { label: string; disabled?: boolean; onClick: () => void; children: ReactNode }) => (
+// Every row's trailing buttons take the same width (see Row).
+const ICON_SLOT = "w-5 shrink-0";
+
+const IconButton = (props: ButtonProps & { disabled?: boolean }) => (
   <button
     type="button"
     aria-label={props.label}
+    aria-pressed={props.pressed}
     title={props.label}
     disabled={props.disabled}
-    className="px-1 text-xs leading-4 text-obr-text-secondary hover:text-obr-text disabled:opacity-30"
+    className={`${ICON_SLOT} text-center text-xs leading-4 hover:text-obr-text disabled:opacity-30 ${
+      props.pressed ? "text-obr-text" : "text-obr-text-secondary"
+    }`}
     onClick={props.onClick}
   >
     {props.children}
   </button>
+);
+
+// Bars shortening downward: the usual "sort, highest first" icon.
+const SortIcon = () => (
+  <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+    <path d="M2 4h12M2 8h8M2 12h4" />
+  </svg>
 );
 
 export default Tracker;

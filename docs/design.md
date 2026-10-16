@@ -12,7 +12,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 
 | Where | Key | Contents | Writer |
 |---|---|---|---|
-| Scene metadata | `${ID}/tracker` | entries `[{ id: itemId \| "gm", roll, note, hp?: { cur, max } }]` in seat order, current turn id, round, state (`crawling` \| `combat`) | GM |
+| Scene metadata | `${ID}/tracker` | entries `[{ id: itemId \| "gm", roll, note, dead, hp?: { cur, max } }]` in seat order, current turn id, round, state (`crawling` \| `combat`) | GM |
 | Room metadata | `${ID}/settings` | order mode (`d20` \| `table`), encounter mode (`standard` \| `clock`), danger level, in darkness, hide clock, hide round, select on turn | GM |
 | Room metadata | `${ID}/crawl` | clock value, last roll (dice, total, exploded, carry), rounds since last check | GM |
 | Room metadata (v0.2) | `${ID}/tables` | custom encounter tables | GM |
@@ -25,8 +25,10 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 ## Tracker
 
 - Entries: tokens added via right-click "Add to Initiative" (background page context menu), plus the built-in **GM / Monsters** row (can't be removed; one roll using the monsters' highest DEX).
-- **d20 order:** sort by roll, highest first. Ties: GM drags.
-- **Table Order:** the list order is the seating (GM drags). Highest roll takes the first turn; turns then go clockwise through the seating.
+- **d20 order:** sort by roll, highest first. Ties: GM moves rows.
+- **Table Order:** the list order is the seating, clockwise from the top (GM moves rows). Highest roll takes the first turn; turns then go clockwise through the seating. No sort button here: sorting would scramble the seating.
+- Moving rows: ▲▼ per row, shown only while the GM's Reorder toggle is on (not saved, per GM).
+- **Dead:** GM toggles ☠ on a token row (not the GM row). Dead rows keep their seat, grey out for everyone, and get no turns; killing the current entry passes the turn on.
 - Next / Previous turn. Round increments when the turn wraps.
 - Note under each name: GM edits, everyone sees.
 - Monster HP: cur/max with a damage/heal field, GM-only display.
@@ -56,4 +58,4 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 
 ## References (read-only, gitignored in `sources/`)
 
-- `ref-initiative-tracker` (Owlbear, GPLv3) for the look; `ref-pretty-sordid-initiative` (GPLv3) for features; `ref-dice` (GPLv3) for the die style. Read for behavior; don't copy code or art (this repo is MIT).
+- `ref-initiative-tracker` (Owlbear, GPLv3) for the look; `ref-pretty-sordid-initiative` (GPLv3) for features; `ref-dice` (GPLv3) for the die style. Foundry's Shadowdark Crawl Helper (github.com/PrototypeESBU/foundryvtt-shadowdark-crawl-helper, no license file, so all rights reserved) for crawl/turn ideas. Read for behavior; don't copy code or art (this repo is MIT).
