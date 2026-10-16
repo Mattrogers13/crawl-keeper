@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Shadowdark crawl companion for Owlbear Rodeo: initiative tracker (sorted by roll, GM / Monsters row with its monsters, notes, dead, a per-token turn marker on the map, batch row menu), Crawl/Combat with one round count, encounter checks or the Crawling Clock on the GM's turn; v0.2 adds encounter and morale rollers. v0.1 is built and room-tested (2026-10-16). **The agreed design, data layout and release plan are in `docs/design.md`; read it before building.** GM is the only writer; players get a read-only view.
+Shadowdark crawl companion for Owlbear Rodeo: initiative tracker (sorted by roll, GM / Monsters row with its monsters, notes, dead, a per-token turn marker on the map, batch row menu), Crawl/Combat with one round count, encounter checks or the Crawling Clock on the GM's turn; v0.2 adds encounter and morale rollers. v0.1.0 released 2026-10-16. **The agreed design, data layout and release plan are in `docs/design.md`; read it before building.** GM is the only writer; players get a read-only view.
 
 Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript 5 + Tailwind 4, hosted on Cloudflare Workers static assets.
 
@@ -9,7 +9,7 @@ Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript
 - If `sources/sdk` is missing: `scripts/fetch-sources.sh`. Original ask: `BRIEF.md` (DONE).
 - Installs: live `https://crawl-keeper.editbag.workers.dev/manifest.json`, Dev `https://dev-crawl-keeper.editbag.workers.dev/manifest.json` (`docs/obr/deploy.md`). After a Dev rebuild, reload the Owlbear room: the background page loads once per room.
 - Tracked tasks and undecided review candidates: `docs/design.md` "Releases".
-- Status (2026-10-16): v0.1 built, room-tested, with the Owlbear-native look and Keeper's key icon (#8). Branch `fix/review-before-v0.1.0` (code, design and functionality review fixes) awaits a room check, then merge and tag v0.1.0.
+- Status (2026-10-16): v0.1.0 released (tagged): Owlbear-native look, Keeper's key icon, how-to homepage, revamped Settings. Next: v0.2 (encounter and morale rollers) and picking from the review candidates in `docs/design.md`.
 
 ## Commands
 
