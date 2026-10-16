@@ -5,7 +5,7 @@ import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 
 import { MENU_ID, TRACKER_KEY } from "./constants";
 import { afterTurnChange, fixMarkerVisibility, readSettings } from "./marker";
-import { parseTracker, toggle, type Phase } from "./tracker";
+import { MAX_ENTRIES, parseTracker, toggle, type Phase } from "./tracker";
 import { errorMessage, notify } from "./utils";
 
 // Read the doc fresh at click time, so a click never writes a stale copy.
@@ -15,8 +15,15 @@ export const toggleInitiative = async (ids: string[]) => {
   const [scene, settings] = await Promise.all([OBR.scene.getMetadata(), readSettings()]);
   const tracker = parseTracker(scene[TRACKER_KEY]);
   const updated = toggle(tracker, ids);
-  if (updated === tracker) return;
+  // Adding stops at the cap: say which didn't fit rather than drop them
+  // quietly, once the rest are saved (a failed save reports on its own).
+  const tracked = new Set(updated.entries.map((e) => e.id));
+  const removing = updated.entries.length < tracker.entries.length;
+  const left = removing ? 0 : ids.filter((id) => !tracked.has(id)).length;
+  const full = () => left > 0 && notify(`Initiative is full (${MAX_ENTRIES} rows): ${left} token${left === 1 ? "" : "s"} not added.`, "WARNING");
+  if (updated === tracker) return full();
   await OBR.scene.setMetadata({ [TRACKER_KEY]: updated });
+  full();
   // Removing the current token passed the turn on: move the marker with it.
   await afterTurnChange(tracker, updated, settings);
 };

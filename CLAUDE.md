@@ -1,17 +1,15 @@
 # CLAUDE.md
 
-Shadowdark crawl companion for Owlbear Rodeo: initiative tracker (sorted by roll, GM / Monsters row with grouped monsters, notes, turn marker), Crawling/Combat states, encounter checks or the Crawling Clock on the GM's turn; v0.2 adds encounter and morale rollers. **The agreed design, data layout and release plan are in `docs/design.md`; read it before building.** GM is the only writer; players get a read-only view.
+Shadowdark crawl companion for Owlbear Rodeo: initiative tracker (sorted by roll, GM / Monsters row with its monsters, notes, dead, a per-token turn marker on the map, batch row menu), Crawl/Combat with one round count, encounter checks or the Crawling Clock on the GM's turn; v0.2 adds encounter and morale rollers. v0.1 is built and room-tested (2026-10-16). **The agreed design, data layout and release plan are in `docs/design.md`; read it before building.** GM is the only writer; players get a read-only view.
 
 Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript 5 + Tailwind 4, hosted on Cloudflare Workers static assets.
 
-## First run (this folder was duplicated from the starter for a new extension)
+## Setup and open items
 
-1. ~~Brief~~ Done 2026-10-15: brief answered, scope approved, recorded in `docs/design.md`.
-2. If `sources/sdk` is missing: `scripts/fetch-sources.sh`.
-3. Placeholders replaced (Crawl Keeper) except the art in `art/` + `public/img/` (`logo.png`, `action.svg`): still the starter's.
-4. ~~Replace the example note~~ Done in PR 1 (tracker core).
-5. Cloudflare setup when ready to deploy: `docs/obr/deploy.md`.
-6. Rewrite this section as the project's overview (keep `BRIEF.md` as the record of the original ask; set its hook aside by leaving it DONE).
+- If `sources/sdk` is missing: `scripts/fetch-sources.sh`. Original ask: `BRIEF.md` (DONE).
+- Installs: live `https://crawl-keeper.editbag.workers.dev/manifest.json`, Dev `https://dev-crawl-keeper.editbag.workers.dev/manifest.json` (`docs/obr/deploy.md`). After a Dev rebuild, reload the Owlbear room: the background page loads once per room.
+- Open: the art in `art/` + `public/img/` (`logo.png`, `action.svg`) is still the starter's placeholder. Tracked tasks: `docs/design.md` "Later".
+- Status (2026-10-16): v0.1 PRs 1–4 merged and room-tested; PR #7 (roll button only when due + code-review fixes) awaits a quick room check, then merge and tag v0.1.0. A design pass is in progress on a Claude Design canvas (two directions, A Owlbear-native and B Shadowdark-flavored, panels + icons); waiting on Matt's pick before building it and the real icon art.
 
 ## Commands
 
@@ -24,6 +22,8 @@ npm run build        # typecheck + vite build
 npx wrangler deploy --dry-run   # validate Cloudflare config
 npx wrangler dev --port 8799    # serve dist/ like production
 scripts/render-png.sh art/x.svg public/img/x.png 256   # SVG → PNG via headless Chrome
+# Dev build live? The bundle carries the commit hash (footer label):
+js=$(curl -s https://dev-crawl-keeper.editbag.workers.dev/ | grep -o 'assets/main-[^"]*\.js' | head -1); curl -s "https://dev-crawl-keeper.editbag.workers.dev/$js" | grep -c "$(git rev-parse --short HEAD)"
 ```
 
 Node 24 (`.node-version`; fnm auto-switches). Non-interactive shells: `eval "$(fnm env --shell zsh)" && fnm use` first.
@@ -33,10 +33,14 @@ Node 24 (`.node-version`; fnm auto-switches). Non-interactive shells: `eval "$(f
 - `src/main.tsx`: `OBR.isAvailable` (page has `?obrref`) → `App`, else `Homepage`.
 - `src/components/App.tsx`: waits for `OBR.onReady`, applies Owlbear's theme (`useObrTheme`), waits for the role (`useRole`), renders `Panel`.
 - `src/hooks/useRoomValue.ts`: one metadata key (`useRoomValue` / `useSceneValue`), parsed on every read, no writes before the first read, failed writes revert. **Single writer per key.**
-- `src/tracker.ts` (pure tracker rules) → `components/Tracker.tsx`; `src/background.ts` registers the GM's right-click menu. `useSceneReady` remounts the tracker per opened scene.
+- Pure rules (no SDK, no React; unit-tested): `src/tracker.ts` (the scene's tracker doc: entries, turns, phases, rounds), `src/crawl.ts` (checks and the Crawling Clock, stored in the tracker doc), `src/selection.ts` (row selection), `src/parse.ts` (untrusted-data helpers).
+- `components/Tracker.tsx` renders it (row menu, drag, batch selection) and portals `CrawlBar` into the panel header; `Settings.tsx` holds the room settings (`src/settings.ts`). `useSceneReady` remounts the tracker per opened scene.
+- `src/marker.ts`: the turn-marker ring and selecting the current token. Moved only from the GM's clicks via `afterTurnChange` (syncs run one at a time), plus deleting the current token from the map. Ring visibility is matched by hand (attachments don't inherit it).
+- `src/background.ts` (every client, panel open or not): the GM's right-click "Add / Remove Initiative", the combat alert, the GM's ring-visibility fix.
 - `src/constants.ts`: extension `ID` (prefixes every metadata key and broadcast channel) and keys. No React imports (background pages use it).
 - `src/storage.ts`: the only way to touch localStorage (it throws in Owlbear's iframe under strict privacy).
 - `src/devManifest.ts` + `vite.config.ts`: non-main Cloudflare builds rename the manifest "(Dev)" and show `DEV · branch · sha` in the footer.
+- Testing drag (dnd-kit) in jsdom: stub `getBoundingClientRect` per row and give the list a tall box, then press Space / arrows / Space with a pause between (`Tracker.test.tsx`, "drag to move").
 - Styling: Owlbear's theme colors as CSS vars (`--obr-*`) → Tailwind classes `bg-obr-paper`, `text-obr-text`, `bg-obr-primary`, etc. (`src/index.css`).
 
 ## Owlbear rules (don't break; details in docs/obr/gotchas.md)
@@ -48,6 +52,7 @@ Node 24 (`.node-version`; fnm auto-switches). Non-interactive shells: `eval "$(f
 - Images drawn on the map (items, attachments) and the manifest icon: never SVG (black square). Raster images are WebP (lossless for icons) except the manifest icon (PNG).
 - Use extensionless URLs for extra pages (`/background`, `/menu`); Cloudflare 307s `.html`.
 - `public/_headers` CORS header is required; don't remove it.
+- Attachments don't inherit their parent's visibility: set it and re-match it (`src/marker.ts`). SDK calls can reject with plain objects: use `errorMessage`. Item syncs from quick clicks race: run them one at a time with a fresh read.
 
 ## Reference
 
@@ -63,6 +68,9 @@ Node 24 (`.node-version`; fnm auto-switches). Non-interactive shells: `eval "$(f
 ## Workflow
 
 - Branch + PR per change; squash-merge after CI and Workers Builds pass. Features needing an Owlbear test stay open until a manual pass (GM + player in a private window).
+- Before asking Matt to test: confirm the Dev bundle has the commit (command above), and remind him to reload the Owlbear room (the background page loads once per room).
+- No prettier/formatter in this repo: don't run one (it rewrites whole files); match the surrounding style by hand.
+- Rules questions: quote the book. `pdftotext -layout "sources/Shadowdark RPG - V4-8.pdf" <scratch>/sd.txt` then grep; the clock rules are `sources/CrawlingClock_Rules.jpeg`. Cite page numbers.
 - Review in Owlbear via the `dev` branch install, not per-PR previews (`docs/obr/deploy.md`).
 - Versions: semver, same value in `package.json` and `public/manifest.json` (a test enforces it).
 - A regression test must fail on the old code (`docs/obr/testing.md`).

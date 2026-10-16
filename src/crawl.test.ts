@@ -31,14 +31,24 @@ const rounds = (c: Crawl, n: number) => Array.from({ length: n }).reduce<Crawl>(
 describe("parseCrawl", () => {
   it("defaults junk; keeps well-formed fields", () => {
     expect(parseCrawl(undefined)).toEqual(emptyCrawl());
-    expect(parseCrawl({ danger: "deadly", dark: true, clock: 7, crawlRounds: 5, lastCheck: 9, junk: 1 })).toMatchObject({
+    expect(parseCrawl({ danger: "deadly", dark: true, clock: 7, crawlRounds: 5, lastCheck: 6, junk: 1 })).toMatchObject({
       danger: "deadly",
       dark: true,
       clock: 7,
       crawlRounds: 5,
-      lastCheck: 5,
+      lastCheck: 6,
     });
     expect(parseCrawl({ danger: "chaos", clock: 99 })).toMatchObject({ danger: "unsafe", clock: CLOCK_START });
+  });
+
+  it("lastCheck runs at most the longest cadence ahead, so bad data can't switch checks off", () => {
+    const c = parseCrawl({ crawlRounds: 2, lastCheck: 9999, undo: { clock: 20, lastCheck: 9999 } });
+    expect([c.lastCheck, c.undo?.lastCheck]).toEqual([5, 5]);
+    expect(due(rounds(c, 4), "clock")).toBe(true);
+  });
+
+  it("counts over the cap clamp instead of resetting to 0", () => {
+    expect(parseCrawl({ crawlRounds: 10000, lastCheck: 9999 })).toMatchObject({ crawlRounds: 9999, lastCheck: 9999 });
   });
 
   it("keeps a sane last roll and drops a broken one", () => {
@@ -111,8 +121,21 @@ describe("Crawling Clock", () => {
   it("back from combat: a fresh clock, unless the clock's encounter already started one", () => {
     expect(clockAfterCombat(crawl({ clock: 9 })).clock).toBe(20);
     const afterEncounter = rollClock(crawl({ clock: 3 }), dice(6, 5));
-    expect(clockAfterCombat(afterEncounter)).toBe(afterEncounter);
-    expect(afterEncounter.clock).toBe(18);
+    const back = clockAfterCombat(afterEncounter);
+    expect(back).toMatchObject({ clock: 18, last: afterEncounter.last });
+  });
+
+  it("a second fight before the next roll: a fresh clock (the carry-over is used once)", () => {
+    const once = clockAfterCombat(rollClock(crawl({ clock: 3 }), dice(6, 5)));
+    expect(clockAfterCombat(once).clock).toBe(20);
+    // Saved and read back in between, too.
+    expect(clockAfterCombat(parseCrawl(JSON.parse(JSON.stringify(once)))).clock).toBe(20);
+  });
+
+  it("undoing the clock's encounter roll after the fight puts the clock and carry back", () => {
+    const before = crawl({ clock: 3 });
+    const undone = undoRoll(clockAfterCombat(rollClock(before, dice(6, 5))));
+    expect(undone).toMatchObject({ clock: 3, carry: false, last: null });
   });
 
   it("New clock for a new dangerous place; nothing to reset keeps the object", () => {
@@ -123,6 +146,18 @@ describe("Crawling Clock", () => {
 });
 
 describe("undo, rounds", () => {
+  it("undo puts back only what the roll changed: not danger, darkness or rounds since", () => {
+    let c = rollCheck(rounds(crawl({ danger: "unsafe" }), 3), dice(6, 4));
+    c = rounds({ ...c, danger: "risky", dark: true }, 3);
+    expect(undoRoll(c)).toMatchObject({ danger: "risky", dark: true, crawlRounds: 6, lastCheck: 0, last: null });
+  });
+
+  it("back from combat after a standard check's encounter: still a fresh clock", () => {
+    const c = { ...rollCheck(crawl({ clock: 9 }), dice(6, 1)), clock: 9 };
+    expect(c.last?.encounter).toBe(true);
+    expect(clockAfterCombat(c).clock).toBe(20);
+  });
+
   it("one-level undo of the last roll", () => {
     const before = rounds(crawl({ clock: 12 }), 1);
     const after = rollClock(before, dice(6, 5));
@@ -131,10 +166,20 @@ describe("undo, rounds", () => {
     expect(undoRoll(undone)).toBe(undone);
   });
 
-  it("◀ over a crawl round takes it back; reset starts the count over", () => {
-    const c = rollCheck(rounds(crawl(), 3), dice(6, 4));
-    expect(crawlRoundUndone(c)).toMatchObject({ crawlRounds: 2, lastCheck: 2 });
-    expect(resetCrawlRounds(c)).toMatchObject({ crawlRounds: 0, lastCheck: 0 });
+  it("◀ back over many rolled rounds keeps lastCheck within the longest cadence", () => {
+    let c = rollClock(rounds(crawl(), 10), dice(6, 3));
+    for (let i = 0; i < 6; i++) c = crawlRoundUndone(c);
+    expect(c).toMatchObject({ crawlRounds: 4, lastCheck: 7 });
+  });
+
+  it("◀ over a crawl round takes it back but keeps its roll taken; ▶ forward doesn't call for it again", () => {
+    const c = rollClock(rounds(crawl(), 5), dice(6, 3));
+    const back = crawlRoundUndone(c);
+    expect(back).toMatchObject({ crawlRounds: 4, lastCheck: 5 });
+    expect(due(back, "clock")).toBe(false);
+    expect(due(crawlRoundStarted(back), "clock")).toBe(false);
+    expect(due(crawlRoundStarted(crawlRoundStarted(back)), "clock")).toBe(true);
+    expect(resetCrawlRounds(c)).toMatchObject({ crawlRounds: 0, lastCheck: 0, undo: null });
     const zero = crawl();
     expect(resetCrawlRounds(zero)).toBe(zero);
   });

@@ -17,9 +17,16 @@
 export type Danger = "unsafe" | "risky" | "deadly";
 export type EncounterMode = "standard" | "clock";
 
+import { intIn, isObject, parseCount } from "./parse";
+
 export const CLOCK_START = 20;
 const MAX_DICE = 10;
 const CADENCE: Record<Danger, number> = { unsafe: 3, risky: 2, deadly: 1 };
+// How far lastCheck may run ahead of crawlRounds (◀ back over rolled rounds).
+// Past the longest cadence it would only hold checks off, so it's capped
+// there, and bad data can't switch checks off for good.
+const MAX_AHEAD = Math.max(...Object.values(CADENCE));
+const ahead = (crawlRounds: number, lastCheck: number) => Math.min(lastCheck, crawlRounds + MAX_AHEAD);
 
 export type CrawlRoll = {
   // check: a 1-in-6 check; clock: the crawling die.
@@ -38,16 +45,23 @@ type CrawlCore = {
   dark: boolean;
   clock: number;
   // Crawl rounds started on this map, and the count at the last check or
-  // clock roll (combat rounds don't count, p. 112).
+  // clock roll (combat rounds don't count, p. 112). lastCheck can run ahead of
+  // crawlRounds after ◀ back over a round: that round's roll stays taken.
   crawlRounds: number;
   lastCheck: number;
   last: CrawlRoll | null;
+  // The clock holds an encounter's carry-over that no fight has used yet:
+  // the next return from combat keeps it instead of starting a fresh clock.
+  carry: boolean;
 };
 
+// What a roll changes, kept for a one-level undo (nothing else: danger,
+// darkness and rounds are the GM's since).
+type Undo = { clock: number; lastCheck: number; carry: boolean };
+
 export type Crawl = CrawlCore & {
-  // One-level undo of the last roll (its own `last` isn't kept: undoing
-  // clears the result shown).
-  undo: Omit<CrawlCore, "last"> | null;
+  // Undoing clears the result shown.
+  undo: Undo | null;
 };
 
 export const emptyCrawl = (): Crawl => ({
@@ -57,12 +71,10 @@ export const emptyCrawl = (): Crawl => ({
   crawlRounds: 0,
   lastCheck: 0,
   last: null,
+  carry: false,
   undo: null,
 });
 
-const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
-const intIn = (v: unknown, min: number, max: number, fallback: number) =>
-  typeof v === "number" && Number.isInteger(v) && v >= min && v <= max ? v : fallback;
 const parseDanger = (v: unknown): Danger => (v === "risky" || v === "deadly" ? v : "unsafe");
 
 const parseRoll = (raw: unknown): CrawlRoll | null => {
@@ -75,27 +87,34 @@ const parseRoll = (raw: unknown): CrawlRoll | null => {
     kind,
     dice,
     sides,
-    before: intIn(raw.before, 1, CLOCK_START, CLOCK_START),
-    after: intIn(raw.after, 1, CLOCK_START, CLOCK_START),
+    before: intIn(raw.before, 1, CLOCK_START) ?? CLOCK_START,
+    after: intIn(raw.after, 1, CLOCK_START) ?? CLOCK_START,
     encounter: raw.encounter === true,
   };
 };
 
-const parseCore = (r: Record<string, unknown>): Omit<CrawlCore, "last"> => {
-  const crawlRounds = intIn(r.crawlRounds, 0, 9999, 0);
-  return {
-    danger: parseDanger(r.danger),
-    dark: r.dark === true,
-    clock: intIn(r.clock, 1, CLOCK_START, CLOCK_START),
-    crawlRounds,
-    lastCheck: Math.min(intIn(r.lastCheck, 0, 9999, 0), crawlRounds),
-  };
-};
+const parseClock = (v: unknown) => intIn(v, 1, CLOCK_START) ?? CLOCK_START;
 
 // Scene metadata is untrusted: keep only well-formed fields.
 export const parseCrawl = (raw: unknown): Crawl => {
   if (!isObject(raw)) return emptyCrawl();
-  return { ...parseCore(raw), last: parseRoll(raw.last), undo: isObject(raw.undo) ? parseCore(raw.undo) : null };
+  const crawlRounds = parseCount(raw.crawlRounds);
+  return {
+    danger: parseDanger(raw.danger),
+    dark: raw.dark === true,
+    clock: parseClock(raw.clock),
+    crawlRounds,
+    lastCheck: ahead(crawlRounds, parseCount(raw.lastCheck)),
+    last: parseRoll(raw.last),
+    carry: raw.carry === true,
+    undo: isObject(raw.undo)
+      ? {
+          clock: parseClock(raw.undo.clock),
+          lastCheck: ahead(crawlRounds, parseCount(raw.undo.lastCheck)),
+          carry: raw.undo.carry === true,
+        }
+      : null,
+  };
 };
 
 // A fair die from a random source in [0, 1).
@@ -122,13 +141,7 @@ export const due = (c: Crawl, mode: EncounterMode) =>
 // Crawl rounds until the next standard check (0 = due now).
 export const roundsToCheck = (c: Crawl) => Math.max(0, cadence(c) - (c.crawlRounds - c.lastCheck));
 
-const snapshot = (c: Crawl): Omit<CrawlCore, "last"> => ({
-  danger: c.danger,
-  dark: c.dark,
-  clock: c.clock,
-  crawlRounds: c.crawlRounds,
-  lastCheck: c.lastCheck,
-});
+const snapshot = (c: Crawl): Undo => ({ clock: c.clock, lastCheck: c.lastCheck, carry: c.carry });
 
 // Standard: roll 1d6, an encounter on 1. Counts as this round's check.
 export const rollCheck = (c: Crawl, rand: Rand): Crawl => {
@@ -156,6 +169,7 @@ export const rollClock = (c: Crawl, rand: Rand): Crawl => {
     clock: after,
     lastCheck: c.crawlRounds,
     last: { kind: "clock", dice, sides, before: c.clock, after, encounter },
+    carry: encounter,
     undo: snapshot(c),
   };
 };
@@ -166,14 +180,17 @@ export const rollClock = (c: Crawl, rand: Rand): Crawl => {
 export const omen = (c: Crawl) => c.clock <= 5;
 
 // Back to crawling after a fight: a fresh clock, unless the clock's own
-// encounter already started one (keeping its carry-over). The last result
-// stays on show.
-export const clockAfterCombat = (c: Crawl): Crawl =>
-  c.clock === CLOCK_START || c.last?.encounter ? c : { ...c, clock: CLOCK_START, undo: null };
+// encounter already started one (keeping its carry-over, once: a second
+// fight before the next roll gets a fresh clock). The last result stays on
+// show.
+export const clockAfterCombat = (c: Crawl): Crawl => {
+  if (c.carry) return { ...c, carry: false };
+  return c.clock === CLOCK_START ? c : { ...c, clock: CLOCK_START, undo: null };
+};
 
 // Entering a new dangerous place: a fresh clock.
 export const resetClock = (c: Crawl): Crawl =>
-  c.clock === CLOCK_START && c.last === null ? c : { ...c, clock: CLOCK_START, last: null, undo: snapshot(c) };
+  c.clock === CLOCK_START && c.last === null && !c.carry ? c : { ...c, clock: CLOCK_START, last: null, carry: false, undo: snapshot(c) };
 
 export const undoRoll = (c: Crawl): Crawl => (c.undo ? { ...c, ...c.undo, last: null, undo: null } : c);
 
@@ -183,9 +200,11 @@ export const setDark = (c: Crawl, dark: boolean): Crawl => (c.dark === dark ? c 
 // A new crawl round started (▶ wrapped while crawling), or ◀ went back over
 // one. Reset rounds starts the count over.
 export const crawlRoundStarted = (c: Crawl): Crawl => ({ ...c, crawlRounds: c.crawlRounds + 1 });
+// Going back over a round keeps lastCheck: the later round's roll stays
+// taken, so ▶ forward again doesn't call for it twice.
 export const crawlRoundUndone = (c: Crawl): Crawl => {
   const crawlRounds = Math.max(0, c.crawlRounds - 1);
-  return { ...c, crawlRounds, lastCheck: Math.min(c.lastCheck, crawlRounds) };
+  return { ...c, crawlRounds, lastCheck: ahead(crawlRounds, c.lastCheck) };
 };
 export const resetCrawlRounds = (c: Crawl): Crawl =>
-  c.crawlRounds === 0 && c.lastCheck === 0 ? c : { ...c, crawlRounds: 0, lastCheck: 0 };
+  c.crawlRounds === 0 && c.lastCheck === 0 && c.undo === null ? c : { ...c, crawlRounds: 0, lastCheck: 0, undo: null };

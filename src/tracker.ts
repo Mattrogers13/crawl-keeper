@@ -22,6 +22,7 @@ import {
   type EncounterMode,
   type Rand,
 } from "./crawl";
+import { intIn, isObject, parseCount } from "./parse";
 
 // Shadowdark is always in turn order (core p. 82). The tracker is in one of
 // two phases: crawl or combat. A round is a round (p. 82: "a round completes
@@ -71,12 +72,6 @@ export const emptyTracker = (): Tracker => ({
   crawl: emptyCrawl(),
 });
 
-const isObject = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
-
-// A whole number in [min, max] from untrusted data, else null.
-const intIn = (v: unknown, min: number, max: number): number | null =>
-  typeof v === "number" && Number.isInteger(v) && v >= min && v <= max ? v : null;
 
 export const parseRoll = (raw: unknown): number | null => intIn(raw, ROLL_MIN, ROLL_MAX);
 
@@ -114,9 +109,25 @@ export const parseTracker = (raw: unknown): Tracker => {
     round: parseCount(raw.round),
     crawl: parseCrawl(raw.crawl),
   };
-  // A turn only exists inside a round, and only for a living entry.
-  const current = typeof raw.current === "string" && entries.some((e) => e.id === raw.current && !e.dead) ? raw.current : null;
-  return current && t.round > 0 ? { ...t, current } : t;
+  // A turn only exists inside a round, and only for an entry that takes
+  // turns now (living; monsters only in combat).
+  const current = t.round > 0 && typeof raw.current === "string" ? turnFor(t, raw.current) : null;
+  return current ? { ...t, current } : t;
+};
+
+// Who has the turn a saved `id` held, if `id` doesn't take turns now: the GM
+// row covers a monster while crawling, and a dead entry's turn passes to the
+// next living one (as marking the current entry dead does). Dropping the turn
+// instead would make the next ▶ start a new round early.
+const turnFor = (t: Tracker, id: string): string | null => {
+  const turns = turnOrder(t).map((e) => e.id);
+  if (turns.includes(id)) return id;
+  const entry = t.entries.find((e) => e.id === id);
+  if (!entry) return null;
+  if (entry.monster && t.phase === "crawl") return GM_ENTRY;
+  const all = turnOrder({ ...t, entries: t.entries.map((e) => (e.id === id ? { ...e, dead: false } : e)) }).map((e) => e.id);
+  const i = all.indexOf(id);
+  return [...all.slice(i + 1), ...all.slice(0, i)].find((other) => turns.includes(other)) ?? null;
 };
 
 // The one place the entry rules live (parse and every edit go through it):
@@ -139,8 +150,6 @@ const newEntry = (id: string, monster: boolean): Entry =>
 
 // Players and the GM row first, then the monsters, each keeping its order.
 const grouped = (entries: Entry[]): Entry[] => [...entries.filter((e) => !e.monster), ...entries.filter((e) => e.monster)];
-
-const parseCount = (raw: unknown): number => Math.min(intIn(raw, 0, Infinity) ?? 0, 9999);
 
 // Entries whose token no longer exists drop out (the GM row always stays).
 // Returns the same object when nothing changed.

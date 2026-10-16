@@ -286,6 +286,33 @@ describe("Tracker (GM)", () => {
     expect(OBR.scene.setMetadata).toHaveBeenCalledTimes(1);
   });
 
+  it("a failed save of a deleted current token leaves the ring where it was", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }], "a", 1);
+    render(<App />);
+    await screen.findByText("Aria");
+    obr.failWrites = true;
+    await setItems([token("b", { name: "Borin" })]);
+    await waitFor(() => expect(OBR.scene.setMetadata).toHaveBeenCalledTimes(1));
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+    expect(obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefined)).toEqual([]);
+  });
+
+  it("a token deleted, brought back and deleted again is dropped again", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
+    render(<App />);
+    await screen.findByText("Aria");
+    await setItems([token("b", { name: "Borin" })]);
+    await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["b", GM_ENTRY]));
+    // Ctrl+Z on the map, then Add Initiative again.
+    await setItems([token("a", { name: "Aria" }), token("b", { name: "Borin" })]);
+    await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), entries: [{ id: "a" }, ...saved().entries] } });
+    await screen.findByText("Aria");
+    await setItems([token("b", { name: "Borin" })]);
+    await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["b", GM_ENTRY]));
+  });
+
   it("a gold dot shows which tokens get the turn marker (GM only)", async () => {
     obr.items = [token("p", { name: "Aria" }), token("m", { name: "Goblin" })];
     scene([{ id: "p" }, { id: GM_ENTRY }, { id: "m", monster: true }]);
@@ -427,8 +454,16 @@ describe("Tracker (GM)", () => {
       fireEvent.click(within(card).getByText("Roll d6"));
       await waitFor(() => expect(saved().crawl.last?.kind).toBe("clock"));
       expect(saved().crawl.clock).toBeLessThan(20);
-      expect(within(card).getByText("Roll d6 (loud noise)")).toBeInTheDocument();
+      expect(within(card).queryByRole("button", { name: /^Roll/ })).not.toBeInTheDocument();
       expect(within(card).getByLabelText("Last roll")).toHaveTextContent(/Clock 20 → \d+|Encounter!/);
+    });
+
+    it("before the first crawl round the status says so (not 'Rolled')", async () => {
+      obr.metadata = { [SETTINGS_KEY]: { encounterMode: "clock" } };
+      scene([{ id: GM_ENTRY }]);
+      render(<App />);
+      const card = await screen.findByRole("region", { name: "Crawling Clock" });
+      expect(within(card).getByText("Starts with the first crawl round")).toBeInTheDocument();
     });
 
     it("clock: an omen at 5 or lower is a reminder, not a roll", async () => {

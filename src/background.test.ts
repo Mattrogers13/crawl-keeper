@@ -31,6 +31,21 @@ describe("background: Add / Remove Initiative", () => {
     expect(obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefined).map((m) => m.attachedTo)).toEqual(["b"]);
   });
 
+  it("tells the GM when the tracker is full instead of dropping tokens quietly", async () => {
+    obr.sceneMetadata = { [TRACKER_KEY]: { entries: Array.from({ length: 38 }, (_, i) => ({ id: `t${i}` })) } };
+    await toggleInitiative(["x", "y", "z"]);
+    expect(saved().entries).toHaveLength(40);
+    // 38 tokens + the GM row: room for one more.
+    expect(OBR.notification.show).toHaveBeenCalledWith(expect.stringContaining("2 tokens not added"), "WARNING");
+  });
+
+  it("a failed save doesn't also claim the tokens that fit were added", async () => {
+    obr.sceneMetadata = { [TRACKER_KEY]: { entries: Array.from({ length: 38 }, (_, i) => ({ id: `t${i}` })) } };
+    obr.failWrites = true;
+    await expect(toggleInitiative(["x", "y", "z"])).rejects.toThrow();
+    expect(OBR.notification.show).not.toHaveBeenCalledWith(expect.stringContaining("not added"), "WARNING");
+  });
+
   it("registers one GM-only menu item on character and mount images", async () => {
     await createMenu();
     const menus = vi.mocked(OBR.contextMenu.create).mock.calls.map((c) => c[0]);

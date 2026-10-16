@@ -91,9 +91,9 @@ Reload the room after a Dev rebuild (the background page loads once per room).
 | 3 | GM: Roll check; then Undo | Big result: the die, then "No encounter" or a red "ENCOUNTER!" block; Undo puts it back | Pass 2026-10-16 |
 | 4 | GM: Risky, then Deadly, then In darkness | Checks every 2 crawl rounds, every round, every round | Pass 2026-10-16 |
 | 5 | GM: Combat for a few rounds, then Crawl | Card hidden in combat; combat rounds don't count toward the next check | Pass 2026-10-16 |
-| 6 | GM: "Check now (loud noise)" when no check is due | An extra check rolls | Pass 2026-10-16 |
+| 6 | GM: no check due | No roll button (the loud-noise roll was removed) | |
 | 7 | GM: gear → Crawling Clock | Strip shows "Clock 20 / 20"; players see "Clock 20" in their header | Pass 2026-10-16 |
-| 8 | GM: ▶ to the GM turn; Roll d6 | Big result: dice, "= total", "Clock 20 → 12"; a 6 rolls again and adds; "Roll d6 (loud noise)" after | Pass 2026-10-16 |
+| 8 | GM: ▶ to the GM turn; Roll d6 | Big result: dice, "= total", "Clock 20 → 12"; a 6 rolls again and adds; no roll button after | Pass 2026-10-16 |
 | 9 | GM: In darkness; roll | The die is a d8 | Pass 2026-10-16 |
 | 10 | GM: get the clock to 5 or lower | Amber omen reminder (roll your encounter table now and telegraph it); no button | Pass 2026-10-16 |
 | 11 | GM: roll past 0 (e.g. clock 3, roll 5) | "the clock hits 0. Encounter! Next clock: 18." | Pass 2026-10-16 |
