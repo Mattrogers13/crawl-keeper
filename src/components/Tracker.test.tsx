@@ -461,15 +461,18 @@ describe("Tracker (GM)", () => {
     expect(saved().current).toBe("a");
   });
 
-  it("R rolls the encounter check only when one is due", async () => {
+  it("the roll button is always there, lit only when a roll is due on the GM's turn; R presses it", async () => {
     scene([{ id: GM_ENTRY }], GM_ENTRY, 1, { crawl: { crawlRounds: 1 } });
     render(<App />);
-    await screen.findByRole("region", { name: "Encounter checks" });
-    fireEvent.keyDown(document.body, { key: "r" });
-    expect(saved().crawl.last).toBeNull();
-    await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), crawl: { crawlRounds: 3 } } });
+    const card = await screen.findByRole("region", { name: "Encounter checks" });
+    const roll = within(card).getByRole("button", { name: "Roll check (d6)" });
+    expect(roll).not.toHaveClass("bg-obr-primary");
     fireEvent.keyDown(document.body, { key: "r" });
     await waitFor(() => expect(saved().crawl.last?.kind).toBe("check"));
+    // In combat the card (and R) are gone.
+    await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), phase: "combat", crawl: { crawlRounds: 3 } } });
+    fireEvent.keyDown(document.body, { key: "r" });
+    expect(saved().crawl.last).toBeNull();
   });
 
   it("Reset rounds and Remove monsters sit below the list, not by ◀ ▶", async () => {
@@ -517,7 +520,7 @@ describe("Tracker (GM)", () => {
       fireEvent.click(within(card).getByText("Roll d6"));
       await waitFor(() => expect(saved().crawl.last?.kind).toBe("clock"));
       expect(saved().crawl.clock).toBeLessThan(20);
-      expect(within(card).queryByRole("button", { name: /^Roll/ })).not.toBeInTheDocument();
+      expect(within(card).getByRole("button", { name: "Roll d6" })).not.toHaveClass("bg-obr-primary");
       expect(within(card).getByLabelText("Last roll")).toHaveTextContent(/Clock 20 → \d+|Encounter!/);
     });
 

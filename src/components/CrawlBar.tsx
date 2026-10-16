@@ -22,7 +22,7 @@ import {
 
 // The GM's encounter checks or Crawling Clock, in the top bar while
 // crawling (it stays in view as the list scrolls). It lights up and asks for
-// the roll on the GM's turn when one is due; the roll button only shows then.
+// the roll on the GM's turn when one is due; the roll button is always there.
 const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; change: (fn: (c: Crawl) => Crawl) => void }) => {
   const { crawl, mode, change } = props;
   const [askingReset, setAskingReset] = useState(false);
@@ -76,14 +76,10 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
               ))}
             </div>
           )}
-          {isDue && (
-            <PillButton
-              primary={callForRoll}
-              onClick={() => change((c) => (clock ? rollClock(c, cryptoRand) : rollCheck(c, cryptoRand)))}
-            >
-              {clock ? `Roll d${crawlDie(crawl)}` : "Roll check (d6)"}
-            </PillButton>
-          )}
+          {/* Always here (an extra roll when the GM wants one); lit when one is due on the GM's turn. */}
+          <PillButton primary={callForRoll} onClick={() => change((c) => (clock ? rollClock(c, cryptoRand) : rollCheck(c, cryptoRand)))}>
+            {clock ? `Roll d${crawlDie(crawl)}` : "Roll check (d6)"}
+          </PillButton>
           <label className="flex items-center gap-1.5 text-xs text-obr-text-secondary">
             <input type="checkbox" checked={crawl.dark} onChange={(e) => change((c) => setDark(c, e.target.checked))} />
             Darkness · {clock ? "d8" : "every round"}
@@ -147,50 +143,48 @@ const EDGES = [
   .join(" ");
 
 // The clock as a ring that empties as it runs down, around a d20 showing
-// what's left. `size` in px; the small one (players' view) is the ring only.
+// what's left. Drawn on a 76-unit grid and scaled to `size` px; small dials
+// (the players' view) get a bolder ring and number so they still read.
 export const ClockDial = ({ value, size = 76 }: { value: number; size?: number }) => {
-  const small = size < 40;
-  const stroke = small ? 3 : 5;
-  const r = size / 2 - stroke / 2 - (small ? 0 : 1);
+  const small = size < 60;
+  const stroke = small ? 7 : 5;
+  const r = 38 - stroke / 2 - 1;
   const length = 2 * Math.PI * r;
   const filled = (Math.max(0, Math.min(value, CLOCK_START)) / CLOCK_START) * length;
+  const line = small ? 1.8 : 1.2;
   return (
-    <div className="shrink-0" style={{ width: size, height: size }}>
-      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} {...(small ? { "aria-hidden": true } : { role: "img", "aria-label": `Clock ${value} of ${CLOCK_START}` })}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-obr-text/15" />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={`${filled} ${length}`}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          className={value <= 5 ? "stroke-amber-500" : "stroke-obr-primary"}
-        />
-        {!small && (
-          <g strokeLinejoin="round">
-            <path d={path(HEX)} strokeWidth="1.2" className="fill-obr-text/5 stroke-obr-text/45" />
-            <path d={EDGES} strokeWidth="1" className="stroke-obr-text/25" />
-            <path d={path(FACE)} fill="none" strokeWidth="1.2" className="stroke-obr-text/45" />
-            {/* Outlined in the card's color so the die's edges don't cut through it. */}
-            <text
-              x="38"
-              y={38 + 0.16 * D20_R + 5}
-              textAnchor="middle"
-              fontSize="16"
-              fontWeight="700"
-              strokeWidth="3"
-              paintOrder="stroke"
-              className="fill-obr-text stroke-obr-bg tabular-nums"
-            >
-              {value}
-            </text>
-          </g>
-        )}
-      </svg>
-    </div>
+    <svg viewBox="0 0 76 76" width={size} height={size} className="shrink-0" role="img" aria-label={`Clock ${value} of ${CLOCK_START}`}>
+      <circle cx="38" cy="38" r={r} fill="none" strokeWidth={stroke} className="stroke-obr-text/15" />
+      <circle
+        cx="38"
+        cy="38"
+        r={r}
+        fill="none"
+        strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeDasharray={`${filled} ${length}`}
+        transform="rotate(-90 38 38)"
+        className={value <= 5 ? "stroke-amber-500" : "stroke-obr-primary"}
+      />
+      <g strokeLinejoin="round">
+        <path d={path(HEX)} strokeWidth={line} className="fill-obr-text/5 stroke-obr-text/45" />
+        <path d={EDGES} strokeWidth={line * 0.8} className="stroke-obr-text/25" />
+        <path d={path(FACE)} fill="none" strokeWidth={line} className="stroke-obr-text/45" />
+        {/* Outlined in the card's color so the die's edges don't cut through it. */}
+        <text
+          x="38"
+          y={38 + 0.16 * D20_R + (small ? 7 : 5)}
+          textAnchor="middle"
+          fontSize={small ? 22 : 16}
+          fontWeight="700"
+          strokeWidth={small ? 4 : 3}
+          paintOrder="stroke"
+          className="fill-obr-text stroke-obr-bg tabular-nums"
+        >
+          {value}
+        </text>
+      </g>
+    </svg>
   );
 };
 

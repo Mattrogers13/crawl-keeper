@@ -25,7 +25,7 @@ import { CSS } from "@dnd-kit/utilities";
 
 import Confirm from "./Confirm";
 import CrawlBar, { ClockDial } from "./CrawlBar";
-import { cryptoRand, due, rollCheck, rollClock } from "../crawl";
+import { cryptoRand, rollCheck, rollClock } from "../crawl";
 import Loading from "./Loading";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
@@ -122,7 +122,7 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
   }, [gmReady, items, docValue, writeDoc, settings.value]);
 
   // The GM's hotkeys while the panel has focus (Owlbear keeps keys typed on
-  // the map): N next turn, B back, R the encounter roll when due. Not while
+  // the map): N next turn, B back, R the encounter roll. Not while
   // typing, and not with Cmd / Ctrl / Alt (the browser's own shortcuts).
   const hotkeys = useRef<Record<string, () => void>>({});
   useEffect(() => {
@@ -191,9 +191,9 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
   hotkeys.current = {
     n: goNext,
     b: () => change(previous),
+    // The card's roll button (always there while crawling).
     r: () => {
-      if (!combat && due(tracker.crawl, mode))
-        change((t) => updateCrawl(t, (c) => (mode === "clock" ? rollClock(c, cryptoRand) : rollCheck(c, cryptoRand))));
+      if (!combat) change((t) => updateCrawl(t, (c) => (mode === "clock" ? rollClock(c, cryptoRand) : rollCheck(c, cryptoRand))));
     },
   };
   const drop = ({ active, over }: DragEndEvent) => {
@@ -249,12 +249,8 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
           </span>
         )}
         {showClock && (
-          <span
-            className="ml-auto flex h-8 items-center gap-2 rounded-full bg-obr-bg px-3 text-sm text-obr-text-secondary"
-            title="Crawling Clock"
-          >
-            <ClockDial value={tracker.crawl.clock} size={18} />
-            Clock <span className="font-bold text-obr-text tabular-nums">{tracker.crawl.clock}</span>
+          <span className="ml-auto flex items-center gap-2 text-sm text-obr-text-secondary" title="Crawling Clock">
+            Clock <ClockDial value={tracker.crawl.clock} size={44} />
           </span>
         )}
         {gm && (
