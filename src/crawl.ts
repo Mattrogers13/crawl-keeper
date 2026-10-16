@@ -11,7 +11,8 @@
 // crawling die (d6, d8 in darkness), rolling again and adding while it shows
 // its max (capped at 10 dice), and takes it off the clock. At 0 or below: an
 // encounter, and the overflow carries into the next clock (20 minus it).
-// At 1 to 5: an omen; the GM may roll the encounter early.
+// At 1 to 5: an omen. The GM may roll on the encounter table now to know
+// what's coming and telegraph it; the encounter still happens at 0.
 
 export type Danger = "unsafe" | "risky" | "deadly";
 export type EncounterMode = "standard" | "clock";
@@ -21,9 +22,8 @@ const MAX_DICE = 10;
 const CADENCE: Record<Danger, number> = { unsafe: 3, risky: 2, deadly: 1 };
 
 export type CrawlRoll = {
-  // check: a 1-in-6 check; clock: the crawling die; early: the GM rolled the
-  // encounter at an omen.
-  kind: "check" | "clock" | "early";
+  // check: a 1-in-6 check; clock: the crawling die.
+  kind: "check" | "clock";
   dice: number[];
   sides: number;
   // The clock before and after (clock rolls).
@@ -69,9 +69,8 @@ const parseRoll = (raw: unknown): CrawlRoll | null => {
   if (!isObject(raw) || !Array.isArray(raw.dice)) return null;
   const sides = raw.sides === 8 ? 8 : 6;
   const dice = raw.dice.filter((d): d is number => typeof d === "number" && Number.isInteger(d) && d >= 1 && d <= sides).slice(0, MAX_DICE);
-  const kind = raw.kind === "clock" || raw.kind === "early" ? raw.kind : "check";
-  // An encounter rolled early has no dice; any other roll has some.
-  if (dice.length === 0 && kind !== "early") return null;
+  if (dice.length === 0) return null;
+  const kind = raw.kind === "clock" ? "clock" : "check";
   return {
     kind,
     dice,
@@ -161,16 +160,10 @@ export const rollClock = (c: Crawl, rand: Rand): Crawl => {
   };
 };
 
-// The clock is low (1 to 5): the GM may roll the encounter early.
+// The clock is low (1 to 5): an omen (sheet: "Spoors and Omens"). The GM
+// may roll the encounter on their table now and telegraph it; it still
+// happens when the clock hits 0. (v0.2's encounter roller can do that roll.)
 export const omen = (c: Crawl) => c.clock <= 5;
-
-// The GM rolls the encounter at an omen: it happens now; a fresh clock.
-export const encounterNow = (c: Crawl): Crawl => ({
-  ...c,
-  clock: CLOCK_START,
-  last: { kind: "early", dice: [], sides: 6, before: c.clock, after: CLOCK_START, encounter: true },
-  undo: snapshot(c),
-});
 
 // Back to crawling after a fight: a fresh clock, unless the clock's own
 // encounter already started one (keeping its carry-over). The last result

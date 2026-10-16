@@ -6,7 +6,6 @@ import {
   cryptoRand,
   crawlDie,
   due,
-  encounterNow,
   omen,
   resetClock,
   rollCheck,
@@ -86,7 +85,6 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
             {isDue ? "Roll check (d6)" : "Check now (loud noise)"}
           </BarButton>
         )}
-        {mode === "clock" && omen(crawl) && <BarButton onClick={() => change(encounterNow)}>Roll the encounter now</BarButton>}
         <span className="text-xs text-obr-text-secondary" role="status">
           {mode === "clock"
             ? isDue
@@ -117,7 +115,10 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
 
       {crawl.last && <LastRoll roll={crawl.last} />}
       {mode === "clock" && omen(crawl) && !crawl.last?.encounter && (
-        <p className="text-xs font-medium text-amber-500">Omen: the clock is low. Telegraph what's coming, or roll the encounter now.</p>
+        <p className="text-xs font-medium text-amber-500">
+          Omen: the clock is at {crawl.clock}. You may roll the encounter on your table now and telegraph it; it still
+          hits when the clock reaches 0.
+        </p>
       )}
     </section>
   );
@@ -127,9 +128,7 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
 const LastRoll = ({ roll }: { roll: CrawlRoll }) => {
   const total = roll.dice.reduce((a, b) => a + b, 0);
   const outcome =
-    roll.kind === "early"
-      ? `Encounter! New clock: ${roll.after}`
-      : roll.kind === "check"
+    roll.kind === "check"
         ? roll.encounter
           ? "Encounter!"
           : "No encounter"

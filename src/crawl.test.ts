@@ -9,7 +9,6 @@ import {
   cryptoRand,
   due,
   emptyCrawl,
-  encounterNow,
   omen,
   parseCrawl,
   resetClock,
@@ -48,9 +47,8 @@ describe("parseCrawl", () => {
     expect(parseCrawl({ last: { dice: [] } }).last).toBeNull();
   });
 
-  it("keeps an encounter rolled early (it has no dice)", () => {
-    const early = encounterNow(crawl({ clock: 4 }));
-    expect(parseCrawl(JSON.parse(JSON.stringify(early))).last).toEqual(early.last);
+  it("an old 'rolled early' result (no dice) is dropped", () => {
+    expect(parseCrawl({ last: { kind: "early", dice: [], before: 4, after: 20, encounter: true } }).last).toBeNull();
   });
 });
 
@@ -105,10 +103,9 @@ describe("Crawling Clock", () => {
     expect(rollClock(crawl({ clock: 3 }), dice(6, 5))).toMatchObject({ clock: 18, last: { encounter: true, before: 3, after: 18 } });
   });
 
-  it("omens at 5 or lower; rolling the encounter early starts a fresh clock", () => {
+  it("omens at 5 or lower", () => {
     expect(omen(crawl({ clock: 6 }))).toBe(false);
     expect(omen(crawl({ clock: 5 }))).toBe(true);
-    expect(encounterNow(crawl({ clock: 4 }))).toMatchObject({ clock: 20, last: { kind: "early", before: 4, encounter: true } });
   });
 
   it("back from combat: a fresh clock, unless the clock's encounter already started one", () => {

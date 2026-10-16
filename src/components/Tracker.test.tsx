@@ -431,6 +431,15 @@ describe("Tracker (GM)", () => {
       expect(within(card).getByLabelText("Last roll")).toHaveTextContent(/Clock 20 → \d+|Encounter!/);
     });
 
+    it("clock: an omen at 5 or lower is a reminder, not a roll", async () => {
+      obr.metadata = { [SETTINGS_KEY]: { encounterMode: "clock" } };
+      scene([{ id: GM_ENTRY }], null, 0, { crawl: { clock: 4 } });
+      render(<App />);
+      const card = await screen.findByRole("region", { name: "Crawling Clock" });
+      expect(within(card).getByText(/Omen: the clock is at 4/)).toBeInTheDocument();
+      expect(within(card).queryByText("Roll the encounter now")).not.toBeInTheDocument();
+    });
+
     it("clock: Reset clock asks first; right-clicking the clock asks too", async () => {
       obr.metadata = { [SETTINGS_KEY]: { encounterMode: "clock" } };
       scene([{ id: GM_ENTRY }], null, 0, { crawl: { clock: 7 } });
