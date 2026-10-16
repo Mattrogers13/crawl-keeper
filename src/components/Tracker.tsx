@@ -59,8 +59,8 @@ import {
   setNote,
   setRoll,
   sortByRoll,
-  backToCrawl,
   toCombat,
+  toCrawl,
   updateCrawl,
   type Entry,
   type Tracker as TrackerDoc,
@@ -221,7 +221,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
               type="button"
               aria-pressed={!combat}
               className={`h-8 rounded-full px-4 ${combat ? "hover:bg-obr-text/10" : "bg-obr-primary text-obr-primary-contrast"}`}
-              onClick={() => change((t) => backToCrawl(t, settings.value.encounterMode))}
+              onClick={() => change(toCrawl)}
             >
               Crawl
             </button>

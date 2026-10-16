@@ -562,6 +562,15 @@ describe("Tracker (GM)", () => {
       expect(within(card).getByLabelText("Last roll")).toHaveTextContent(/Clock 20 → \d+|Encounter!/);
     });
 
+    it("clock: a fight (keyed or not) leaves the clock where it was", async () => {
+      obr.metadata = { [SETTINGS_KEY]: { encounterMode: "clock" } };
+      scene([{ id: GM_ENTRY }], null, 0, { phase: "combat", crawl: { clock: 9 } });
+      render(<App />);
+      fireEvent.click(await screen.findByRole("button", { name: "Crawl" }));
+      await waitFor(() => expect(saved().phase).toBe("crawl"));
+      expect(saved().crawl.clock).toBe(9);
+    });
+
     it("before the first crawl round the status says so (not 'Rolled')", async () => {
       obr.metadata = { [SETTINGS_KEY]: { encounterMode: "clock" } };
       scene([{ id: GM_ENTRY }]);
