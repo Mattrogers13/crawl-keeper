@@ -286,6 +286,33 @@ describe("Tracker (GM)", () => {
     expect(OBR.scene.setMetadata).toHaveBeenCalledTimes(1);
   });
 
+  it("a failed save of a deleted current token leaves the ring where it was", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }], "a", 1);
+    render(<App />);
+    await screen.findByText("Aria");
+    obr.failWrites = true;
+    await setItems([token("b", { name: "Borin" })]);
+    await waitFor(() => expect(OBR.scene.setMetadata).toHaveBeenCalledTimes(1));
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+    expect(obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefined)).toEqual([]);
+  });
+
+  it("a token deleted, brought back and deleted again is dropped again", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
+    render(<App />);
+    await screen.findByText("Aria");
+    await setItems([token("b", { name: "Borin" })]);
+    await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["b", GM_ENTRY]));
+    // Ctrl+Z on the map, then Add Initiative again.
+    await setItems([token("a", { name: "Aria" }), token("b", { name: "Borin" })]);
+    await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), entries: [{ id: "a" }, ...saved().entries] } });
+    await screen.findByText("Aria");
+    await setItems([token("b", { name: "Borin" })]);
+    await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["b", GM_ENTRY]));
+  });
+
   it("a gold dot shows which tokens get the turn marker (GM only)", async () => {
     obr.items = [token("p", { name: "Aria" }), token("m", { name: "Goblin" })];
     scene([{ id: "p" }, { id: GM_ENTRY }, { id: "m", monster: true }]);

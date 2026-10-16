@@ -98,7 +98,8 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
   // no co-GM): the same GM with the panel open twice could end up with two
   // rings until the next turn tidies them.
   const gmReady = role === "GM" && settings.loaded && doc.loaded && items !== null;
-  // The last pruned tracker written: a failed write isn't retried in a loop.
+  // The last pruned tracker that failed to save: it isn't retried in a loop
+  // (the failed write reverts the doc, which would prune it again).
   const lastPrune = useRef("");
   const { value: docValue, write: writeDoc } = doc;
   useEffect(() => {
@@ -109,8 +110,11 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
     const json = JSON.stringify(pruned);
     if (json === lastPrune.current) return;
     lastPrune.current = json;
-    void writeDoc(pruned);
-    void afterTurnChange(docValue, pruned, settings.value);
+    void writeDoc(pruned).then((saved) => {
+      if (!saved) return;
+      lastPrune.current = "";
+      return afterTurnChange(docValue, pruned, settings.value);
+    });
   }, [gmReady, items, docValue, writeDoc, settings.value]);
 
   if (!settings.loaded || !doc.loaded || items === null) return <Loading />;
@@ -121,13 +125,15 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
   const gm = role === "GM";
 
   // Every GM edit: apply a pure change and save it if anything changed. A
-  // new turn also moves the marker and the selection (GM clicks only; see
-  // marker.ts).
+  // new turn also moves the marker and the selection once it's saved (GM
+  // clicks only; see marker.ts). A failed save reverts the doc and leaves the
+  // marker where it was.
   const change = (fn: (t: TrackerDoc) => TrackerDoc) => {
     const updated = fn(tracker);
     if (updated === doc.value) return;
-    void doc.write(updated);
-    void afterTurnChange(tracker, updated, settings.value);
+    void doc.write(updated).then((saved) => {
+      if (saved) return afterTurnChange(tracker, updated, settings.value);
+    });
   };
 
   const { entries: shown, current } = gm

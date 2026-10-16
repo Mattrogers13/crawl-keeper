@@ -39,6 +39,13 @@ describe("background: Add / Remove Initiative", () => {
     expect(OBR.notification.show).toHaveBeenCalledWith(expect.stringContaining("2 tokens not added"), "WARNING");
   });
 
+  it("a failed save doesn't also claim the tokens that fit were added", async () => {
+    obr.sceneMetadata = { [TRACKER_KEY]: { entries: Array.from({ length: 38 }, (_, i) => ({ id: `t${i}` })) } };
+    obr.failWrites = true;
+    await expect(toggleInitiative(["x", "y", "z"])).rejects.toThrow();
+    expect(OBR.notification.show).not.toHaveBeenCalledWith(expect.stringContaining("not added"), "WARNING");
+  });
+
   it("registers one GM-only menu item on character and mount images", async () => {
     await createMenu();
     const menus = vi.mocked(OBR.contextMenu.create).mock.calls.map((c) => c[0]);

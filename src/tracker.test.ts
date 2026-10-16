@@ -94,9 +94,12 @@ describe("parseTracker", () => {
     expect(parseTracker({ entries: [], phase: "nope" }).phase).toBe("crawl");
   });
 
-  it("a saved monster turn is dropped while crawling (monsters take no crawl turns)", () => {
+  it("a saved monster turn while crawling goes to the GM row (it covers the monsters), keeping the round", () => {
     const raw = { entries: [{ id: GM_ENTRY }, { id: "m", monster: true }], current: "m", round: 2 };
-    expect(parseTracker(raw).current).toBeNull();
+    const t = parseTracker(raw);
+    expect([t.current, t.round]).toEqual([GM_ENTRY, 2]);
+    // ▶ carries on through round 2 instead of starting round 3.
+    expect(next(t)).toMatchObject({ round: 3, crawl: { crawlRounds: 1 } });
     expect(parseTracker({ ...raw, phase: "combat" }).current).toBe("m");
   });
 
@@ -104,14 +107,23 @@ describe("parseTracker", () => {
     expect(parseTracker({ entries: [{ id: "a" }], phase: "combat", current: "a", round: 0 }).current).toBeNull();
   });
 
-  it("keeps dead only as true, never on the GM row, and drops a dead current turn", () => {
+  it("keeps dead only as true, never on the GM row, and passes a dead current turn on", () => {
     const t = parseTracker({
       entries: [{ id: "a", dead: true }, { id: "b", dead: "yes" }, { id: GM_ENTRY, dead: true }],
       current: "a",
       round: 2,
     });
     expect(t.entries.map((e) => e.dead)).toEqual([true, false, false]);
-    expect([t.current, t.round]).toEqual([null, 2]);
+    expect([t.current, t.round]).toEqual(["b", 2]);
+  });
+
+  it("a saved turn for an entry that isn't tracked is dropped", () => {
+    expect(parseTracker({ entries: [{ id: "a" }], current: "gone", round: 2 }).current).toBeNull();
+  });
+
+  it("counts clamp at the cap instead of resetting", () => {
+    expect(parseTracker({ entries: [], round: 12345 }).round).toBe(9999);
+    expect(parseTracker({ entries: [], crawl: { crawlRounds: 12345 } }).crawl.crawlRounds).toBe(9999);
   });
 });
 
