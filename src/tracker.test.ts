@@ -85,38 +85,31 @@ describe("parseTracker", () => {
 });
 
 describe("turn order", () => {
-  it("d20: the list is the order", () => {
-    expect(ids(turnOrder(tracker({ a: 3, b: 18, gm: 10 }), "d20"))).toEqual(["a", "b", "gm"]);
+  it("the list is the order", () => {
+    expect(ids(turnOrder(tracker({ a: 3, b: 18, gm: 10 })))).toEqual(["a", "b", "gm"]);
   });
 
-  it("table: highest roll starts, then round the seating", () => {
-    expect(ids(turnOrder(tracker({ a: 3, b: 18, gm: 10, c: 5 }), "table"))).toEqual(["b", "gm", "c", "a"]);
-  });
 
-  it("table: ties go to the earlier seat; no rolls start at seat one", () => {
-    expect(ids(turnOrder(tracker({ a: 3, b: 18, gm: 18 }), "table"))).toEqual(["b", "gm", "a"]);
-    expect(ids(turnOrder(tracker({ a: null, b: null }), "table"))).toEqual(["a", "b"]);
-  });
 
   it("next advances and the round ticks when the order wraps", () => {
-    let t = start(tracker({ a: 3, b: 18, gm: 10 }), "table");
-    expect([t.current, t.round]).toEqual(["b", 1]);
-    t = next(t, "table");
-    expect(t.current).toBe("gm");
-    t = next(next(t, "table"), "table");
-    expect([t.current, t.round]).toEqual(["b", 2]);
+    let t = start(tracker({ a: 3, b: 18, gm: 10 }));
+    expect([t.current, t.round]).toEqual(["a", 1]);
+    t = next(t);
+    expect(t.current).toBe("b");
+    t = next(next(t));
+    expect([t.current, t.round]).toEqual(["a", 2]);
   });
 
   it("next on a stopped tracker starts it", () => {
-    expect(next(tracker({ a: 1, gm: 2 }), "d20")).toMatchObject({ current: "a", round: 1 });
+    expect(next(tracker({ a: 1, gm: 2 }))).toMatchObject({ current: "a", round: 1 });
   });
 
   it("previous steps back across rounds but not before round 1", () => {
-    let t = start(tracker({ a: 1, gm: 2 }), "d20");
-    expect(previous(t, "d20")).toBe(t);
-    t = next(next(t, "d20"), "d20");
+    let t = start(tracker({ a: 1, gm: 2 }));
+    expect(previous(t)).toBe(t);
+    t = next(next(t));
     expect([t.current, t.round]).toEqual(["a", 2]);
-    t = previous(t, "d20");
+    t = previous(t);
     expect([t.current, t.round]).toEqual(["gm", 1]);
   });
 });
@@ -124,26 +117,24 @@ describe("turn order", () => {
 describe("dead", () => {
   it("dead entries keep their seat but get no turns", () => {
     const t = tracker({ a: 3, b: 18, gm: 10, c: 5 }, null, 0, ["b"]);
-    expect(ids(turnOrder(t, "d20"))).toEqual(["a", "gm", "c"]);
-    // b had the highest roll; the next-highest living seat starts.
-    expect(ids(turnOrder(t, "table"))).toEqual(["gm", "c", "a"]);
+    expect(ids(turnOrder(t))).toEqual(["a", "gm", "c"]);
     expect(ids(t.entries)).toEqual(["a", "b", "gm", "c"]);
   });
 
   it("killing the current entry passes the turn; reviving gives turns back", () => {
     let t = tracker({ a: 1, b: 2, gm: 3 }, "b", 2);
-    t = setDead(t, "b", true, "d20");
+    t = setDead(t, "b", true);
     expect([t.current, t.round]).toEqual(["gm", 2]);
-    expect(next(t, "d20")).toMatchObject({ current: "a", round: 3 });
-    t = setDead(t, "b", false, "d20");
-    expect(next(next(t, "d20"), "d20").current).toBe("b");
+    expect(next(t)).toMatchObject({ current: "a", round: 3 });
+    t = setDead(t, "b", false);
+    expect(next(next(t)).current).toBe("b");
   });
 
   it("the GM row can't die; no-ops keep the object", () => {
     const t = tracker({ a: 1, gm: 2 });
-    expect(setDead(t, GM_ENTRY, true, "d20")).toBe(t);
-    expect(setDead(t, "a", false, "d20")).toBe(t);
-    expect(setDead(t, "missing", true, "d20")).toBe(t);
+    expect(setDead(t, GM_ENTRY, true)).toBe(t);
+    expect(setDead(t, "a", false)).toBe(t);
+    expect(setDead(t, "missing", true)).toBe(t);
   });
 });
 
@@ -157,20 +148,20 @@ describe("editing", () => {
   });
 
   it("removing the current entry passes the turn to whoever was next", () => {
-    const t = remove(tracker({ a: 1, b: 2, gm: 3 }, "b", 2), ["b"], "d20");
+    const t = remove(tracker({ a: 1, b: 2, gm: 3 }, "b", 2), ["b"]);
     expect(ids(t.entries)).toEqual(["a", "gm"]);
     expect([t.current, t.round]).toEqual(["gm", 2]);
   });
 
   it("never removes the GM row", () => {
     const t = tracker({ a: 1, gm: 2 });
-    expect(ids(remove(t, [GM_ENTRY, "a"], "d20").entries)).toEqual([GM_ENTRY]);
+    expect(ids(remove(t, [GM_ENTRY, "a"]).entries)).toEqual([GM_ENTRY]);
   });
 
   it("prune drops tokens that are gone and returns the same object when none are", () => {
     const t = tracker({ a: 1, b: 2, gm: 3 }, "a", 1);
-    expect(prune(t, () => true, "d20")).toBe(t);
-    const p = prune(t, (id) => id !== "a", "d20");
+    expect(prune(t, () => true)).toBe(t);
+    const p = prune(t, (id) => id !== "a");
     expect(ids(p.entries)).toEqual(["b", "gm"]);
     expect(p.current).toBe("b");
   });
@@ -201,9 +192,9 @@ describe("editing", () => {
 describe("toggle (right-click)", () => {
   it("adds when any clicked token is untracked, removes when all are tracked", () => {
     const t = tracker({ a: 1, gm: 2 });
-    expect(ids(toggle(t, ["a", "b"], "d20").entries)).toEqual(["a", "gm", "b"]);
-    expect(ids(toggle(t, ["a"], "d20").entries)).toEqual(["gm"]);
-    expect(toggle(t, [], "d20")).toBe(t);
+    expect(ids(toggle(t, ["a", "b"]).entries)).toEqual(["a", "gm", "b"]);
+    expect(ids(toggle(t, ["a"]).entries)).toEqual(["gm"]);
+    expect(toggle(t, [])).toBe(t);
   });
 });
 
@@ -225,8 +216,9 @@ describe("size", () => {
 
 describe("parseSettings", () => {
   it("defaults anything malformed", () => {
-    expect(parseSettings(undefined)).toEqual({ orderMode: "d20", hideRound: false });
-    expect(parseSettings({ orderMode: "table", hideRound: true })).toEqual({ orderMode: "table", hideRound: true });
-    expect(parseSettings({ orderMode: "chaos", hideRound: "yes" })).toEqual({ orderMode: "d20", hideRound: false });
+    expect(parseSettings(undefined)).toEqual({ hideRound: false });
+    expect(parseSettings({ hideRound: true })).toEqual({ hideRound: true });
+    // Rooms saved while Table order existed keep working.
+    expect(parseSettings({ orderMode: "table", hideRound: "yes" })).toEqual({ hideRound: false });
   });
 });

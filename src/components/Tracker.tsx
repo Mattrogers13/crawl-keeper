@@ -23,7 +23,6 @@ import {
   setRoll,
   sortByRoll,
   stop,
-  turnOrder,
   type Entry,
   type Tracker as TrackerDoc,
 } from "../tracker";
@@ -51,9 +50,8 @@ const Tracker = ({ role }: { role: Role }) => {
   if (!settings.loaded || !doc.loaded || items === null) return <Loading />;
 
   const byId = new Map(items.map((i) => [i.id, i]));
-  const mode = settings.value.orderMode;
   // Tokens deleted from the map drop out. Writes save this pruned version.
-  const tracker = prune(doc.value, (id) => byId.has(id), mode);
+  const tracker = prune(doc.value, (id) => byId.has(id));
   const gm = role === "GM";
 
   // Every GM edit: apply a pure change and save it if anything changed.
@@ -69,7 +67,6 @@ const Tracker = ({ role }: { role: Role }) => {
     ? tracker.entries
     : tracker.entries.filter((e) => e.id === GM_ENTRY || tokenInfo(byId.get(e.id)).visible);
   const current = gm || shown.some((e) => e.id === tracker.current) ? tracker.current : tracker.current && GM_ENTRY;
-  const first = mode === "table" ? turnOrder(tracker, mode)[0]?.id : undefined;
   const roundShown = gm || !settings.value.hideRound;
 
   return (
@@ -83,7 +80,7 @@ const Tracker = ({ role }: { role: Role }) => {
           <div className="ml-auto flex gap-1">
             {tracker.round > 0 && (
               <>
-                <Button label="Previous turn" onClick={() => change((t) => previous(t, mode))}>
+                <Button label="Previous turn" onClick={() => change((t) => previous(t))}>
                   ◀
                 </Button>
                 <Button label="End" onClick={() => change(stop)}>
@@ -91,7 +88,7 @@ const Tracker = ({ role }: { role: Role }) => {
                 </Button>
               </>
             )}
-            <Button label={tracker.round === 0 ? "Start" : "Next turn"} primary onClick={() => change((t) => next(t, mode))}>
+            <Button label={tracker.round === 0 ? "Start" : "Next turn"} primary onClick={() => change((t) => next(t))}>
               {tracker.round === 0 ? "Start" : "▶"}
             </Button>
           </div>
@@ -100,24 +97,9 @@ const Tracker = ({ role }: { role: Role }) => {
 
       {gm && (
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <div role="group" aria-label="Initiative order" className="flex overflow-hidden rounded border border-obr-text-disabled">
-            {(["d20", "table"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                aria-pressed={mode === m}
-                className={`px-2 py-0.5 ${mode === m ? "bg-obr-primary text-obr-primary-contrast" : ""}`}
-                onClick={() => changeSettings({ orderMode: m })}
-              >
-                {m === "d20" ? "d20 order" : "Table order"}
-              </button>
-            ))}
-          </div>
-          {mode === "d20" && (
-            <Button label="Sort by roll" onClick={() => change(sortByRoll)}>
-              <SortIcon />
-            </Button>
-          )}
+          <Button label="Sort by roll" onClick={() => change(sortByRoll)}>
+            <SortIcon />
+          </Button>
           <Button label="Reorder" pressed={reorder} onClick={() => setReorder(!reorder)}>
             ↕
           </Button>
@@ -131,11 +113,6 @@ const Tracker = ({ role }: { role: Role }) => {
           </label>
         </div>
       )}
-      {gm && mode === "table" && (
-        <p className="text-xs text-obr-text-secondary">
-          The list is the seating, clockwise from the top. Use ↕ to seat everyone. Highest roll goes first, then down the list.
-        </p>
-      )}
 
       <ol className="flex flex-col gap-1">
         {shown.map((entry, i) => (
@@ -144,12 +121,10 @@ const Tracker = ({ role }: { role: Role }) => {
             entry={entry}
             token={entry.id === GM_ENTRY ? null : tokenInfo(byId.get(entry.id))}
             current={entry.id === current}
-            first={entry.id === first}
             gm={gm}
             isFirst={i === 0}
             isLast={i === shown.length - 1}
             change={change}
-            mode={mode}
             reorder={reorder}
           />
         ))}
@@ -165,11 +140,9 @@ const Row = (props: {
   entry: Entry;
   token: Token | null;
   current: boolean;
-  first: boolean;
   gm: boolean;
   isFirst: boolean;
   isLast: boolean;
-  mode: Settings["orderMode"];
   reorder: boolean;
   change: (fn: (t: TrackerDoc) => TrackerDoc) => void;
 }) => {
@@ -187,7 +160,6 @@ const Row = (props: {
         <span className={`truncate font-medium ${entry.dead ? "text-obr-text-secondary line-through" : ""}`}>
           {name}
           {entry.dead && <span className="sr-only"> (dead)</span>}
-          {props.first && <span className="ml-1 text-xs text-obr-text-secondary">(first)</span>}
         </span>
         {gm ? (
           <NoteInput key={entry.note} name={name} value={entry.note} save={(n) => change((t) => setNote(t, entry.id, n))} />
@@ -214,11 +186,11 @@ const Row = (props: {
               <RowAction
                 label={`Dead: ${name}`}
                 pressed={entry.dead}
-                onClick={() => change((t) => setDead(t, entry.id, !entry.dead, props.mode))}
+                onClick={() => change((t) => setDead(t, entry.id, !entry.dead))}
               >
                 <SkullIcon className="h-5 w-5" />
               </RowAction>
-              <RowAction label={`Remove ${name}`} onClick={() => change((t) => remove(t, [entry.id], props.mode))}>
+              <RowAction label={`Remove ${name}`} onClick={() => change((t) => remove(t, [entry.id]))}>
                 <CloseIcon />
               </RowAction>
             </>

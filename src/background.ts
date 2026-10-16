@@ -2,18 +2,16 @@
 // Registers the GM's right-click "Add / Remove Initiative" on tokens.
 import OBR from "@owlbear-rodeo/sdk";
 
-import { MENU_ID, SETTINGS_KEY, TRACKER_KEY } from "./constants";
-import { parseSettings } from "./settings";
+import { MENU_ID, TRACKER_KEY } from "./constants";
 import { parseTracker, toggle } from "./tracker";
 import { errorMessage, notify } from "./utils";
 
-// Read both docs fresh at click time, so a click never writes a stale copy.
+// Read the doc fresh at click time, so a click never writes a stale copy.
 // The panel may also be writing; both are the GM's own clicks, so they don't
 // overlap in practice (docs/design.md: GM is the only writer).
 export const toggleInitiative = async (ids: string[]) => {
-  const [scene, room] = await Promise.all([OBR.scene.getMetadata(), OBR.room.getMetadata()]);
-  const tracker = parseTracker(scene[TRACKER_KEY]);
-  const updated = toggle(tracker, ids, parseSettings(room[SETTINGS_KEY]).orderMode);
+  const tracker = parseTracker((await OBR.scene.getMetadata())[TRACKER_KEY]);
+  const updated = toggle(tracker, ids);
   if (updated !== tracker) await OBR.scene.setMetadata({ [TRACKER_KEY]: updated });
 };
 

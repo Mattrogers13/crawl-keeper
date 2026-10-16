@@ -1,11 +1,7 @@
 // The initiative tracker: one document per scene, written only by the GM.
 // Pure functions only (no SDK, no React) so every rule here is unit-tested.
 //
-// `entries` is in list order. What that order means depends on the mode:
-// - d20: the list IS the turn order (the GM sorts it by roll).
-// - table: the list is the seating around the table, clockwise. The highest
-//   roll takes the first turn, then turns go round the seating from there.
-//
+// `entries` is the turn order (the GM sorts it by roll or moves rows).
 // Dead entries stay in the list (so the seating holds) but get no turns.
 
 export const GM_ENTRY = "gm";
@@ -13,8 +9,6 @@ export const MAX_ENTRIES = 40;
 export const NOTE_MAX = 200;
 export const ROLL_MIN = -99;
 export const ROLL_MAX = 99;
-
-export type OrderMode = "d20" | "table";
 
 export type Entry = {
   // An item id, or GM_ENTRY for the built-in GM / Monsters row.
@@ -74,45 +68,35 @@ export const parseTracker = (raw: unknown): Tracker => {
 
 // Entries whose token no longer exists drop out (the GM row always stays).
 // Returns the same object when nothing changed.
-export const prune = (t: Tracker, exists: (id: string) => boolean, mode: OrderMode): Tracker => {
+export const prune = (t: Tracker, exists: (id: string) => boolean): Tracker => {
   const entries = t.entries.filter((e) => e.id === GM_ENTRY || exists(e.id));
   if (entries.length === t.entries.length) return t;
-  return withEntries(t, entries, mode);
+  return withEntries(t, entries);
 };
 
 // The order turns are taken in: living entries only (never empty, the GM row
 // can't die).
-export const turnOrder = (t: Tracker, mode: OrderMode): Entry[] => {
-  const living = t.entries.filter((e) => !e.dead);
-  if (mode === "d20" || living.length === 0) return living;
-  // First highest roll in seating order starts; no rolls at all = seat one.
-  let start = 0;
-  living.forEach((e, i) => {
-    const best = living[start].roll;
-    if (e.roll !== null && (best === null || e.roll > best)) start = i;
-  });
-  return [...living.slice(start), ...living.slice(0, start)];
-};
+export const turnOrder = (t: Tracker): Entry[] => t.entries.filter((e) => !e.dead);
 
-export const start = (t: Tracker, mode: OrderMode): Tracker => ({
+export const start = (t: Tracker): Tracker => ({
   ...t,
-  current: turnOrder(t, mode)[0]?.id ?? null,
+  current: turnOrder(t)[0]?.id ?? null,
   round: 1,
 });
 
 export const stop = (t: Tracker): Tracker => ({ ...t, current: null, round: 0 });
 
-export const next = (t: Tracker, mode: OrderMode): Tracker => {
-  if (t.current === null) return start(t, mode);
-  const order = turnOrder(t, mode);
+export const next = (t: Tracker): Tracker => {
+  if (t.current === null) return start(t);
+  const order = turnOrder(t);
   const i = order.findIndex((e) => e.id === t.current);
   if (i === order.length - 1) return { ...t, current: order[0].id, round: t.round + 1 };
   return { ...t, current: order[i + 1].id };
 };
 
-export const previous = (t: Tracker, mode: OrderMode): Tracker => {
+export const previous = (t: Tracker): Tracker => {
   if (t.current === null) return t;
-  const order = turnOrder(t, mode);
+  const order = turnOrder(t);
   const i = order.findIndex((e) => e.id === t.current);
   if (i > 0) return { ...t, current: order[i - 1].id };
   // Back past the first turn of round 1: nothing to go back to.
@@ -138,21 +122,21 @@ export const add = (t: Tracker, ids: string[]): Tracker => {
   };
 };
 
-export const remove = (t: Tracker, ids: string[], mode: OrderMode): Tracker => {
+export const remove = (t: Tracker, ids: string[]): Tracker => {
   const gone = new Set(ids.filter((id) => id !== GM_ENTRY));
   const entries = t.entries.filter((e) => !gone.has(e.id));
   if (entries.length === t.entries.length) return t;
-  return withEntries(t, entries, mode);
+  return withEntries(t, entries);
 };
 
 // New entry list. If the current entry left the list or died, the turn
 // passes to whoever would have been next (in the old order) and still gets
 // turns.
-const withEntries = (t: Tracker, entries: Entry[], mode: OrderMode): Tracker => {
+const withEntries = (t: Tracker, entries: Entry[]): Tracker => {
   const updated = { ...t, entries };
-  const turns = new Set(turnOrder(updated, mode).map((e) => e.id));
+  const turns = new Set(turnOrder(updated).map((e) => e.id));
   if (t.current === null || turns.has(t.current)) return updated;
-  const order = turnOrder(t, mode);
+  const order = turnOrder(t);
   const i = order.findIndex((e) => e.id === t.current);
   const after = [...order.slice(i + 1), ...order.slice(0, i)].find((e) => turns.has(e.id));
   return { ...updated, current: after?.id ?? null, round: after ? t.round : 0 };
@@ -183,9 +167,9 @@ export const setNote = (t: Tracker, id: string, note: string): Tracker =>
 
 // Dead entries keep their seat but get no turns; killing the current entry
 // passes the turn on. The GM row can't die.
-export const setDead = (t: Tracker, id: string, dead: boolean, mode: OrderMode): Tracker => {
+export const setDead = (t: Tracker, id: string, dead: boolean): Tracker => {
   const entries = id === GM_ENTRY ? null : update(t, id, { dead });
-  return entries ? withEntries(t, entries, mode) : t;
+  return entries ? withEntries(t, entries) : t;
 };
 
 // Move an entry one place up (-1) or down (+1) in the list.
@@ -200,7 +184,7 @@ export const move = (t: Tracker, id: string, by: -1 | 1): Tracker => {
 
 // The right-click "Add / Remove Initiative": if every clicked token is
 // already tracked, remove them; otherwise add the ones that aren't.
-export const toggle = (t: Tracker, ids: string[], mode: OrderMode): Tracker => {
+export const toggle = (t: Tracker, ids: string[]): Tracker => {
   const have = new Set(t.entries.map((e) => e.id));
-  return ids.length > 0 && ids.every((id) => have.has(id)) ? remove(t, ids, mode) : add(t, ids);
+  return ids.length > 0 && ids.every((id) => have.has(id)) ? remove(t, ids) : add(t, ids);
 };

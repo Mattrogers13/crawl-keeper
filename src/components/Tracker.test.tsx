@@ -57,23 +57,11 @@ describe("Tracker (GM)", () => {
     expect(OBR.scene.setMetadata).not.toHaveBeenCalled();
   });
 
-  it("table order: highest roll goes first, then round the seating", async () => {
-    obr.metadata = { [SETTINGS_KEY]: { orderMode: "table" } };
-    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
-    scene([{ id: "a", roll: 4 }, { id: GM_ENTRY, roll: 9 }, { id: "b", roll: 15 }]);
-    render(<App />);
-    fireEvent.click(await screen.findByText("Start"));
-    await waitFor(() => expect(saved().current).toBe("b"));
-    fireEvent.click(screen.getByLabelText("Next turn"));
-    await waitFor(() => expect(saved()).toMatchObject({ current: "a", round: 1 }));
-  });
 
-  it("switches order mode and hides the round in room settings", async () => {
+  it("hides the round in room settings", async () => {
     render(<App />);
-    fireEvent.click(await screen.findByText("Table order"));
-    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ orderMode: "table" }));
-    fireEvent.click(screen.getByLabelText("Hide round"));
-    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ orderMode: "table", hideRound: true }));
+    fireEvent.click(await screen.findByLabelText("Hide round"));
+    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toEqual({ hideRound: true }));
   });
 
   it("drops a token deleted from the map and saves without it on the next edit", async () => {
