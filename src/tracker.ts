@@ -15,7 +15,6 @@ import {
   emptyCrawl,
   parseCrawl,
   resetCrawlRounds,
-  clockAfterCombat,
   rollCheck,
   rollClock,
   rollDie,
@@ -198,13 +197,6 @@ export const previous = (t: Tracker): Tracker => {
   return { ...t, round: t.round - 1, current: order[order.length - 1].id, crawl };
 };
 
-// The GM's Crawl button: back from a fight, the Crawling Clock starts fresh.
-export const backToCrawl = (t: Tracker, mode: EncounterMode): Tracker => {
-  if (t.phase === "crawl") return t;
-  const crawled = toCrawl(t);
-  return mode === "clock" ? { ...crawled, crawl: clockAfterCombat(crawled.crawl) } : crawled;
-};
-
 // The GM's "roll automatically" setting: ▶ onto the GM / Monsters turn in a
 // crawl round with a roll due rolls it (the check or the crawling die), in
 // the same write as the turn. Undo still works.
@@ -367,8 +359,10 @@ export const moveTo = (t: Tracker, id: string, overId: string): Tracker => {
 };
 
 // After a fight: every monster out (the GM row stays).
+// After a fight: the monsters go, and so does their initiative modifier (the
+// next fight's monsters bring their own).
 export const removeMonsters = (t: Tracker): Tracker =>
-  remove(t, t.entries.filter((e) => e.monster).map((e) => e.id));
+  setGmMod(remove(t, t.entries.filter((e) => e.monster).map((e) => e.id)), 0);
 
 // The right-click "Add / Remove Initiative": if every clicked token is
 // already tracked, remove them; otherwise add the ones that aren't.

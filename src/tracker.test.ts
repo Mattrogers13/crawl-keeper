@@ -7,7 +7,6 @@ import {
   add,
   emptyTracker,
   moveTo,
-  backToCrawl,
   next,
   nextWithAutoRoll,
   parseTracker,
@@ -209,13 +208,12 @@ describe("crawl and combat", () => {
     expect(nextWithAutoRoll({ ...t, crawl, current: GM_ENTRY }, "clock", four)).toMatchObject({ current: "b", crawl: { last: null } });
   });
 
-  it("Crawl after combat: a fresh clock in clock mode only; already crawling changes nothing", () => {
+  it("Crawl after combat leaves the clock where it was (sheet: only a new dangerous place or the clock's own encounter reset it)", () => {
     const t = { ...tracker({ a: 1, gm: 2 }), phase: "combat" as const };
     const low = { ...t, crawl: { ...t.crawl, clock: 6 } };
-    expect(backToCrawl(low, "clock")).toMatchObject({ phase: "crawl", crawl: { clock: 20 } });
-    expect(backToCrawl(low, "standard")).toMatchObject({ phase: "crawl", crawl: { clock: 6 } });
+    expect(toCrawl(low)).toMatchObject({ phase: "crawl", crawl: { clock: 6 } });
     const crawling = { ...low, phase: "crawl" as const };
-    expect(backToCrawl(crawling, "clock")).toBe(crawling);
+    expect(toCrawl(crawling)).toBe(crawling);
   });
 
   it("keeps the rolls unless told to clear them", () => {
@@ -522,6 +520,11 @@ describe("GM / Monsters initiative", () => {
     const rolled = rollGmInitiative(t, d20(14));
     expect(rolled.entries.find((e) => e.id === GM_ENTRY)?.roll).toBe(16);
     expect(rollGmInitiative(setGmMod(t, -3), d20(1)).entries.find((e) => e.id === GM_ENTRY)?.roll).toBe(-2);
+  });
+
+  it("Remove monsters clears their modifier too", () => {
+    const t = setGmMod(tracker({ [GM_ENTRY]: null, m1: null }), 2);
+    expect(removeMonsters(t)).toMatchObject({ gmMod: 0 });
   });
 
   it("the modifier stays in range and saves with the map", () => {
