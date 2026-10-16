@@ -121,6 +121,20 @@ describe("Tracker (GM)", () => {
     expect(await screen.findByText(/Press Cmd\+C/)).toBeInTheDocument();
   });
 
+  it("resets the rounds only after the GM confirms", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    scene([{ id: "a", roll: 7 }, { id: GM_ENTRY }], "a", 5);
+    render(<App />);
+    fireEvent.click(await screen.findByText("Reset rounds"));
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(screen.getByText("Round 5")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Reset rounds"));
+    fireEvent.click(screen.getByText("Reset"));
+    await waitFor(() => expect(saved()).toMatchObject({ current: null, round: 0, combatRound: 0 }));
+    expect(saved().entries[0].roll).toBe(7);
+    expect(screen.getByText("Press ▶ to begin")).toBeInTheDocument();
+  });
+
   describe("drag to move", () => {
     afterEach(() => vi.restoreAllMocks());
 

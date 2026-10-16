@@ -30,6 +30,7 @@ import {
   phaseRound,
   previous,
   prune,
+  resetRounds,
   remove,
   setDead,
   setNote,
@@ -136,6 +137,7 @@ const Tracker = ({ role }: { role: Role }) => {
           <Button label="Sort by roll" onClick={() => change(sortByRoll)}>
             <SortIcon />
           </Button>
+          <ResetRounds reset={() => change(resetRounds)} />
         </div>
       )}
 
@@ -163,6 +165,36 @@ const Tracker = ({ role }: { role: Role }) => {
       {gm && tracker.entries.length === 1 && (
         <p className="text-sm text-obr-text-secondary">Right-click a token and choose “Add / Remove Initiative”.</p>
       )}
+    </div>
+  );
+};
+
+// Asks before resetting: a stray click would lose the crawl round count,
+// which the encounter checks run on.
+const ResetRounds = ({ reset }: { reset: () => void }) => {
+  const [asking, setAsking] = useState(false);
+  if (!asking)
+    return (
+      <button type="button" className="ml-auto text-xs text-obr-text-secondary underline hover:text-obr-text" onClick={() => setAsking(true)}>
+        Reset rounds
+      </button>
+    );
+  return (
+    <div role="alertdialog" aria-label="Reset rounds?" className="ml-auto flex items-center gap-1 text-xs">
+      <span>Reset both round counts to 0?</span>
+      <button
+        type="button"
+        className="rounded bg-red-700 px-2 py-0.5 font-medium text-white"
+        onClick={() => {
+          reset();
+          setAsking(false);
+        }}
+      >
+        Reset
+      </button>
+      <button type="button" className="rounded border border-obr-text-disabled px-2 py-0.5" onClick={() => setAsking(false)}>
+        Cancel
+      </button>
     </div>
   );
 };

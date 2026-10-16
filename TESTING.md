@@ -47,3 +47,4 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 | 12 | GM: focus a grip, Space, ↓, Space | Row moves down one | |
 | 13 | GM: gear → Install link → Copy | "Copied" (or the text is selected with a Cmd+C hint); pasted URL is the Dev manifest | |
 | 14 | After removing and re-adding the Dev extension | One toolbar icon; one combat alert per client | |
+| 15 | GM: Reset rounds → Cancel; then Reset rounds → Reset | Cancel changes nothing; Reset puts both counts to 0 and "Press ▶ to begin", rolls and order kept | |

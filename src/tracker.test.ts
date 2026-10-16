@@ -16,6 +16,7 @@ import {
   setNote,
   setRoll,
   sortByRoll,
+  resetRounds,
   toCombat,
   toCrawl,
   toggle,
@@ -154,6 +155,13 @@ describe("crawl and combat", () => {
     t = toCrawl(t);
     expect(ids(t.entries)).toEqual(["b", "gm", "a"]);
     expect(t.entries.map((e) => e.roll)).toEqual([20, 1, null]);
+  });
+
+  it("reset rounds: both counts to 0, no turn; order, rolls and phase stay", () => {
+    const t = { ...toCombat(tracker({ a: 4, gm: 9 }, "a", 6), false), current: "gm", combatRound: 2 };
+    expect(resetRounds(t)).toMatchObject({ phase: "combat", current: null, round: 0, combatRound: 0, entries: t.entries });
+    const fresh = tracker({ a: 1 });
+    expect(resetRounds(fresh)).toBe(fresh);
   });
 
   it("switching to the phase you're in changes nothing", () => {

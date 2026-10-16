@@ -141,6 +141,10 @@ export const toCombat = (t: Tracker, clearRolls: boolean): Tracker => {
   };
 };
 
+// Both round counts back to 0 and no one's turn; order, rolls and phase stay.
+export const resetRounds = (t: Tracker): Tracker =>
+  t.round === 0 && t.combatRound === 0 && t.current === null ? t : { ...t, current: null, round: 0, combatRound: 0 };
+
 // Back to crawling, keeping the combat order and rolls.
 export const toCrawl = (t: Tracker): Tracker =>
   t.phase === "crawl" ? t : { ...t, phase: "crawl", current: null, combatRound: 0 };

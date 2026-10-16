@@ -29,6 +29,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 - Moving rows: the GM drags a row by its grip (≡; mouse, touch, or keyboard: focus the grip, Space, arrows, Space). Players can't.
 - **Dead:** GM toggles ☠ on a token row (not the GM row). Dead rows keep their seat, show a skull badge on the portrait for everyone, and get no turns; killing the current entry passes the turn on.
 - ◀ / ▶ turns. Round increments when the turn wraps.
+- Reset rounds (GM, asks to confirm): both round counts to 0, no one's turn; order, rolls and phase stay.
 - Note under each name: GM edits, everyone sees.
 - Monster HP: cur/max with a damage/heal field, GM-only display.
 - On turn change (from the GM's click, never from a data change event): attach the turn marker (WebP, ATTACHMENT layer) to the current token; attachments inherit visibility and deletion from the parent (believed from SDK types, verify). GM row has no marker. Optional: select the token on the GM's client (setting, default on).
