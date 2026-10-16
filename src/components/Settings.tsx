@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import OBR from "@owlbear-rodeo/sdk";
 
+import ClockRules from "./ClockRules";
 import Loading from "./Loading";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import { useRoomValue } from "../hooks/useRoomValue";
@@ -16,6 +17,10 @@ const Settings = () => {
 
   return (
     <div className="flex flex-col gap-3 text-sm">
+      {/* The extension's homepage (outside Owlbear it's the how-to guide); a new tab. */}
+      <a href={`${window.location.origin}/`} target="_blank" rel="noopener" className="font-medium text-obr-primary underline">
+        How to use Crawl Keeper ↗
+      </a>
       <fieldset className="flex flex-col gap-1">
         <legend>Encounter checks</legend>
         {(
@@ -39,6 +44,14 @@ const Settings = () => {
           </label>
         ))}
       </fieldset>
+      {settings.value.encounterMode === "clock" && (
+        <details className="rounded-lg bg-obr-bg px-3 py-2">
+          <summary className="cursor-pointer font-medium">Crawling Clock rules</summary>
+          <div className="pt-2">
+            <ClockRules />
+          </div>
+        </details>
+      )}
       <Check
         label="Roll automatically on the GM turn"
         hint="When ▶ reaches GM / Monsters in a crawl round and a roll is due, Crawl Keeper rolls it for you. Undo still works."

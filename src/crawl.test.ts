@@ -3,7 +3,6 @@ import { describe, it, expect } from "vitest";
 import {
   CLOCK_START,
   cadence,
-  clockAfterCombat,
   crawlRoundStarted,
   crawlRoundUndone,
   cryptoRand,
@@ -118,25 +117,6 @@ describe("Crawling Clock", () => {
     expect(omen(crawl({ clock: 5 }))).toBe(true);
   });
 
-  it("back from combat: a fresh clock, unless the clock's encounter already started one", () => {
-    expect(clockAfterCombat(crawl({ clock: 9 })).clock).toBe(20);
-    const afterEncounter = rollClock(crawl({ clock: 3 }), dice(6, 5));
-    const back = clockAfterCombat(afterEncounter);
-    expect(back).toMatchObject({ clock: 18, last: afterEncounter.last });
-  });
-
-  it("a second fight before the next roll: a fresh clock (the carry-over is used once)", () => {
-    const once = clockAfterCombat(rollClock(crawl({ clock: 3 }), dice(6, 5)));
-    expect(clockAfterCombat(once).clock).toBe(20);
-    // Saved and read back in between, too.
-    expect(clockAfterCombat(parseCrawl(JSON.parse(JSON.stringify(once)))).clock).toBe(20);
-  });
-
-  it("undoing the clock's encounter roll after the fight puts the clock and carry back", () => {
-    const before = crawl({ clock: 3 });
-    const undone = undoRoll(clockAfterCombat(rollClock(before, dice(6, 5))));
-    expect(undone).toMatchObject({ clock: 3, carry: false, last: null });
-  });
 
   it("an extra check (a loud noise, p. 112) leaves the schedule alone; a due one resets it", () => {
     const early = rollCheck(rounds(crawl({ danger: "unsafe" }), 2), dice(6, 4));
@@ -158,12 +138,6 @@ describe("undo, rounds", () => {
     let c = rollCheck(rounds(crawl({ danger: "unsafe" }), 3), dice(6, 4));
     c = rounds({ ...c, danger: "risky", dark: true }, 3);
     expect(undoRoll(c)).toMatchObject({ danger: "risky", dark: true, crawlRounds: 6, lastCheck: 0, last: null });
-  });
-
-  it("back from combat after a standard check's encounter: still a fresh clock", () => {
-    const c = { ...rollCheck(crawl({ clock: 9 }), dice(6, 1)), clock: 9 };
-    expect(c.last?.encounter).toBe(true);
-    expect(clockAfterCombat(c).clock).toBe(20);
   });
 
   it("one-level undo of the last roll", () => {

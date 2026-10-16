@@ -50,14 +50,11 @@ type CrawlCore = {
   crawlRounds: number;
   lastCheck: number;
   last: CrawlRoll | null;
-  // The clock holds an encounter's carry-over that no fight has used yet:
-  // the next return from combat keeps it instead of starting a fresh clock.
-  carry: boolean;
 };
 
 // What a roll changes, kept for a one-level undo (nothing else: danger,
 // darkness and rounds are the GM's since).
-type Undo = { clock: number; lastCheck: number; carry: boolean };
+type Undo = { clock: number; lastCheck: number };
 
 export type Crawl = CrawlCore & {
   // Undoing clears the result shown.
@@ -71,7 +68,6 @@ export const emptyCrawl = (): Crawl => ({
   crawlRounds: 0,
   lastCheck: 0,
   last: null,
-  carry: false,
   undo: null,
 });
 
@@ -106,13 +102,8 @@ export const parseCrawl = (raw: unknown): Crawl => {
     crawlRounds,
     lastCheck: ahead(crawlRounds, parseCount(raw.lastCheck)),
     last: parseRoll(raw.last),
-    carry: raw.carry === true,
     undo: isObject(raw.undo)
-      ? {
-          clock: parseClock(raw.undo.clock),
-          lastCheck: ahead(crawlRounds, parseCount(raw.undo.lastCheck)),
-          carry: raw.undo.carry === true,
-        }
+      ? { clock: parseClock(raw.undo.clock), lastCheck: ahead(crawlRounds, parseCount(raw.undo.lastCheck)) }
       : null,
   };
 };
@@ -141,7 +132,7 @@ export const due = (c: Crawl, mode: EncounterMode) =>
 // Crawl rounds until the next standard check (0 = due now).
 export const roundsToCheck = (c: Crawl) => Math.max(0, cadence(c) - (c.crawlRounds - c.lastCheck));
 
-const snapshot = (c: Crawl): Undo => ({ clock: c.clock, lastCheck: c.lastCheck, carry: c.carry });
+const snapshot = (c: Crawl): Undo => ({ clock: c.clock, lastCheck: c.lastCheck });
 
 // Standard: roll 1d6, an encounter on 1. A due roll counts as this round's
 // check; an extra one (a loud noise, p. 112: "The GM might also check for an
@@ -172,7 +163,6 @@ export const rollClock = (c: Crawl, rand: Rand): Crawl => {
     clock: after,
     lastCheck: c.crawlRounds,
     last: { kind: "clock", dice, sides, before: c.clock, after, encounter },
-    carry: encounter,
     undo: snapshot(c),
   };
 };
@@ -186,18 +176,12 @@ export const omen = (c: Crawl) => c.clock <= OMEN_AT;
 // The card's roll button (and the R hotkey): the mode's roll.
 export const rollFor = (mode: EncounterMode) => (c: Crawl, rand: Rand) => (mode === "clock" ? rollClock(c, rand) : rollCheck(c, rand));
 
-// Back to crawling after a fight: a fresh clock, unless the clock's own
-// encounter already started one (keeping its carry-over, once: a second
-// fight before the next roll gets a fresh clock). The last result stays on
-// show.
-export const clockAfterCombat = (c: Crawl): Crawl => {
-  if (c.carry) return { ...c, carry: false };
-  return c.clock === CLOCK_START ? c : { ...c, clock: CLOCK_START, undo: null };
-};
-
-// Entering a new dangerous place: a fresh clock.
+// Entering a new dangerous place: a fresh clock (sheet: "The clock begins at
+// 20 when the party enters a dangerous location"). That and the clock's own
+// encounter are the only resets: a fight, keyed or not, leaves the clock
+// where it was (decided 2026-10-16, following the sheet).
 export const resetClock = (c: Crawl): Crawl =>
-  c.clock === CLOCK_START && c.last === null && !c.carry ? c : { ...c, clock: CLOCK_START, last: null, carry: false, undo: snapshot(c) };
+  c.clock === CLOCK_START && c.last === null ? c : { ...c, clock: CLOCK_START, last: null, undo: snapshot(c) };
 
 export const undoRoll = (c: Crawl): Crawl => (c.undo ? { ...c, ...c.undo, last: null, undo: null } : c);
 
