@@ -9,6 +9,7 @@ Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript
 - If `sources/sdk` is missing: `scripts/fetch-sources.sh`. Original ask: `BRIEF.md` (DONE).
 - Installs: live `https://crawl-keeper.editbag.workers.dev/manifest.json`, Dev `https://dev-crawl-keeper.editbag.workers.dev/manifest.json` (`docs/obr/deploy.md`). After a Dev rebuild, reload the Owlbear room: the background page loads once per room.
 - Open: the art in `art/` + `public/img/` (`logo.png`, `action.svg`) is still the starter's placeholder. Tracked tasks: `docs/design.md` "Later".
+- Status (2026-10-16): v0.1 PRs 1–4 merged and room-tested; PR #7 (roll button only when due + code-review fixes) awaits a quick room check, then merge and tag v0.1.0. A design pass is in progress on a Claude Design canvas (two directions, A Owlbear-native and B Shadowdark-flavored, panels + icons); waiting on Matt's pick before building it and the real icon art.
 
 ## Commands
 
@@ -21,6 +22,8 @@ npm run build        # typecheck + vite build
 npx wrangler deploy --dry-run   # validate Cloudflare config
 npx wrangler dev --port 8799    # serve dist/ like production
 scripts/render-png.sh art/x.svg public/img/x.png 256   # SVG → PNG via headless Chrome
+# Dev build live? The bundle carries the commit hash (footer label):
+js=$(curl -s https://dev-crawl-keeper.editbag.workers.dev/ | grep -o 'assets/main-[^"]*\.js' | head -1); curl -s "https://dev-crawl-keeper.editbag.workers.dev/$js" | grep -c "$(git rev-parse --short HEAD)"
 ```
 
 Node 24 (`.node-version`; fnm auto-switches). Non-interactive shells: `eval "$(fnm env --shell zsh)" && fnm use` first.
@@ -37,6 +40,7 @@ Node 24 (`.node-version`; fnm auto-switches). Non-interactive shells: `eval "$(f
 - `src/constants.ts`: extension `ID` (prefixes every metadata key and broadcast channel) and keys. No React imports (background pages use it).
 - `src/storage.ts`: the only way to touch localStorage (it throws in Owlbear's iframe under strict privacy).
 - `src/devManifest.ts` + `vite.config.ts`: non-main Cloudflare builds rename the manifest "(Dev)" and show `DEV · branch · sha` in the footer.
+- Testing drag (dnd-kit) in jsdom: stub `getBoundingClientRect` per row and give the list a tall box, then press Space / arrows / Space with a pause between (`Tracker.test.tsx`, "drag to move").
 - Styling: Owlbear's theme colors as CSS vars (`--obr-*`) → Tailwind classes `bg-obr-paper`, `text-obr-text`, `bg-obr-primary`, etc. (`src/index.css`).
 
 ## Owlbear rules (don't break; details in docs/obr/gotchas.md)
@@ -48,6 +52,7 @@ Node 24 (`.node-version`; fnm auto-switches). Non-interactive shells: `eval "$(f
 - Images drawn on the map (items, attachments) and the manifest icon: never SVG (black square). Raster images are WebP (lossless for icons) except the manifest icon (PNG).
 - Use extensionless URLs for extra pages (`/background`, `/menu`); Cloudflare 307s `.html`.
 - `public/_headers` CORS header is required; don't remove it.
+- Attachments don't inherit their parent's visibility: set it and re-match it (`src/marker.ts`). SDK calls can reject with plain objects: use `errorMessage`. Item syncs from quick clicks race: run them one at a time with a fresh read.
 
 ## Reference
 
@@ -63,6 +68,9 @@ Node 24 (`.node-version`; fnm auto-switches). Non-interactive shells: `eval "$(f
 ## Workflow
 
 - Branch + PR per change; squash-merge after CI and Workers Builds pass. Features needing an Owlbear test stay open until a manual pass (GM + player in a private window).
+- Before asking Matt to test: confirm the Dev bundle has the commit (command above), and remind him to reload the Owlbear room (the background page loads once per room).
+- No prettier/formatter in this repo: don't run one (it rewrites whole files); match the surrounding style by hand.
+- Rules questions: quote the book. `pdftotext -layout "sources/Shadowdark RPG - V4-8.pdf" <scratch>/sd.txt` then grep; the clock rules are `sources/CrawlingClock_Rules.jpeg`. Cite page numbers.
 - Review in Owlbear via the `dev` branch install, not per-PR previews (`docs/obr/deploy.md`).
 - Versions: semver, same value in `package.json` and `public/manifest.json` (a test enforces it).
 - A regression test must fail on the old code (`docs/obr/testing.md`).
