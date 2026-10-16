@@ -23,6 +23,8 @@ import {
   setMarker,
   setMonster,
   resetRounds,
+  rollGmInitiative,
+  setGmMod,
   toCombat,
   toCrawl,
   toggle,
@@ -42,6 +44,7 @@ const tracker = (rolls: Record<string, number | null>, current: string | null = 
   current,
   round,
   crawl: emptyCrawl(),
+  gmMod: 0,
 });
 const ids = (t: { id: string }[]) => t.map((e) => e.id);
 
@@ -507,5 +510,27 @@ describe("parseSettings", () => {
     expect(parseSettings(off)).toEqual(off);
     // Rooms saved while Table order existed keep working.
     expect(parseSettings({ orderMode: "table", hideRound: "yes", clearRollsOnCombat: "no", showMarker: 0 })).toEqual(DEFAULT_SETTINGS);
+  });
+});
+
+describe("GM / Monsters initiative", () => {
+  // rand values pick the face: (face - 0.5) / 20.
+  const d20 = (face: number) => () => (face - 0.5) / 20;
+
+  it("rolls a d20 plus the monsters' modifier into the GM row's roll", () => {
+    const t = setGmMod(tracker({ a: 12, [GM_ENTRY]: null }), 2);
+    const rolled = rollGmInitiative(t, d20(14));
+    expect(rolled.entries.find((e) => e.id === GM_ENTRY)?.roll).toBe(16);
+    expect(rollGmInitiative(setGmMod(t, -3), d20(1)).entries.find((e) => e.id === GM_ENTRY)?.roll).toBe(-2);
+  });
+
+  it("the modifier stays in range and saves with the map", () => {
+    const t = tracker({ [GM_ENTRY]: null });
+    expect(setGmMod(t, 0)).toBe(t);
+    expect(setGmMod(t, 40).gmMod).toBe(9);
+    expect(setGmMod(t, -40).gmMod).toBe(-9);
+    expect(parseTracker({ entries: [], gmMod: 3 }).gmMod).toBe(3);
+    expect(parseTracker({ entries: [], gmMod: 30 }).gmMod).toBe(0);
+    expect(parseTracker({ entries: [], gmMod: "2" }).gmMod).toBe(0);
   });
 });

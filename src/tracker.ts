@@ -18,6 +18,7 @@ import {
   clockAfterCombat,
   rollCheck,
   rollClock,
+  rollDie,
   type Crawl,
   type EncounterMode,
   type Rand,
@@ -35,6 +36,9 @@ export const MAX_ENTRIES = 40;
 export const NOTE_MAX = 200;
 export const ROLL_MIN = -99;
 export const ROLL_MAX = 99;
+// The monsters' initiative modifier: the highest DEX modifier among them.
+export const MOD_MIN = -9;
+export const MOD_MAX = 9;
 
 export type Entry = {
   // An item id, or GM_ENTRY for the built-in GM / Monsters row.
@@ -62,6 +66,9 @@ export type Tracker = {
   round: number;
   // This map's encounter checks / Crawling Clock (crawl.ts).
   crawl: Crawl;
+  // What the GM adds to the GM / Monsters initiative d20 (p. 83: the highest
+  // DEX modifier of any monsters).
+  gmMod: number;
 };
 
 export const emptyTracker = (): Tracker => ({
@@ -70,6 +77,7 @@ export const emptyTracker = (): Tracker => ({
   current: null,
   round: 0,
   crawl: emptyCrawl(),
+  gmMod: 0,
 });
 
 
@@ -108,6 +116,7 @@ export const parseTracker = (raw: unknown): Tracker => {
     current: null,
     round: parseCount(raw.round),
     crawl: parseCrawl(raw.crawl),
+    gmMod: intIn(raw.gmMod, MOD_MIN, MOD_MAX) ?? 0,
   };
   // A turn only exists inside a round, and only for an entry that takes
   // turns now (living; monsters only in combat).
@@ -312,6 +321,16 @@ const edit = (t: Tracker, id: string, change: Partial<Entry>): Tracker => {
 // Monsters have no roll of their own (normalized drops it).
 export const setRoll = (t: Tracker, id: string, roll: number | null): Tracker =>
   edit(t, id, { roll: parseRoll(roll) });
+
+// The monsters' DEX modifier for the GM's initiative roll.
+export const setGmMod = (t: Tracker, mod: number): Tracker => {
+  const gmMod = Math.max(MOD_MIN, Math.min(MOD_MAX, Math.trunc(mod)));
+  return gmMod === t.gmMod ? t : { ...t, gmMod };
+};
+
+// The GM / Monsters initiative: a d20 plus the monsters' modifier (p. 83, 88),
+// saved as the GM row's roll.
+export const rollGmInitiative = (t: Tracker, rand: Rand): Tracker => setRoll(t, GM_ENTRY, rollDie(20, rand) + t.gmMod);
 
 export const setNote = (t: Tracker, id: string, note: string): Tracker =>
   edit(t, id, { note: note.slice(0, NOTE_MAX) });
