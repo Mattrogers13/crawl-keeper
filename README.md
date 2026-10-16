@@ -1,23 +1,15 @@
-# OBR Extension Starter
+# Crawl Keeper
 
-A starter for [Owlbear Rodeo](https://owlbear.rodeo) extensions: React 19, Vite, TypeScript, Tailwind 4, vitest with an in-memory Owlbear SDK, and Cloudflare Workers hosting. It also carries the lessons from building [Torchlight](https://github.com/Mattrogers13/obr-torchlight).
+An [Owlbear Rodeo](https://owlbear.rodeo) extension for running old-school dungeon crawls: an initiative tracker (d20 or table order, with a GM / Monsters row, notes and monster HP), crawling and combat states, and encounter checks or the crawling clock on the GM's turn. The GM runs it; players see a read-only view.
 
-## Use it
+**Status:** in development (v0.1 in progress). The plan is in [`docs/design.md`](docs/design.md).
 
-This is a starting point for Claude Code, not an extension to install.
+Crawl Keeper is an independent project, not affiliated with or endorsed by any game publisher. It contains no rulebook text.
 
-1. Duplicate this folder and give the copy the new extension's name. Keep the master named `obr-extension-starter`: the brief only auto-opens in copies.
-2. Optional: delete the copy's `.git` and `git init` for a clean history.
-3. Start Claude Code in the copy. `BRIEF.md` opens in Sublime Text (or VS Code). Fill it in, set `Status: DONE`, and tell Claude.
-4. Claude asks follow-ups, proposes components, and builds from there (see `CLAUDE.md`).
+## Development
 
-`sources/` (the SDK source) and `node_modules/` come along with the copy. To refresh the SDK: `scripts/fetch-sources.sh`.
+React 19, Vite, TypeScript, Tailwind 4, vitest with an in-memory Owlbear SDK, hosted on Cloudflare Workers. Built from the `obr-extension-starter` template; see `CLAUDE.md` for commands and `docs/obr/` for Owlbear notes.
 
-## What's in it
+## Credits
 
-- A working panel: waits for Owlbear, follows its theme, knows GM vs player, and shares a note through room metadata (the example to replace).
-- Tests for all of the above against `src/test/obrMock.ts`, plus manifest and storage guards.
-- `docs/obr/`: gotchas, patterns, multi-writer sync lessons, testing and deploy guides.
-- CI (GitHub Actions) and Cloudflare Workers config with dev/preview builds.
-
-Coded with AI (Claude Code). MIT licensed.
+Coded by Claude (Anthropic) via Claude Code, directed by Matthew Rogers. MIT licensed.
