@@ -22,19 +22,19 @@ npm run build        # typecheck + vite build
 npx wrangler deploy --dry-run   # validate Cloudflare config
 npx wrangler dev --port 8799    # serve dist/ like production
 scripts/render-png.sh art/x.svg public/img/x.png 256   # SVG → PNG via headless Chrome
-# Dev build live? The bundle carries the commit hash (footer label):
-js=$(curl -s https://dev-crawl-keeper.editbag.workers.dev/ | grep -o 'assets/main-[^"]*\.js' | head -1); curl -s "https://dev-crawl-keeper.editbag.workers.dev/$js" | grep -c "$(git rev-parse --short HEAD)"
+# Dev build live? The bundle carries dev's commit hash (footer label; dev gets merge commits):
+js=$(curl -s https://dev-crawl-keeper.editbag.workers.dev/ | grep -o 'assets/main-[^"]*\.js' | head -1); curl -s "https://dev-crawl-keeper.editbag.workers.dev/$js" | grep -c "$(git rev-parse --short origin/dev)"
 ```
 
 Node 24 (`.node-version`; fnm auto-switches). Non-interactive shells: `eval "$(fnm env --shell zsh)" && fnm use` first.
 
 ## Architecture
 
-- `src/main.tsx`: `OBR.isAvailable` (page has `?obrref`) → `App`, else `Homepage`.
+- `src/main.tsx`: `OBR.isAvailable` (page has `?obrref`) → `App`, else `Homepage` (the public how-to guide; Settings links to it). `ClockRules.tsx` is shared by both.
 - `src/components/App.tsx`: waits for `OBR.onReady`, applies Owlbear's theme (`useObrTheme`), waits for the role (`useRole`), renders `Panel`.
 - `src/hooks/useRoomValue.ts`: one metadata key (`useRoomValue` / `useSceneValue`), parsed on every read, no writes before the first read, failed writes revert. **Single writer per key.**
 - Pure rules (no SDK, no React; unit-tested): `src/tracker.ts` (the scene's tracker doc: entries, turns, phases, rounds), `src/crawl.ts` (checks and the Crawling Clock, stored in the tracker doc), `src/selection.ts` (row selection), `src/parse.ts` (untrusted-data helpers).
-- `components/Tracker.tsx` renders it (row menu, drag, batch selection) and portals `CrawlBar` into the panel header; `Settings.tsx` holds the room settings (`src/settings.ts`). `useSceneReady` remounts the tracker per opened scene.
+- `components/Tracker.tsx` renders it (row menu, drag, batch selection, the GM's N / B / R hotkeys on a window listener) and portals into `Panel`'s two slots: `CrawlBar` under the title, the round count beside it. `Settings.tsx` holds the room settings (`src/settings.ts`). `useSceneReady` remounts the tracker per opened scene.
 - `src/marker.ts`: the turn-marker ring and selecting the current token. Moved only from the GM's clicks via `afterTurnChange` (syncs run one at a time), plus deleting the current token from the map. Ring visibility is matched by hand (attachments don't inherit it).
 - `src/background.ts` (every client, panel open or not): the GM's right-click "Add / Remove Initiative", the combat alert, the GM's ring-visibility fix.
 - `src/constants.ts`: extension `ID` (prefixes every metadata key and broadcast channel) and keys. No React imports (background pages use it).
