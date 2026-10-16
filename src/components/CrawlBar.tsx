@@ -126,17 +126,37 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
   );
 };
 
-// The clock as a ring that empties as it runs down. `size` in px; the small
-// one (players' view) has no "of 20".
+// A d20 seen face-on (the clock starts at 20): a hexagon, the front face,
+// and the edges between them. Drawn for a 76 px dial, centred on 38, 38.
+const D20_R = 24;
+const at = (deg: number, r = D20_R) => [38 + r * Math.cos((deg * Math.PI) / 180), 38 + r * Math.sin((deg * Math.PI) / 180)];
+const HEX = [-90, -30, 30, 90, 150, 210].map((deg) => at(deg));
+const FACE = [
+  [38, 38 - 0.5 * D20_R],
+  [38 + 0.55 * D20_R, 38 + 0.38 * D20_R],
+  [38 - 0.55 * D20_R, 38 + 0.38 * D20_R],
+];
+const path = (points: number[][]) => `M${points.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(" L")}Z`;
+// Each corner of the face joins the three hexagon corners nearest it.
+const EDGES = [
+  [0, 0], [0, 1], [0, 5],
+  [1, 1], [1, 2], [1, 3],
+  [2, 3], [2, 4], [2, 5],
+]
+  .map(([f, h]) => `M${FACE[f].map((n) => n.toFixed(1)).join(" ")} L${HEX[h].map((n) => n.toFixed(1)).join(" ")}`)
+  .join(" ");
+
+// The clock as a ring that empties as it runs down, around a d20 showing
+// what's left. `size` in px; the small one (players' view) is the ring only.
 export const ClockDial = ({ value, size = 76 }: { value: number; size?: number }) => {
   const small = size < 40;
-  const stroke = small ? 3 : 7;
+  const stroke = small ? 3 : 5;
   const r = size / 2 - stroke / 2 - (small ? 0 : 1);
   const length = 2 * Math.PI * r;
   const filled = (Math.max(0, Math.min(value, CLOCK_START)) / CLOCK_START) * length;
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} aria-hidden>
+    <div className="shrink-0" style={{ width: size, height: size }}>
+      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} {...(small ? { "aria-hidden": true } : { role: "img", "aria-label": `Clock ${value} of ${CLOCK_START}` })}>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-obr-text/15" />
         <circle
           cx={size / 2}
@@ -149,13 +169,27 @@ export const ClockDial = ({ value, size = 76 }: { value: number; size?: number }
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
           className={value <= 5 ? "stroke-amber-500" : "stroke-obr-primary"}
         />
+        {!small && (
+          <g strokeLinejoin="round">
+            <path d={path(HEX)} strokeWidth="1.2" className="fill-obr-text/5 stroke-obr-text/45" />
+            <path d={EDGES} strokeWidth="1" className="stroke-obr-text/25" />
+            <path d={path(FACE)} fill="none" strokeWidth="1.2" className="stroke-obr-text/45" />
+            {/* Outlined in the card's color so the die's edges don't cut through it. */}
+            <text
+              x="38"
+              y={38 + 0.16 * D20_R + 5}
+              textAnchor="middle"
+              fontSize="16"
+              fontWeight="700"
+              strokeWidth="3"
+              paintOrder="stroke"
+              className="fill-obr-text stroke-obr-bg tabular-nums"
+            >
+              {value}
+            </text>
+          </g>
+        )}
       </svg>
-      {!small && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl leading-none font-bold tabular-nums">{value}</span>
-          <span className="text-[11px] text-obr-text-secondary">of {CLOCK_START}</span>
-        </div>
-      )}
     </div>
   );
 };

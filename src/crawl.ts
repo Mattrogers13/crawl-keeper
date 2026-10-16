@@ -119,7 +119,7 @@ export const parseCrawl = (raw: unknown): Crawl => {
 
 // A fair die from a random source in [0, 1).
 export type Rand = () => number;
-const roll = (sides: number, rand: Rand) => Math.min(sides, Math.floor(rand() * sides) + 1);
+export const rollDie = (sides: number, rand: Rand) => Math.min(sides, Math.floor(rand() * sides) + 1);
 
 // The browser's crypto, not Math.random. From 32 random bits the bias on a
 // d6 or d8 is under one in 500 million.
@@ -145,7 +145,7 @@ const snapshot = (c: Crawl): Undo => ({ clock: c.clock, lastCheck: c.lastCheck, 
 
 // Standard: roll 1d6, an encounter on 1. Counts as this round's check.
 export const rollCheck = (c: Crawl, rand: Rand): Crawl => {
-  const d = roll(6, rand);
+  const d = rollDie(6, rand);
   return {
     ...c,
     lastCheck: c.crawlRounds,
@@ -158,8 +158,8 @@ export const rollCheck = (c: Crawl, rand: Rand): Crawl => {
 // clock; at 0 or below an encounter and the overflow carries over.
 export const rollClock = (c: Crawl, rand: Rand): Crawl => {
   const sides = crawlDie(c);
-  const dice = [roll(sides, rand)];
-  while (dice[dice.length - 1] === sides && dice.length < MAX_DICE) dice.push(roll(sides, rand));
+  const dice = [rollDie(sides, rand)];
+  while (dice[dice.length - 1] === sides && dice.length < MAX_DICE) dice.push(rollDie(sides, rand));
   const total = dice.reduce((a, b) => a + b, 0);
   const left = c.clock - total;
   const encounter = left <= 0;

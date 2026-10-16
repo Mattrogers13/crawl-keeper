@@ -25,7 +25,7 @@ import { CSS } from "@dnd-kit/utilities";
 
 import Confirm from "./Confirm";
 import CrawlBar, { ClockDial } from "./CrawlBar";
-import { cryptoRand } from "../crawl";
+import { cryptoRand, due, rollCheck, rollClock } from "../crawl";
 import Loading from "./Loading";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
@@ -37,6 +37,8 @@ import { parseSettings } from "../settings";
 import { errorMessage, notify } from "../utils";
 import {
   GM_ENTRY,
+  MOD_MAX,
+  MOD_MIN,
   NOTE_MAX,
   moveTo,
   next,
@@ -48,6 +50,8 @@ import {
   prune,
   removeMonsters,
   resetRounds,
+  rollGmInitiative,
+  setGmMod,
   remove,
   setDead,
   setMarker,
@@ -117,6 +121,25 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
     });
   }, [gmReady, items, docValue, writeDoc, settings.value]);
 
+  // The GM's hotkeys while the panel has focus (Owlbear keeps keys typed on
+  // the map): N next turn, B back, R the encounter roll when due. Not while
+  // typing, and not with Cmd / Ctrl / Alt (the browser's own shortcuts).
+  const hotkeys = useRef<Record<string, () => void>>({});
+  useEffect(() => {
+    if (role !== "GM") return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [role=menu], [role=alertdialog]")) return;
+      const run = hotkeys.current[e.key.toLowerCase()];
+      if (!run) return;
+      e.preventDefault();
+      run();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [role]);
+
   if (!settings.loaded || !doc.loaded || items === null) return <Loading />;
 
   const byId = new Map(items.map((i) => [i.id, i]));
@@ -153,7 +176,7 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
     setPicked(menuTargets(selection, id));
     setMenu({ x, y });
   };
-  const rowProps = { gm, change, show, openMenu, select };
+  const rowProps = { gm, change, show, openMenu, select, gmMod: tracker.gmMod };
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
   const round = tracker.round;
   const roundLabel =
@@ -162,6 +185,17 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
   // Players see the Crawling Clock unless the GM hides it; the GM sees it on the card.
   const showClock = !gm && settings.value.encounterMode === "clock" && !settings.value.hideClock;
   const showDanger = !gm && !combat && settings.value.encounterMode === "standard" && settings.value.showDanger;
+  const goNext = () =>
+    change((t) => (settings.value.autoRoll ? nextWithAutoRoll(t, settings.value.encounterMode, cryptoRand) : next(t)));
+  const mode = settings.value.encounterMode;
+  hotkeys.current = {
+    n: goNext,
+    b: () => change(previous),
+    r: () => {
+      if (!combat && due(tracker.crawl, mode))
+        change((t) => updateCrawl(t, (c) => (mode === "clock" ? rollClock(c, cryptoRand) : rollCheck(c, cryptoRand))));
+    },
+  };
   const drop = ({ active, over }: DragEndEvent) => {
     if (over) change((t) => moveTo(t, String(active.id), String(over.id)));
   };
@@ -225,40 +259,16 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
         )}
         {gm && (
           <div className="ml-auto flex gap-1.5">
-            <RoundButton label="Previous turn" wide disabled={tracker.current === null} onClick={() => change(previous)}>
+            <RoundButton label="Previous turn" hint="B" wide disabled={tracker.current === null} onClick={() => change(previous)}>
               <PlayIcon back />
             </RoundButton>
-            <RoundButton
-              label="Next turn"
-              primary
-              wide
-              onClick={() =>
-                change((t) => (settings.value.autoRoll ? nextWithAutoRoll(t, settings.value.encounterMode, cryptoRand) : next(t)))
-              }
-            >
+            <RoundButton label="Next turn" hint="N" primary wide onClick={goNext}>
               <PlayIcon />
             </RoundButton>
           </div>
         )}
       </div>
 
-      {gm && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-            {/* After a fight: clear the monsters out (kept until then, so a fight can resume). */}
-            {!combat && tracker.entries.some((e) => e.monster) && (
-              <Confirm
-                label="Remove monsters"
-                question="Remove every monster from the tracker?"
-                action="Remove"
-                onConfirm={() => change(removeMonsters)}
-              />
-            )}
-            {/* A stray click would lose the crawl round count the encounter checks run on. */}
-            <Confirm label="Reset rounds" question="Reset the round count to 0?" action="Reset" onConfirm={() => change(resetRounds)} />
-          </div>
-        </div>
-      )}
       {gm &&
         !combat &&
         headerSlot &&
@@ -316,6 +326,22 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
           </p>
         )}
       </div>
+      {/* Below the list, away from ◀ ▶ (a miss there shouldn't land on these). */}
+      {gm && (
+        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
+          {/* A stray click would lose the crawl round count the encounter checks run on. */}
+          <Confirm label="Reset rounds" question="Reset the round count to 0?" action="Reset" onConfirm={() => change(resetRounds)} />
+          {/* After a fight: clear the monsters out (kept until then, so a fight can resume). */}
+          {!combat && tracker.entries.some((e) => e.monster) && (
+            <Confirm
+              label="Remove monsters"
+              question="Remove every monster from the tracker?"
+              action="Remove"
+              onConfirm={() => change(removeMonsters)}
+            />
+          )}
+        </div>
+      )}
       {menu && targets.length > 0 && (
         <RowMenu
           entries={targets}
@@ -434,6 +460,8 @@ const Row = (props: {
   openMenu: (id: string, x: number, y: number) => void;
   select: (id: string, mods: { shift: boolean; toggle: boolean }) => void;
   selected: boolean;
+  // The monsters' initiative modifier (shown on the GM row).
+  gmMod: number;
   // The GM row's crawl card and monsters, listed under it.
   children?: ReactNode;
   // The GM row with monsters: one card holds the group.
@@ -515,6 +543,7 @@ const Row = (props: {
         {gm ? (
           <>
             {/* Monsters act on the GM / Monsters roll: a gap keeps the columns lined up. */}
+            {!token && <ModInput key={props.gmMod} value={props.gmMod} save={(m) => change((t) => setGmMod(t, m))} />}
             {entry.monster ? (
               <span className={ROLL_SLOT} aria-hidden />
             ) : (
@@ -532,7 +561,13 @@ const Row = (props: {
                 <MoreIcon />
               </RowAction>
             ) : (
-              <span className={ROW_ACTION} aria-hidden />
+              <RowAction
+                label="Roll initiative for GM / Monsters (d20 + modifier)"
+                onClick={() => change((t) => rollGmInitiative(t, cryptoRand))}
+                always
+              >
+                <D20Icon />
+              </RowAction>
             )}
           </>
         ) : (
@@ -607,6 +642,28 @@ const RollInput = ({ name, value, save }: { name: string; value: number | null; 
   />
 );
 
+// "+2", "-1" or "2"; empty = 0. Out of range or not a number: put it back.
+const readMod = (text: string) => {
+  const t = text.trim();
+  if (t === "") return 0;
+  if (!/^[+-]?\d+$/.test(t)) return undefined;
+  const n = Number(t);
+  return n >= MOD_MIN && n <= MOD_MAX ? n : undefined;
+};
+const showMod = (n: number) => (n === 0 ? "" : n > 0 ? `+${n}` : String(n));
+
+// The monsters' DEX modifier, added to the GM's d20.
+const ModInput = ({ value, save }: { value: number; save: (m: number) => void }) => (
+  <input
+    aria-label="Monster DEX modifier"
+    title="Monster DEX modifier: the highest among them (added to the GM's d20)"
+    inputMode="numeric"
+    placeholder="+0"
+    className={`w-9 shrink-0 px-1 py-0.5 text-center text-xs tabular-nums text-obr-text-secondary placeholder:text-obr-text-disabled ${GHOST_INPUT}`}
+    {...useDraft(showMod(value), readMod, save)}
+  />
+);
+
 const NoteInput = ({ name, value, save }: { name: string; value: string; save: (n: string) => void }) => (
   <input
     aria-label={`Note for ${name}`}
@@ -620,11 +677,15 @@ const NoteInput = ({ name, value, save }: { name: string; value: string; save: (
 type ButtonProps = { label: string; pressed?: boolean; onClick: (e: MouseEvent<HTMLButtonElement>) => void; children: ReactNode };
 
 // Icon buttons in the turn bar: round (36 px), or a wider pill for ◀ ▶.
-const RoundButton = (props: Omit<ButtonProps, "pressed"> & { primary?: boolean; wide?: boolean; disabled?: boolean }) => (
+// `hint`: its hotkey, shown in the tooltip.
+const RoundButton = (
+  props: Omit<ButtonProps, "pressed"> & { primary?: boolean; wide?: boolean; disabled?: boolean; hint?: string },
+) => (
   <button
     type="button"
     aria-label={props.label}
-    title={props.label}
+    aria-keyshortcuts={props.hint}
+    title={props.hint ? `${props.label} (${props.hint})` : props.label}
     disabled={props.disabled}
     className={`flex h-9 shrink-0 items-center justify-center rounded-full disabled:opacity-40 ${
       props.wide ? (props.primary ? "w-14" : "w-11") : "w-9"
@@ -642,13 +703,14 @@ const HOVER_ONLY = "[@media(hover:hover)]:opacity-0 group-hover:opacity-100 focu
 // Dead and remove: full-size touch targets, the same width on every row (see Row).
 const ROW_ACTION = "h-7 w-7 shrink-0";
 
-const RowAction = (props: ButtonProps) => (
+// `always`: shown without hovering (the GM row's roll).
+const RowAction = (props: ButtonProps & { always?: boolean }) => (
   <button
     type="button"
     aria-label={props.label}
     aria-pressed={props.pressed}
     title={props.label}
-    className={`${ROW_ACTION} flex items-center justify-center rounded-full hover:bg-obr-paper hover:text-obr-text ${HOVER_ONLY} ${
+    className={`${ROW_ACTION} flex items-center justify-center rounded-full hover:bg-obr-paper hover:text-obr-text ${props.always ? "" : HOVER_ONLY} ${
       props.pressed ? "bg-obr-primary text-obr-primary-contrast hover:bg-obr-primary hover:text-obr-primary-contrast" : "text-obr-text-secondary"
     }`}
     onClick={props.onClick}
@@ -664,6 +726,14 @@ const SkullIcon = ({ className }: { className: string }) => (
       fillRule="evenodd"
       d="M12 2a8 8 0 0 0-8 8c0 2.7 1.3 4.7 3 5.8V19a1 1 0 0 0 1 1h1v-2h2v2h2v-2h2v2h1a1 1 0 0 0 1-1v-3.2c1.7-1.1 3-3.1 3-5.8a8 8 0 0 0-8-8zM8.5 9a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM12 13.5l-1.2 2h2.4z"
     />
+  </svg>
+);
+
+// A d20 face-on: the GM / Monsters initiative roll.
+const D20Icon = () => (
+  <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" aria-hidden>
+    <path d="M8 1.5l5.6 3.25v6.5L8 14.5l-5.6-3.25v-6.5z" />
+    <path d="M8 4.5l3 5H5z M8 1.5v3 M2.4 4.75L5 9.5 M13.6 4.75L11 9.5 M5 9.5L8 14.5 M11 9.5L8 14.5 M2.4 11.25L5 9.5 M13.6 11.25L11 9.5" />
   </svg>
 );
 
