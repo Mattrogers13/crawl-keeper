@@ -18,6 +18,7 @@ import {
   setRoll,
   sortByRoll,
   removeMonsters,
+  setMonster,
   resetRounds,
   toCombat,
   toCrawl,
@@ -36,7 +37,6 @@ const tracker = (rolls: Record<string, number | null>, current: string | null = 
   phase: "crawl",
   current,
   round,
-  combatRound: 0,
 });
 const ids = (t: { id: string }[]) => t.map((e) => e.id);
 
@@ -83,14 +83,14 @@ describe("parseTracker", () => {
     expect(t.round).toBe(3);
   });
 
-  it("reads the phase; the combat round is dropped while crawling", () => {
-    const combat = parseTracker({ entries: [{ id: "a" }], phase: "combat", current: "a", round: 4, combatRound: 2 });
-    expect(combat).toMatchObject({ phase: "combat", current: "a", round: 4, combatRound: 2 });
-    expect(parseTracker({ entries: [], phase: "nope", combatRound: 2 })).toMatchObject({ phase: "crawl", combatRound: 0 });
+  it("reads the phase", () => {
+    const combat = parseTracker({ entries: [{ id: "a" }], phase: "combat", current: "a", round: 4 });
+    expect(combat).toMatchObject({ phase: "combat", current: "a", round: 4 });
+    expect(parseTracker({ entries: [], phase: "nope" }).phase).toBe("crawl");
   });
 
-  it("a turn needs a round of its phase", () => {
-    expect(parseTracker({ entries: [{ id: "a" }], phase: "combat", current: "a", round: 4, combatRound: 0 }).current).toBeNull();
+  it("a turn needs a round", () => {
+    expect(parseTracker({ entries: [{ id: "a" }], phase: "combat", current: "a", round: 0 }).current).toBeNull();
   });
 
   it("keeps dead only as true, never on the GM row, and drops a dead current turn", () => {
@@ -134,18 +134,19 @@ describe("turn order", () => {
 });
 
 describe("crawl and combat", () => {
-  it("combat counts its own rounds; the crawl count waits", () => {
+  it("one round count runs through both; a switch ends the round", () => {
     let t = next(next(next(tracker({ a: 1, gm: 2 }))));
     expect([t.current, t.round]).toEqual(["a", 2]);
     t = toCombat(t, false);
-    expect(t).toMatchObject({ phase: "combat", current: null, round: 2, combatRound: 0 });
-    t = next(next(next(t)));
-    expect(t).toMatchObject({ current: "a", round: 2, combatRound: 2 });
-    expect(previous(previous(t))).toMatchObject({ current: "a", combatRound: 1 });
-    expect(previous(previous(previous(t))).combatRound).toBe(1);
+    expect(t).toMatchObject({ phase: "combat", current: null, round: 2 });
+    t = next(t);
+    expect(t).toMatchObject({ current: "a", round: 3 });
+    t = next(next(t));
+    expect(t).toMatchObject({ current: "a", round: 4 });
+    expect(previous(previous(t))).toMatchObject({ current: "a", round: 3 });
     t = toCrawl(t);
-    expect(t).toMatchObject({ phase: "crawl", current: null, round: 2, combatRound: 0 });
-    expect(next(t)).toMatchObject({ current: "a", round: 3 });
+    expect(t).toMatchObject({ phase: "crawl", current: null, round: 4 });
+    expect(next(t)).toMatchObject({ current: "a", round: 5 });
   });
 
   it("keeps the rolls unless told to clear them", () => {
@@ -162,9 +163,9 @@ describe("crawl and combat", () => {
     expect(t.entries.map((e) => e.roll)).toEqual([20, 1, null]);
   });
 
-  it("reset rounds: both counts to 0, no turn; order, rolls and phase stay", () => {
-    const t = { ...toCombat(tracker({ a: 4, gm: 9 }, "a", 6), false), current: "gm", combatRound: 2 };
-    expect(resetRounds(t)).toMatchObject({ phase: "combat", current: null, round: 0, combatRound: 0, entries: t.entries });
+  it("reset rounds: the count to 0, no turn; order, rolls and phase stay", () => {
+    const t = { ...toCombat(tracker({ a: 4, gm: 9 }, "a", 6), false), current: "gm" };
+    expect(resetRounds(t)).toMatchObject({ phase: "combat", current: null, round: 0, entries: t.entries });
     const fresh = tracker({ a: 1 });
     expect(resetRounds(fresh)).toBe(fresh);
   });
@@ -228,27 +229,28 @@ describe("monsters", () => {
     expect(setRoll(t, "m1", 12)).toBe(t);
   });
 
-  it("right-click: Add / Remove Monster adds, removes, and switches a player over", () => {
-    let t = tracker({ a: 14, gm: 9 });
-    t = toggle(t, ["x", "y"], true);
-    expect(t.entries.map((e) => [e.id, e.monster])).toEqual([["a", false], [GM_ENTRY, false], ["x", true], ["y", true]]);
-    t = toggle(t, ["a"], true);
+  it("right-click adds everyone as players and allies, before the monsters", () => {
+    const t = toggle(tracker({ a: 14, gm: 9, m1: null }), ["x"]);
+    expect(t.entries.map((e) => [e.id, e.monster])).toEqual([["a", false], [GM_ENTRY, false], ["x", false], ["m1", true]]);
+  });
+
+  it("marking: a monster loses its roll and acts last in the GM turn; and back", () => {
+    let t = setMonster(tracker({ a: 14, gm: 9, m1: null }), "a", true);
     expect(t.entries.map((e) => [e.id, e.monster, e.roll])).toEqual([
       [GM_ENTRY, false, 9],
-      ["x", true, null],
-      ["y", true, null],
+      ["m1", true, null],
       ["a", true, null],
     ]);
-    t = toggle(t, ["x", "y"], true);
-    expect(ids(t.entries)).toEqual([GM_ENTRY, "a"]);
-    // And back to a player.
-    t = toggle(t, ["a"]);
-    expect(t.entries.map((e) => [e.id, e.monster])).toEqual([[GM_ENTRY, false], ["a", false]]);
+    t = setMonster(t, "a", false);
+    expect(t.entries.map((e) => [e.id, e.monster])).toEqual([[GM_ENTRY, false], ["a", false], ["m1", true]]);
+    expect(setMonster(t, "a", false)).toBe(t);
+    expect(setMonster(t, GM_ENTRY, true)).toBe(t);
+    expect(setMonster(t, "ghost", true)).toBe(t);
   });
 
   it("switching the current token's kind keeps its turn", () => {
-    const combat = { ...tracker({ a: 14, gm: 9, b: 3 }, "a", 1), phase: "combat" as const, combatRound: 1 };
-    const t = toggle(combat, ["a"], true);
+    const combat = { ...tracker({ a: 14, gm: 9, b: 3 }, "a", 1), phase: "combat" as const };
+    const t = setMonster(combat, "a", true);
     expect(t.current).toBe("a");
     expect(ids(turnOrder(t))).toEqual(["gm", "a", "b"]);
   });
@@ -368,7 +370,6 @@ describe("size", () => {
       phase: "combat",
       current: id(0),
       round: 9999,
-      combatRound: 9999,
     });
     expect(new Blob([JSON.stringify(full)]).size).toBeLessThan(12_500);
   });

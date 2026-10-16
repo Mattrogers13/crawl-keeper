@@ -11,6 +11,5 @@ export const TRACKER_KEY = `${ID}/tracker`;
 export const SETTINGS_KEY = `${ID}/settings`;
 
 export const MENU_ID = `${ID}/initiative-menu`;
-export const MONSTER_MENU_ID = `${ID}/monster-menu`;
 // Item metadata: marks the turn marker we attach to the current token.
 export const MARKER_KEY = `${ID}/marker`;

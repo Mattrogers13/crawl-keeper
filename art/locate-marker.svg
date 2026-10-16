@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- "Show on map": a cyan ring only the GM sees (a local item), flashed
+       briefly. Rendered to public/img/locate-marker.webp (never SVG on the map). -->
+  <circle cx="128" cy="128" r="114" fill="none" stroke="#06202a" stroke-width="22" opacity="0.7"/>
+  <circle cx="128" cy="128" r="114" fill="none" stroke="#3fd8ff" stroke-width="12" stroke-dasharray="40 18"/>
+</svg>

@@ -18,7 +18,7 @@ const scene = (entries: SceneEntry[], current: string | null = null, round = 0, 
     [TRACKER_KEY]: { entries: entries.map((e) => ({ roll: null, note: "", dead: false, ...e })), current, round, ...extra },
   };
 };
-const COMBAT = { phase: "combat", combatRound: 1 };
+const COMBAT = { phase: "combat" };
 
 describe("Tracker (GM)", () => {
   it("begins on the first ▶, advances and wraps the round, saving to the scene", async () => {
@@ -63,18 +63,18 @@ describe("Tracker (GM)", () => {
   });
 
 
-  it("switches to combat: own round count, rolls cleared; back to crawl keeps the combat order", async () => {
+  it("switches to combat: the round count carries on, rolls cleared; back to crawl keeps the combat order", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     scene([{ id: "a", roll: 15 }, { id: "b", roll: 4 }, { id: GM_ENTRY, roll: 9 }], "b", 3);
     render(<App />);
     fireEvent.click(await screen.findByText("Combat"));
-    await waitFor(() => expect(saved()).toMatchObject({ phase: "combat", current: null, round: 3, combatRound: 0 }));
+    await waitFor(() => expect(saved()).toMatchObject({ phase: "combat", current: null, round: 3 }));
     expect(saved().entries.map((e) => e.roll)).toEqual([null, null, null]);
     expect(screen.getByText("Combat")).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByLabelText("Next turn"));
-    await waitFor(() => expect(screen.getByText("Round 1")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Round 4")).toBeInTheDocument());
     fireEvent.click(screen.getByText("Crawl"));
-    await waitFor(() => expect(saved()).toMatchObject({ phase: "crawl", round: 3, combatRound: 0 }));
+    await waitFor(() => expect(saved()).toMatchObject({ phase: "crawl", round: 4 }));
     expect(saved().entries.map((e) => e.roll)).toEqual([null, null, null]);
   });
 
@@ -138,7 +138,7 @@ describe("Tracker (GM)", () => {
     expect(screen.getByText("Round 5")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Reset rounds"));
     fireEvent.click(screen.getByText("Reset"));
-    await waitFor(() => expect(saved()).toMatchObject({ current: null, round: 0, combatRound: 0 }));
+    await waitFor(() => expect(saved()).toMatchObject({ current: null, round: 0 }));
     expect(saved().entries[0].roll).toBe(7);
     expect(screen.getByText("Press ▶ to begin")).toBeInTheDocument();
   });
@@ -171,6 +171,41 @@ describe("Tracker (GM)", () => {
     }
   });
 
+  it("marks a token as a monster from its row, and back", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("o", { name: "Ogre" })];
+    scene([{ id: "a", roll: 12 }, { id: "o", roll: 7 }, { id: GM_ENTRY }]);
+    render(<App />);
+    fireEvent.click(await screen.findByLabelText("Monster: Ogre"));
+    await waitFor(() => expect(saved().entries.map((e) => [e.id, e.monster, e.roll])).toEqual([
+      ["a", false, 12],
+      [GM_ENTRY, false, null],
+      ["o", true, null],
+    ]));
+    expect(within(screen.getByRole("list", { name: "Monsters" })).getByText("Ogre")).toBeInTheDocument();
+    expect(screen.getByLabelText("Monster: Ogre")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByLabelText("Monster: GM / Monsters")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Monster: Ogre"));
+    await waitFor(() => expect(saved().entries.find((e) => e.id === "o")?.monster).toBe(false));
+  });
+
+  it("shows a token on the map for the GM only: right-click the row or tap the portrait", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    obr.items = [token("a", { name: "Aria" })];
+    scene([{ id: "a" }, { id: GM_ENTRY }]);
+    render(<App />);
+    fireEvent.contextMenu(await screen.findByText("Aria"));
+    await waitFor(() => expect(obr.localItems).toHaveLength(1));
+    expect(obr.selection).toEqual(["a"]);
+    expect(obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefined)).toEqual([]);
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    });
+    await waitFor(() => expect(obr.localItems).toHaveLength(0));
+    fireEvent.click(screen.getByLabelText("Show Aria on the map"));
+    await waitFor(() => expect(obr.localItems).toHaveLength(1));
+    vi.useRealTimers();
+  });
+
   it("removes the monsters after a fight, only when asked and only while crawling", async () => {
     obr.items = [token("p", { name: "Aria" }), token("m1", { name: "Goblin" })];
     scene([{ id: "p" }, { id: GM_ENTRY }, { id: "m1", monster: true }], null, 0, COMBAT);
@@ -185,6 +220,24 @@ describe("Tracker (GM)", () => {
     fireEvent.click(screen.getByText("Remove"));
     await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["p", GM_ENTRY]));
     expect(screen.queryByText("Remove monsters")).not.toBeInTheDocument();
+  });
+
+  it("turning the marker off in Settings removes the ring now", async () => {
+    obr.items = [token("p", { name: "Aria" })];
+    scene([{ id: "p" }, { id: GM_ENTRY }]);
+    render(<App />);
+    fireEvent.click(await screen.findByLabelText("Next turn"));
+    const ringed = () => obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefined).map((m) => m.attachedTo);
+    await waitFor(() => expect(ringed()).toEqual(["p"]));
+    fireEvent.click(screen.getByLabelText("Settings"));
+    fireEvent.click(await screen.findByLabelText("Show the turn marker on the map", { exact: false }));
+    await waitFor(() => expect(ringed()).toEqual([]));
+    fireEvent.click(screen.getByLabelText("Back to tracker"));
+    fireEvent.click(await screen.findByLabelText("Next turn"));
+    await waitFor(() => expect(saved().current).toBe(GM_ENTRY));
+    fireEvent.click(screen.getByLabelText("Next turn"));
+    await waitFor(() => expect(saved().current).toBe("p"));
+    expect(ringed()).toEqual([]);
   });
 
   it("rings and selects players only, unless monsters are marked too", async () => {
@@ -332,7 +385,7 @@ describe("Tracker (player)", () => {
     await screen.findByText("Crawl");
     await writeSceneFromElsewhere({ [TRACKER_KEY]: { entries: [{ id: GM_ENTRY }], current: GM_ENTRY, round: 1 } });
     expect(screen.getByText("Round 1")).toBeInTheDocument();
-    await writeSceneFromElsewhere({ [TRACKER_KEY]: { entries: [{ id: GM_ENTRY }], phase: "combat", current: GM_ENTRY, round: 1, combatRound: 2 } });
+    await writeSceneFromElsewhere({ [TRACKER_KEY]: { entries: [{ id: GM_ENTRY }], phase: "combat", current: GM_ENTRY, round: 2 } });
     expect(screen.getByText("Combat")).toBeInTheDocument();
     expect(screen.getByText("Round 2")).toBeInTheDocument();
   });

@@ -18,8 +18,9 @@ import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
-import { afterTurnChange } from "../marker";
+import { afterTurnChange, locate } from "../marker";
 import { parseSettings } from "../settings";
+import { errorMessage, notify } from "../utils";
 import {
   GM_ENTRY,
   NOTE_MAX,
@@ -27,7 +28,6 @@ import {
   next,
   parseRoll,
   parseTracker,
-  phaseRound,
   playerView,
   previous,
   prune,
@@ -35,6 +35,7 @@ import {
   resetRounds,
   remove,
   setDead,
+  setMonster,
   setNote,
   setRoll,
   sortByRoll,
@@ -91,7 +92,13 @@ const Tracker = ({ role }: { role: Role }) => {
   const top = shown.filter((e) => !e.monster);
   const monsters = shown.filter((e) => e.monster);
   const tokenFor = (e: Entry) => (e.id === GM_ENTRY ? null : tokenInfo(byId.get(e.id)));
-  const round = phaseRound(tracker);
+  // GM only: flash a ring only the GM sees on the token and select it.
+  const show = (id: string) => {
+    const item = byId.get(id);
+    if (item) locate(item).catch((err) => notify(`Couldn't show the token: ${errorMessage(err)}`, "WARNING"));
+  };
+  const rowProps = { gm, change, show };
+  const round = tracker.round;
   const roundLabel =
     round === 0 ? (gm ? "Press ▶ to begin" : "") : gm || !settings.value.hideRound ? `Round ${round}` : "";
   const combat = tracker.phase === "combat";
@@ -153,7 +160,7 @@ const Tracker = ({ role }: { role: Role }) => {
               />
             )}
             {/* A stray click would lose the crawl round count the encounter checks run on. */}
-            <Confirm label="Reset rounds" question="Reset both round counts to 0?" action="Reset" onConfirm={() => change(resetRounds)} />
+            <Confirm label="Reset rounds" question="Reset the round count to 0?" action="Reset" onConfirm={() => change(resetRounds)} />
           </div>
         </div>
       )}
@@ -170,12 +177,12 @@ const Tracker = ({ role }: { role: Role }) => {
           <SortableContext items={top.map((e) => e.id)} strategy={verticalListSortingStrategy}>
             <ol className="flex flex-col gap-1">
               {top.map((entry) => (
-                <Row key={entry.id} entry={entry} token={tokenFor(entry)} current={entry.id === current} gm={gm} change={change}>
+                <Row key={entry.id} entry={entry} token={tokenFor(entry)} current={entry.id === current} {...rowProps}>
                   {entry.id === GM_ENTRY && monsters.length > 0 && (
                     <SortableContext items={monsters.map((e) => e.id)} strategy={verticalListSortingStrategy}>
                       <ol aria-label="Monsters" className="mt-1 flex flex-col gap-1">
                         {monsters.map((m) => (
-                          <Row key={m.id} entry={m} token={tokenFor(m)} current={m.id === current} gm={gm} change={change} />
+                          <Row key={m.id} entry={m} token={tokenFor(m)} current={m.id === current} {...rowProps} />
                         ))}
                       </ol>
                     </SortableContext>
@@ -230,6 +237,7 @@ const Row = (props: {
   current: boolean;
   gm: boolean;
   change: (fn: (t: TrackerDoc) => TrackerDoc) => void;
+  show: (id: string) => void;
   // The GM row's monsters, listed under it.
   children?: ReactNode;
 }) => {
@@ -250,6 +258,15 @@ const Row = (props: {
         className={`flex items-start gap-2 rounded p-1.5 ${props.current ? "bg-obr-primary/20 ring-1 ring-obr-primary" : "bg-obr-bg"} ${
           token && !token.visible ? "opacity-60" : ""
         }`}
+        // GM: right-click a token's row to find it on the map.
+        onContextMenu={
+          gm && token
+            ? (e) => {
+                e.preventDefault();
+                props.show(entry.id);
+              }
+            : undefined
+        }
       >
         {gm && (
           <button
@@ -264,7 +281,14 @@ const Row = (props: {
             <GripIcon />
           </button>
         )}
-        <Portrait token={token} dead={entry.dead} />
+        {gm && token ? (
+          // Touch has no right-click: tapping the portrait does the same.
+          <button type="button" aria-label={`Show ${name} on the map`} title="Show on the map" onClick={() => props.show(entry.id)}>
+            <Portrait token={token} dead={entry.dead} />
+          </button>
+        ) : (
+          <Portrait token={token} dead={entry.dead} />
+        )}
         <div className="flex min-w-0 flex-1 flex-col">
           <span className={`truncate font-medium ${entry.dead ? "text-obr-text-secondary line-through" : ""}`}>
             {name}
@@ -284,9 +308,16 @@ const Row = (props: {
             ) : (
               <RollInput key={entry.roll ?? ""} name={name} value={entry.roll} save={(r) => change((t) => setRoll(t, entry.id, r))} />
             )}
-            {/* The GM row has no dead or remove button: same-width gaps keep the roll boxes lined up. */}
+            {/* The GM row has none of these buttons: same-width gaps keep the roll boxes lined up. */}
             {token ? (
               <>
+                <RowAction
+                  label={`Monster: ${name}`}
+                  pressed={entry.monster}
+                  onClick={() => change((t) => setMonster(t, entry.id, !entry.monster))}
+                >
+                  <ClawIcon />
+                </RowAction>
                 <RowAction
                   label={`Dead: ${name}`}
                   pressed={entry.dead}
@@ -300,6 +331,7 @@ const Row = (props: {
               </>
             ) : (
               <>
+                <span className={ROW_ACTION} aria-hidden />
                 <span className={ROW_ACTION} aria-hidden />
                 <span className={ROW_ACTION} aria-hidden />
               </>
@@ -420,6 +452,13 @@ const SkullIcon = ({ className }: { className: string }) => (
       fillRule="evenodd"
       d="M12 2a8 8 0 0 0-8 8c0 2.7 1.3 4.7 3 5.8V19a1 1 0 0 0 1 1h1v-2h2v2h2v-2h2v2h1a1 1 0 0 0 1-1v-3.2c1.7-1.1 3-3.1 3-5.8a8 8 0 0 0-8-8zM8.5 9a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM12 13.5l-1.2 2h2.4z"
     />
+  </svg>
+);
+
+// Three claw marks: a monster (acts in the GM / Monsters turn).
+const ClawIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+    <path d="M6 4c1 5 1 10-1 16M12 3c1 6 1 12-1 18M18 4c1 5 1 10-1 16" />
   </svg>
 );
 

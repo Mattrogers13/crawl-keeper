@@ -9,8 +9,9 @@
 // Dead entries stay listed but get no turns.
 //
 // Shadowdark is always in turn order (core p. 82). The tracker is in one of
-// two phases: crawl or combat. Each has its own round count; the crawl count
-// pauses during combat (encounter checks run on crawl rounds only, p. 112).
+// two phases: crawl or combat. A round is a round (p. 82: "a round completes
+// when each person has taken one turn"), so one count runs through both;
+// only encounter checks care which kind it was (crawl only, p. 112).
 // Switching phase ends the current round: the next ▶ starts a new one.
 
 export const GM_ENTRY = "gm";
@@ -38,9 +39,8 @@ export type Tracker = {
   // Id of the entry whose turn it is; null between rounds (before the first
   // ▶, and after a phase switch).
   current: string | null;
-  // Crawl rounds so far (0 before the first) and rounds of this combat.
+  // Rounds so far, crawl and combat alike (0 before the first).
   round: number;
-  combatRound: number;
 };
 
 export const emptyTracker = (): Tracker => ({
@@ -48,14 +48,7 @@ export const emptyTracker = (): Tracker => ({
   phase: "crawl",
   current: null,
   round: 0,
-  combatRound: 0,
 });
-
-// The round count of the phase the tracker is in.
-export const phaseRound = (t: Tracker): number => (t.phase === "combat" ? t.combatRound : t.round);
-
-const withPhaseRound = (t: Tracker, n: number): Tracker =>
-  t.phase === "combat" ? { ...t, combatRound: n } : { ...t, round: n };
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
@@ -97,11 +90,10 @@ export const parseTracker = (raw: unknown): Tracker => {
     phase,
     current: null,
     round: parseCount(raw.round),
-    combatRound: phase === "combat" ? parseCount(raw.combatRound) : 0,
   };
   // A turn only exists inside a round, and only for a living entry.
   const current = typeof raw.current === "string" && entries.some((e) => e.id === raw.current && !e.dead) ? raw.current : null;
-  return current && phaseRound(t) > 0 ? { ...t, current } : t;
+  return current && t.round > 0 ? { ...t, current } : t;
 };
 
 // The one place the entry rules live (parse and every edit go through it):
@@ -146,7 +138,7 @@ export const turnOrder = (t: Tracker): Entry[] => {
 export const next = (t: Tracker): Tracker => {
   const order = turnOrder(t);
   const i = t.current === null ? -1 : order.findIndex((e) => e.id === t.current);
-  if (i === -1 || i === order.length - 1) return { ...withPhaseRound(t, phaseRound(t) + 1), current: order[0].id };
+  if (i === -1 || i === order.length - 1) return { ...t, round: t.round + 1, current: order[0].id };
   return { ...t, current: order[i + 1].id };
 };
 
@@ -156,11 +148,11 @@ export const previous = (t: Tracker): Tracker => {
   const order = turnOrder(t);
   const i = order.findIndex((e) => e.id === t.current);
   if (i > 0) return { ...t, current: order[i - 1].id };
-  if (phaseRound(t) <= 1) return t;
-  return { ...withPhaseRound(t, phaseRound(t) - 1), current: order[order.length - 1].id };
+  if (t.round <= 1) return t;
+  return { ...t, round: t.round - 1, current: order[order.length - 1].id };
 };
 
-// Combat starts a fresh count of combat rounds; the crawl count waits.
+// Combat starts with the next round (the count carries on).
 // With clearRolls (the book's "new initiative", p. 88) every roll is cleared
 // for the combat roll. The book has no rule for going back to the crawl
 // order, so the combat order simply carries on into the crawl.
@@ -170,14 +162,13 @@ export const toCombat = (t: Tracker, clearRolls: boolean): Tracker => {
     ...t,
     phase: "combat",
     current: null,
-    combatRound: 0,
     entries: clearRolls ? t.entries.map((e) => (e.roll === null ? e : { ...e, roll: null })) : t.entries,
   };
 };
 
-// Both round counts back to 0 and no one's turn; order, rolls and phase stay.
+// The round count back to 0 and no one's turn; order, rolls and phase stay.
 export const resetRounds = (t: Tracker): Tracker =>
-  t.round === 0 && t.combatRound === 0 && t.current === null ? t : { ...t, current: null, round: 0, combatRound: 0 };
+  t.round === 0 && t.current === null ? t : { ...t, current: null, round: 0 };
 
 // What a player sees: hidden tokens drop out, and on a hidden token's turn
 // the GM row shows as current.
@@ -189,7 +180,7 @@ export const playerView = (t: Tracker, visible: (id: string) => boolean) => {
 
 // Back to crawling, keeping the combat order and rolls.
 export const toCrawl = (t: Tracker): Tracker =>
-  t.phase === "crawl" ? t : { ...t, phase: "crawl", current: null, combatRound: 0 };
+  t.phase === "crawl" ? t : { ...t, phase: "crawl", current: null };
 
 // Highest roll first; no roll goes last; ties keep their current order.
 // Monsters (no rolls) keep their own order. The stable sort already leaves
@@ -200,20 +191,22 @@ export const sortByRoll = (t: Tracker): Tracker => {
 };
 
 // Adds the ids not already tracked, in the given order, up to the cap, as
-// players or monsters. Tracked ones of the other kind switch kind (a fix for
-// picking the wrong menu item) and go to the end of their new group.
-export const add = (t: Tracker, ids: string[], monster = false): Tracker => {
-  const wanted = ids.filter((id, i) => id !== GM_ENTRY && ids.indexOf(id) === i);
-  const switching = new Set(wanted.filter((id) => t.entries.some((e) => e.id === id && e.monster !== monster)));
+// players (the GM marks monsters in the tracker).
+export const add = (t: Tracker, ids: string[]): Tracker => {
   const have = new Set(t.entries.map((e) => e.id));
+  const fresh = ids.filter((id, i) => id !== GM_ENTRY && !have.has(id) && ids.indexOf(id) === i);
   const room = MAX_ENTRIES - t.entries.length;
-  const fresh = wanted.filter((id) => !have.has(id)).slice(0, Math.max(room, 0));
-  if (fresh.length === 0 && switching.size === 0) return t;
-  const kept = t.entries.filter((e) => !switching.has(e.id));
-  const switched = t.entries
-    .filter((e) => switching.has(e.id))
-    .map((e) => normalized({ ...e, monster, roll: null }));
-  return withEntries(t, grouped([...kept, ...switched, ...fresh.map((id) => newEntry(id, monster))]));
+  if (fresh.length === 0 || room <= 0) return t;
+  return withEntries(t, grouped([...t.entries, ...fresh.slice(0, room).map((id) => newEntry(id, false))]));
+};
+
+// Players and allies <-> monsters. The entry moves to the end of its new group
+// (a new monster acts last in the GM turn) and loses its roll if it becomes
+// a monster.
+export const setMonster = (t: Tracker, id: string, monster: boolean): Tracker => {
+  const entry = t.entries.find((e) => e.id === id);
+  if (!entry || entry.id === GM_ENTRY || entry.monster === monster) return t;
+  return withEntries(t, grouped([...t.entries.filter((e) => e.id !== id), normalized({ ...entry, monster })]));
 };
 
 export const remove = (t: Tracker, ids: string[]): Tracker => {
@@ -282,10 +275,9 @@ export const moveTo = (t: Tracker, id: string, overId: string): Tracker => {
 export const removeMonsters = (t: Tracker): Tracker =>
   remove(t, t.entries.filter((e) => e.monster).map((e) => e.id));
 
-// The right-click "Add / Remove Initiative" (players) and "Add / Remove
-// Monster": if every clicked token is already tracked as that kind, remove
-// them; otherwise add (or switch) them.
-export const toggle = (t: Tracker, ids: string[], monster = false): Tracker => {
-  const same = new Set(t.entries.filter((e) => e.monster === monster).map((e) => e.id));
-  return ids.length > 0 && ids.every((id) => same.has(id)) ? remove(t, ids) : add(t, ids, monster);
+// The right-click "Add / Remove Initiative": if every clicked token is
+// already tracked, remove them; otherwise add the ones that aren't.
+export const toggle = (t: Tracker, ids: string[]): Tracker => {
+  const have = new Set(t.entries.map((e) => e.id));
+  return ids.length > 0 && ids.every((id) => have.has(id)) ? remove(t, ids) : add(t, ids);
 };

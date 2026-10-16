@@ -59,7 +59,7 @@ describe("markedToken", () => {
   const t = parseTracker({
     entries: [{ id: "p" }, { id: GM_ENTRY }, { id: "m", monster: true }],
     phase: "combat",
-    combatRound: 1,
+    round: 1,
   });
   it("players' tokens; monsters only when asked; never the GM row or between rounds", () => {
     expect(markedToken({ ...t, current: "p" }, false)).toBe("p");

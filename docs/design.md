@@ -12,7 +12,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 
 | Where | Key | Contents | Writer |
 |---|---|---|---|
-| Scene metadata | `${ID}/tracker` | entries `[{ id: itemId \| "gm", roll, note, dead, monster, hp: { cur, max } \| null }]` (players and GM row in turn order, then monsters), phase (`crawl` \| `combat`), current turn id, crawl round, combat round | GM |
+| Scene metadata | `${ID}/tracker` | entries `[{ id: itemId \| "gm", roll, note, dead, monster }]` (players and GM row in turn order, then monsters), phase (`crawl` \| `combat`), current turn id, round | GM |
 | Room metadata | `${ID}/settings` | encounter mode (`standard` \| `clock`), danger level, in darkness, hide clock, hide rounds, clear rolls on combat, select on turn | GM |
 | Room metadata | `${ID}/crawl` | clock value, last roll (dice, total, exploded, carry), rounds since last check | GM |
 | Room metadata (v0.2) | `${ID}/tables` | custom encounter tables | GM |
@@ -23,14 +23,15 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 
 ## Tracker
 
-- Entries: players added via right-click "Add / Remove Initiative", monsters via "Add / Remove Monster" (background page context menu; picking the other item switches a token's kind), plus the built-in **GM / Monsters** row (can't be removed). Monsters roll once as a group: the GM rolls d20 + the highest monster DEX mod into the GM / Monsters row (core pp. 82, 88).
+- Entries: tokens added via one right-click item, "Add / Remove Initiative" (background page context menu), as players and allies; the GM marks a row as a monster with its claw button (and back). Plus the built-in **GM / Monsters** row (can't be removed). Monsters roll once as a group: the GM rolls d20 + the highest monster DEX mod into the GM / Monsters row (core pp. 82, 88).
 - **Monsters** are listed under the GM / Monsters row (a red edge marks the group; no indent, so their notes keep their width) and have no roll box. In combat each living monster takes a turn right after that row, in list order (the GM drags to set it). While crawling the GM turn covers them: no turns of their own. Players see the visible ones. Replaces the earlier idea of hiding the GM row (decided 2026-10-16).
 - **Order:** the list is the turn order. Sort puts the highest roll first (unrolled last); ties: GM moves rows.
 - Moving rows: the GM drags a row by its grip (≡; mouse, touch, or keyboard: focus the grip, Space, arrows, Space). Players can't.
 - **Dead:** GM toggles ☠ on a token row (not the GM row). Dead rows keep their seat, show a skull badge on the portrait for everyone, and get no turns; killing the current entry passes the turn on.
 - ◀ / ▶ turns. Round increments when the turn wraps.
+- Show on map (GM only): right-click a token's row, or tap its portrait, to flash a cyan ring only the GM sees (a local item, 2.5 s) and select the token.
 - Remove monsters (GM, Crawl only, asks to confirm): clears every monster after a fight. Kept until then, so a fight that resumes keeps them (decided 2026-10-16).
-- Reset rounds (GM, asks to confirm): both round counts to 0, no one's turn; order, rolls and phase stay.
+- Reset rounds (GM, asks to confirm): the round count to 0, no one's turn; order, rolls and phase stay.
 - Note under each name: GM edits, everyone sees.
 - On a turn change from a GM click (▶ ◀, phase, reset, dead, remove, right-click remove; never from a data change event, or every client would add one): a gold ring (WebP, ATTACHMENT layer, locked, unclickable) moves to the current token (players' tokens; monsters only with the "Mark monsters' turns too" setting), sized 1.5x its footprint. It follows the token's position, scale, visibility and deletion (attachment defaults; visibility unverified live). No marker on the GM row or between rounds. Select the current token on the GM's screen (setting, default on).
 
@@ -38,7 +39,8 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 
 - Shadowdark is always in turn order (core p. 82); the tracker is always running in one of two phases, switched by the GM's Crawl / Combat buttons. No start or end. ◀ ▶ work in both.
 - **Crawl:** turns run; the crawl prompt appears on the GM / Monsters turn. Encounter checks happen on crawl rounds only (p. 112).
-- **Combat:** no encounter checks or clock rolls. Its own round count from 1; the crawl count waits.
+- **Combat:** no encounter checks or clock rolls.
+- **Rounds:** one count through both phases. The book has one kind of round ("a round completes when each person has taken one turn", p. 82; spell durations and "one hour is equal to 10 rounds" run straight through fights). Only encounter checks care which kind a round was (crawl only, p. 112), so the crawl prompt (PR 4) counts crawl rounds since its last check itself. Decided 2026-10-16, replacing separate crawl and combat counts.
 - Switching phase ends the current round: the next ▶ starts a new round of the new phase at the top.
 - Switching to combat pops "ROLL FOR COMBAT INITIATIVE" on every client (background page; panel open or not; only on a switch seen live, not on joining mid-fight).
 - Setting "Clear initiative rolls on combat" (default on, the book's new initiative, p. 88): rolls are cleared for the combat roll. Switching back to Crawl keeps the combat order and rolls (the book has no rule for returning to a crawl order; decided 2026-10-16).
