@@ -8,7 +8,19 @@
 // row, one each, in their list order; while crawling the GM turn covers them.
 // Dead entries stay listed but get no turns.
 //
-import { crawlRoundStarted, crawlRoundUndone, emptyCrawl, parseCrawl, resetCrawlRounds, type Crawl } from "./crawl";
+import {
+  crawlRoundStarted,
+  crawlRoundUndone,
+  due,
+  emptyCrawl,
+  parseCrawl,
+  resetCrawlRounds,
+  rollCheck,
+  rollClock,
+  type Crawl,
+  type EncounterMode,
+  type Rand,
+} from "./crawl";
 
 // Shadowdark is always in turn order (core p. 82). The tracker is in one of
 // two phases: crawl or combat. A round is a round (p. 82: "a round completes
@@ -165,6 +177,15 @@ export const previous = (t: Tracker): Tracker => {
   if (t.round <= 1) return t;
   const crawl = t.phase === "crawl" ? crawlRoundUndone(t.crawl) : t.crawl;
   return { ...t, round: t.round - 1, current: order[order.length - 1].id, crawl };
+};
+
+// The GM's "roll automatically" setting: ▶ onto the GM / Monsters turn in a
+// crawl round with a roll due rolls it (the check or the crawling die), in
+// the same write as the turn. Undo still works.
+export const nextWithAutoRoll = (t: Tracker, mode: EncounterMode, rand: Rand): Tracker => {
+  const moved = next(t);
+  if (moved.phase !== "crawl" || moved.current !== GM_ENTRY || !due(moved.crawl, mode)) return moved;
+  return { ...moved, crawl: mode === "clock" ? rollClock(moved.crawl, rand) : rollCheck(moved.crawl, rand) };
 };
 
 // A change to this map's crawl (crawl.ts); the same object when nothing changed.

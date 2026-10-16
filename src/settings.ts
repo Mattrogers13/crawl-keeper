@@ -10,6 +10,8 @@ export type Settings = {
   hideClock: boolean;
   // Players see the map's danger level (the book treats it as GM-only).
   showDanger: boolean;
+  // ▶ onto the GM turn rolls a due check / crawling die by itself.
+  autoRoll: boolean;
   // Hide the round counts from players.
   hideRound: boolean;
   // Switching to combat clears the rolls for the combat roll.
@@ -25,6 +27,7 @@ export const DEFAULT_SETTINGS: Settings = {
   encounterMode: "standard",
   hideClock: false,
   showDanger: false,
+  autoRoll: false,
   hideRound: false,
   clearRollsOnCombat: true,
   showMarker: true,
@@ -37,6 +40,7 @@ export const parseSettings = (raw: unknown): Settings => {
     encounterMode: r.encounterMode === "clock" ? "clock" : "standard",
     hideClock: r.hideClock === true,
     showDanger: r.showDanger === true,
+    autoRoll: r.autoRoll === true,
     hideRound: r.hideRound === true,
     clearRollsOnCombat: r.clearRollsOnCombat !== false,
     showMarker: r.showMarker !== false,

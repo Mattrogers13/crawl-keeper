@@ -39,6 +39,12 @@ const Settings = () => {
           </label>
         ))}
       </fieldset>
+      <Check
+        label="Roll automatically on the GM turn"
+        hint="When ▶ reaches GM / Monsters in a crawl round and a roll is due, Crawl Keeper rolls it for you. Undo still works."
+        checked={settings.value.autoRoll}
+        onChange={(autoRoll) => set({ autoRoll })}
+      />
       {settings.value.encounterMode === "standard" && (
         <Check
           label="Show the danger level to players"

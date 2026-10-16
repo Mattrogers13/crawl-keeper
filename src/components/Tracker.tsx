@@ -25,6 +25,7 @@ import { CSS } from "@dnd-kit/utilities";
 
 import Confirm from "./Confirm";
 import CrawlBar from "./CrawlBar";
+import { cryptoRand } from "../crawl";
 import Loading from "./Loading";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
@@ -39,6 +40,7 @@ import {
   NOTE_MAX,
   moveTo,
   next,
+  nextWithAutoRoll,
   parseRoll,
   parseTracker,
   playerView,
@@ -203,7 +205,13 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
             <Button label="Previous turn" disabled={tracker.current === null} onClick={() => change(previous)}>
               ◀
             </Button>
-            <Button label="Next turn" primary onClick={() => change(next)}>
+            <Button
+              label="Next turn"
+              primary
+              onClick={() =>
+                change((t) => (settings.value.autoRoll ? nextWithAutoRoll(t, settings.value.encounterMode, cryptoRand) : next(t)))
+              }
+            >
               ▶
             </Button>
           </div>

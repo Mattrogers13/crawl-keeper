@@ -455,6 +455,27 @@ describe("Tracker (GM)", () => {
       expect(screen.queryByRole("region", { name: "Encounter checks" })).not.toBeInTheDocument();
     });
 
+    it("auto roll: ▶ onto the GM turn rolls the crawling die; off, it waits for the GM", async () => {
+      obr.metadata = { [SETTINGS_KEY]: { encounterMode: "clock", autoRoll: true } };
+      obr.items = [token("a", { name: "Aria" })];
+      scene([{ id: "a" }, { id: GM_ENTRY }], "a", 1, { crawl: { crawlRounds: 1 } });
+      render(<App />);
+      fireEvent.click(await screen.findByLabelText("Next turn"));
+      await waitFor(() => expect(saved()).toMatchObject({ current: GM_ENTRY, crawl: { lastCheck: 1, last: { kind: "clock" } } }));
+      expect(screen.getByLabelText("Last roll")).toBeInTheDocument();
+    });
+
+    it("without auto roll, ▶ onto the GM turn leaves the roll to the GM", async () => {
+      obr.metadata = { [SETTINGS_KEY]: { encounterMode: "clock" } };
+      obr.items = [token("a", { name: "Aria" })];
+      scene([{ id: "a" }, { id: GM_ENTRY }], "a", 1, { crawl: { crawlRounds: 1 } });
+      render(<App />);
+      fireEvent.click(await screen.findByLabelText("Next turn"));
+      await waitFor(() => expect(saved().current).toBe(GM_ENTRY));
+      expect(saved().crawl.last).toBeNull();
+      expect(screen.getByText("Roll d6")).toBeInTheDocument();
+    });
+
     it("no card in combat, and none for players", async () => {
       scene([{ id: GM_ENTRY }], null, 0, COMBAT);
       render(<App />);

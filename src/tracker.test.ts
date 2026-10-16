@@ -8,6 +8,7 @@ import {
   emptyTracker,
   moveTo,
   next,
+  nextWithAutoRoll,
   parseTracker,
   playerView,
   previous,
@@ -162,6 +163,28 @@ describe("crawl and combat", () => {
     expect(previous(next(t))).toMatchObject({ round: 4 });
     expect(previous(t).crawl.crawlRounds).toBe(2);
     expect(resetRounds(t).crawl.crawlRounds).toBe(0);
+  });
+
+  it("auto roll: ▶ onto the GM turn with a roll due rolls it, in the same change", () => {
+    const four = () => 3.5 / 6; // a die that shows 4
+    // Clock: due every crawl round.
+    const t = tracker({ a: 5, gm: 3 }, "a", 1);
+    const clock = nextWithAutoRoll({ ...t, crawl: { ...t.crawl, crawlRounds: 1 } }, "clock", four);
+    expect(clock).toMatchObject({ current: GM_ENTRY, crawl: { clock: 16, lastCheck: 1, last: { kind: "clock", dice: [4] } } });
+    // Standard, Unsafe: not due in crawl round 1, so no roll.
+    const std = nextWithAutoRoll({ ...t, crawl: { ...t.crawl, crawlRounds: 1 } }, "standard", four);
+    expect(std.crawl.last).toBeNull();
+    // Due (round 3): rolled.
+    const due3 = nextWithAutoRoll({ ...t, crawl: { ...t.crawl, crawlRounds: 3 } }, "standard", four);
+    expect(due3.crawl.last).toMatchObject({ kind: "check", dice: [4], encounter: false });
+  });
+
+  it("auto roll: never in combat, never on anyone else's turn", () => {
+    const four = () => 3.5 / 6;
+    const t = tracker({ a: 5, gm: 3, b: 1 }, "a", 1);
+    const crawl = { ...t.crawl, crawlRounds: 1 };
+    expect(nextWithAutoRoll({ ...t, crawl, phase: "combat" }, "clock", four).crawl.last).toBeNull();
+    expect(nextWithAutoRoll({ ...t, crawl, current: GM_ENTRY }, "clock", four)).toMatchObject({ current: "b", crawl: { last: null } });
   });
 
   it("keeps the rolls unless told to clear them", () => {
@@ -446,12 +469,13 @@ describe("parseSettings", () => {
       encounterMode: "standard",
       hideClock: false,
       showDanger: false,
+      autoRoll: false,
       hideRound: false,
       clearRollsOnCombat: true,
       showMarker: true,
       selectOnTurn: true,
     });
-    const off = { encounterMode: "clock", hideClock: true, showDanger: true, hideRound: true, clearRollsOnCombat: false, showMarker: false, selectOnTurn: false };
+    const off = { encounterMode: "clock", hideClock: true, showDanger: true, autoRoll: true, hideRound: true, clearRollsOnCombat: false, showMarker: false, selectOnTurn: false };
     expect(parseSettings(off)).toEqual(off);
     // Rooms saved while Table order existed keep working.
     expect(parseSettings({ orderMode: "table", hideRound: "yes", clearRollsOnCombat: "no", showMarker: 0 })).toEqual(DEFAULT_SETTINGS);

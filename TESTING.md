@@ -102,3 +102,4 @@ Reload the room after a Dev rebuild (the background page loads once per room).
 | 14 | Switch to another map and back | Each map keeps its own clock, danger level and darkness | |
 | 15 | Reset rounds | The crawl round count starts over too (next check in 3 again when Unsafe) | |
 | 16 | GM: gear (Standard) → Show the danger level to players | Player sees "Unsafe" / "Risky" / "Deadly" in their header while crawling | |
+| 17 | GM: gear → Roll automatically on the GM turn; ▶ onto GM / Monsters (clock: any crawl round; standard: when due) | The roll happens by itself and the big result shows; Undo works; no roll in Combat or on other turns | |
