@@ -6,7 +6,7 @@ import { buildMarker, markerImage, planMarker, syncTurn, syncTurnFromScene } fro
 import { GM_ENTRY } from "./tracker";
 import { obr, token } from "./test/obrMock";
 
-const IMG = markerImage(window.location.origin);
+const IMG = markerImage();
 const markers = () => obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefined);
 const ON = { showMarker: true, selectOnTurn: true };
 
@@ -92,9 +92,9 @@ describe("syncTurn", () => {
   it("a settings change adds or removes the marker for the current turn", async () => {
     obr.items = [token("a")];
     obr.sceneMetadata = { [TRACKER_KEY]: { entries: [{ id: "a" }], current: "a", round: 1 } };
-    await syncTurnFromScene({ showMarker: true });
+    await syncTurnFromScene(true);
     expect(markers().map((m) => m.attachedTo)).toEqual(["a"]);
-    await syncTurnFromScene({ showMarker: false });
+    await syncTurnFromScene(false);
     expect(markers()).toEqual([]);
     expect(OBR.player.select).not.toHaveBeenCalled();
   });

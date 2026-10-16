@@ -5,7 +5,6 @@ import { SETTINGS_KEY } from "../constants";
 import { useRoomValue } from "../hooks/useRoomValue";
 import { syncTurnFromScene } from "../marker";
 import { parseSettings, type Settings as SettingsDoc } from "../settings";
-import { errorMessage } from "../utils";
 
 // The GM's settings (room metadata, so they follow the party across maps).
 const Settings = () => {
@@ -33,8 +32,8 @@ const Settings = () => {
         checked={settings.value.showMarker}
         onChange={(showMarker) => {
           set({ showMarker });
-          // Add or remove it now, not at the next turn. No scene open: nothing to do.
-          syncTurnFromScene({ showMarker }).catch((err) => console.warn(`Turn marker not updated: ${errorMessage(err)}`));
+          // Add or remove it now, not at the next turn.
+          void syncTurnFromScene(showMarker);
         }}
       />
       <Check

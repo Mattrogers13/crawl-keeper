@@ -17,7 +17,7 @@ export const MAX_ENTRIES = 40;
 export const NOTE_MAX = 200;
 export const ROLL_MIN = -99;
 export const ROLL_MAX = 99;
-export const HP_MAX = 9999;
+const HP_MAX = 9999;
 
 // Hit points, GM-only (players never see them), monsters only: players keep
 // their own on the character sheet.
@@ -66,8 +66,11 @@ const withPhaseRound = (t: Tracker, n: number): Tracker =>
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-export const parseRoll = (raw: unknown): number | null =>
-  typeof raw === "number" && Number.isInteger(raw) && raw >= ROLL_MIN && raw <= ROLL_MAX ? raw : null;
+// A whole number in [min, max] from untrusted data, else null.
+const intIn = (v: unknown, min: number, max: number): number | null =>
+  typeof v === "number" && Number.isInteger(v) && v >= min && v <= max ? v : null;
+
+export const parseRoll = (raw: unknown): number | null => intIn(raw, ROLL_MIN, ROLL_MAX);
 
 // Scene metadata is untrusted (any client or extension can write it). Keep
 // only well-formed entries, drop duplicates, cap everything, and always keep
@@ -79,12 +82,16 @@ export const parseTracker = (raw: unknown): Tracker => {
   for (const e of Array.isArray(raw.entries) ? raw.entries : []) {
     if (!isObject(e) || typeof e.id !== "string" || e.id === "" || e.id.length > 64 || seen.has(e.id)) continue;
     seen.add(e.id);
-    entries.push({
-      id: e.id,
-      note: typeof e.note === "string" ? e.note.slice(0, NOTE_MAX) : "",
-      dead: e.dead === true && e.id !== GM_ENTRY,
-      ...kind(e.id !== GM_ENTRY && e.monster === true, parseRoll(e.roll), parseHp(e.hp)),
-    });
+    entries.push(
+      normalized({
+        id: e.id,
+        roll: parseRoll(e.roll),
+        note: typeof e.note === "string" ? e.note.slice(0, NOTE_MAX) : "",
+        dead: e.dead === true,
+        monster: e.monster === true,
+        hp: parseHp(e.hp),
+      }),
+    );
     if (entries.length === MAX_ENTRIES) break;
   }
   if (!seen.has(GM_ENTRY)) {
@@ -104,27 +111,36 @@ export const parseTracker = (raw: unknown): Tracker => {
   return current && phaseRound(t) > 0 ? { ...t, current } : t;
 };
 
-const hpNumber = (v: unknown, min: number): number | null =>
-  typeof v === "number" && Number.isInteger(v) && v >= min && v <= HP_MAX ? v : null;
-
-export const parseHp = (raw: unknown): Hp | null => {
+const parseHp = (raw: unknown): Hp | null => {
   if (!isObject(raw)) return null;
-  const cur = hpNumber(raw.cur, 0);
-  const max = hpNumber(raw.max, 1);
+  const cur = intIn(raw.cur, 0, HP_MAX);
+  const max = intIn(raw.max, 1, HP_MAX);
   return cur === null || max === null ? null : { cur, max };
 };
 
-// A monster has HP and no roll; anyone else a roll and no HP.
-const kind = (monster: boolean, roll: number | null, hp: Hp | null) =>
-  monster ? { monster, roll: null, hp } : { monster, roll, hp: null };
+// The one place the entry rules live (parse and every edit go through it):
+// the GM row is never dead or a monster; a monster has HP and no roll;
+// anyone else a roll and no HP.
+const normalized = (e: Entry): Entry => {
+  const gm = e.id === GM_ENTRY;
+  const monster = e.monster && !gm;
+  return { ...e, dead: e.dead && !gm, monster, roll: monster ? null : e.roll, hp: monster ? e.hp : null };
+};
+
+const sameEntry = (a: Entry, b: Entry) =>
+  a.roll === b.roll &&
+  a.note === b.note &&
+  a.dead === b.dead &&
+  a.monster === b.monster &&
+  a.hp?.cur === b.hp?.cur &&
+  a.hp?.max === b.hp?.max;
 
 const newEntry = (id: string, monster: boolean): Entry => ({ id, roll: null, note: "", dead: false, monster, hp: null });
 
 // Players and the GM row first, then the monsters, each keeping its order.
 const grouped = (entries: Entry[]): Entry[] => [...entries.filter((e) => !e.monster), ...entries.filter((e) => e.monster)];
 
-const parseCount = (raw: unknown): number =>
-  typeof raw === "number" && Number.isInteger(raw) && raw >= 0 ? Math.min(raw, 9999) : 0;
+const parseCount = (raw: unknown): number => Math.min(intIn(raw, 0, Infinity) ?? 0, 9999);
 
 // Entries whose token no longer exists drop out (the GM row always stays).
 // Returns the same object when nothing changed.
@@ -180,12 +196,21 @@ export const toCombat = (t: Tracker, clearRolls: boolean): Tracker => {
 export const resetRounds = (t: Tracker): Tracker =>
   t.round === 0 && t.combatRound === 0 && t.current === null ? t : { ...t, current: null, round: 0, combatRound: 0 };
 
+// What a player sees: hidden tokens drop out, and on a hidden token's turn
+// the GM row shows as current.
+export const playerView = (t: Tracker, visible: (id: string) => boolean) => {
+  const entries = t.entries.filter((e) => e.id === GM_ENTRY || visible(e.id));
+  const current = t.current !== null && !entries.some((e) => e.id === t.current) ? GM_ENTRY : t.current;
+  return { entries, current };
+};
+
 // Back to crawling, keeping the combat order and rolls.
 export const toCrawl = (t: Tracker): Tracker =>
   t.phase === "crawl" ? t : { ...t, phase: "crawl", current: null, combatRound: 0 };
 
 // Highest roll first; no roll goes last; ties keep their current order.
-// Monsters (no rolls) keep their own order.
+// Monsters (no rolls) keep their own order. The stable sort already leaves
+// them last; grouped() keeps the players-then-monsters layout explicit.
 export const sortByRoll = (t: Tracker): Tracker => {
   const sorted = grouped([...t.entries].sort((a, b) => (b.roll ?? -Infinity) - (a.roll ?? -Infinity)));
   return sorted.every((e, i) => e === t.entries[i]) ? t : { ...t, entries: sorted };
@@ -204,7 +229,7 @@ export const add = (t: Tracker, ids: string[], monster = false): Tracker => {
   const kept = t.entries.filter((e) => !switching.has(e.id));
   const switched = t.entries
     .filter((e) => switching.has(e.id))
-    .map((e) => ({ ...e, ...kind(monster, null, null) }));
+    .map((e) => normalized({ ...e, monster, roll: null, hp: null }));
   return withEntries(t, grouped([...kept, ...switched, ...fresh.map((id) => newEntry(id, monster))]));
 };
 
@@ -233,16 +258,8 @@ const update = (t: Tracker, id: string, change: Partial<Entry>): Entry[] | null 
   const i = t.entries.findIndex((e) => e.id === id);
   if (i < 0) return null;
   const old = t.entries[i];
-  const entry = { ...old, ...change };
-  if (
-    entry.roll === old.roll &&
-    entry.note === old.note &&
-    entry.dead === old.dead &&
-    entry.monster === old.monster &&
-    entry.hp?.cur === old.hp?.cur &&
-    entry.hp?.max === old.hp?.max
-  )
-    return null;
+  const entry = normalized({ ...old, ...change });
+  if (sameEntry(entry, old)) return null;
   const entries = [...t.entries];
   entries[i] = entry;
   return entries;
@@ -253,17 +270,15 @@ const edit = (t: Tracker, id: string, change: Partial<Entry>): Tracker => {
   return entries ? { ...t, entries } : t;
 };
 
-const isMonster = (t: Tracker, id: string) => t.entries.some((e) => e.id === id && e.monster);
-
-// Monsters have no roll of their own.
+// Monsters have no roll of their own (normalized drops it).
 export const setRoll = (t: Tracker, id: string, roll: number | null): Tracker =>
-  isMonster(t, id) ? t : edit(t, id, { roll: parseRoll(roll) });
+  edit(t, id, { roll: parseRoll(roll) });
 
 export const setNote = (t: Tracker, id: string, note: string): Tracker =>
   edit(t, id, { note: note.slice(0, NOTE_MAX) });
 
-export const setHp = (t: Tracker, id: string, hp: Hp | null): Tracker =>
-  isMonster(t, id) ? edit(t, id, { hp: hp === null ? null : parseHp(hp) }) : t;
+// Monsters only (normalized drops it on anyone else).
+export const setHp = (t: Tracker, id: string, hp: Hp | null): Tracker => edit(t, id, { hp: parseHp(hp) });
 
 // What the GM typed in an HP box. Current: "-5" is damage, "+3" healing, "12"
 // sets it (never below 0). Max: a number; empty stops tracking HP. Starting
@@ -288,7 +303,7 @@ export const hpFromInput = (hp: Hp | null, box: "cur" | "max", text: string): Hp
 // Dead entries keep their seat but get no turns; killing the current entry
 // passes the turn on. The GM row can't die.
 export const setDead = (t: Tracker, id: string, dead: boolean): Tracker => {
-  const entries = id === GM_ENTRY ? null : update(t, id, { dead });
+  const entries = update(t, id, { dead });
   return entries ? withEntries(t, entries) : t;
 };
 

@@ -6,10 +6,13 @@ import OBR, { buildImage, type Image, type Item } from "@owlbear-rodeo/sdk";
 
 import { MARKER_KEY, SETTINGS_KEY, TRACKER_KEY } from "./constants";
 import { parseSettings, type Settings } from "./settings";
-import { GM_ENTRY, parseTracker } from "./tracker";
+import { GM_ENTRY, parseTracker, type Tracker } from "./tracker";
+import { errorMessage, notify } from "./utils";
+
+type TurnSettings = Pick<Settings, "showMarker" | "selectOnTurn">;
 
 // WebP, never SVG on the map (black square). Source: art/turn-marker.svg.
-export const markerImage = (origin: string) => `${origin}/img/turn-marker.webp`;
+export const markerImage = () => `${window.location.origin}/img/turn-marker.webp`;
 const MARKER_PX = 256;
 // The ring's diameter, in token widths.
 const RING = 1.5;
@@ -54,28 +57,51 @@ export const buildMarker = (token: Image, image: string) => {
 const isImage = (item: Item | undefined): item is Image => item?.type === "IMAGE";
 
 // Put the marker on `current` (none for the GM row or between rounds) and,
-// if set, select that token on this client.
-export const syncTurn = async (current: string | null, settings: Pick<Settings, "showMarker" | "selectOnTurn">) => {
+// if set, select that token on this client. `items` is the scene's items
+// when the caller already has them (the panel keeps them live); otherwise
+// they're read, which copies the whole scene over postMessage.
+export const syncTurn = async (current: string | null, settings: TurnSettings, items?: Item[]) => {
   const tokenId = current !== null && current !== GM_ENTRY ? current : null;
-  const items = await OBR.scene.items.getItems((item) => item.metadata[MARKER_KEY] !== undefined || item.id === tokenId);
-  const token = items.find((i) => i.id === tokenId);
-  const markers = items.filter((i) => i.metadata[MARKER_KEY] !== undefined);
-  const image = markerImage(window.location.origin);
+  const all = items ?? (await OBR.scene.items.getItems());
+  const token = all.find((i) => i.id === tokenId);
+  const target = settings.showMarker && isImage(token) ? token : null;
+  const image = markerImage();
   const plan = planMarker(
-    markers.map((m) => ({ id: m.id, attachedTo: m.attachedTo, image: isImage(m) ? m.image.url : undefined })),
-    settings.showMarker && isImage(token) ? token.id : null,
+    all
+      .filter((i) => i.metadata[MARKER_KEY] !== undefined)
+      .map((m) => ({ id: m.id, attachedTo: m.attachedTo, image: isImage(m) ? m.image.url : undefined })),
+    target?.id ?? null,
     image,
   );
-  if (plan.remove.length > 0) await OBR.scene.items.deleteItems(plan.remove);
-  if (plan.addTo && isImage(token)) await OBR.scene.items.addItems([buildMarker(token, image)]);
-  if (settings.selectOnTurn && token) await OBR.player.select([token.id], true);
+  // Independent: old markers out, the new one in, the selection. A partial
+  // failure is tidied by the next sync (planMarker drops strays).
+  await Promise.all([
+    plan.remove.length > 0 && OBR.scene.items.deleteItems(plan.remove),
+    plan.addTo && target && OBR.scene.items.addItems([buildMarker(target, image)]),
+    settings.selectOnTurn && token && OBR.player.select([token.id], true),
+  ]);
 };
 
-// After a settings change: the marker for whoever's turn it is now.
-export const syncTurnFromScene = async (settings: Pick<Settings, "showMarker">) => {
-  const scene = await OBR.scene.getMetadata();
-  await syncTurn(parseTracker(scene[TRACKER_KEY]).current, { showMarker: settings.showMarker, selectOnTurn: false });
+const report = (err: unknown) => notify(`Couldn't move the turn marker: ${errorMessage(err)}`, "WARNING");
+
+// Every write that may change whose turn it is calls this (panel and
+// right-click). The tracker change is saved either way; a marker failure
+// only warns.
+export const afterTurnChange = async (before: Tracker, after: Tracker, settings: TurnSettings, items?: Item[]) => {
+  if (after.current !== before.current) await syncTurn(after.current, settings, items).catch(report);
 };
+
+// After the marker setting changes: add or remove it for whoever's turn it
+// is now. No scene open: nothing to do.
+export const syncTurnFromScene = (showMarker: boolean) =>
+  OBR.scene
+    .isReady()
+    .then(async (ready) => {
+      if (!ready) return;
+      const scene = await OBR.scene.getMetadata();
+      await syncTurn(parseTracker(scene[TRACKER_KEY]).current, { showMarker, selectOnTurn: false });
+    })
+    .catch(report);
 
 // For the background page: the current settings from the room.
 export const readSettings = async () => parseSettings((await OBR.room.getMetadata())[SETTINGS_KEY]);

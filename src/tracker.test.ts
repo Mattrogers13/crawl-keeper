@@ -9,6 +9,7 @@ import {
   moveTo,
   next,
   parseTracker,
+  playerView,
   previous,
   prune,
   remove,
@@ -288,6 +289,17 @@ describe("monsters", () => {
     const t = toggle(tracker({ a: 14, gm: 9, b: 3 }, "a", 1), ["a"], true);
     expect(t.current).toBe("a");
     expect(ids(turnOrder(t))).toEqual(["gm", "a", "b"]);
+  });
+});
+
+describe("playerView", () => {
+  it("drops hidden tokens; a hidden token's turn shows as the GM row's", () => {
+    const t = tracker({ a: 5, gm: 3, m1: null, m2: null }, "m2", 1);
+    const view = playerView(t, (id) => id !== "m2");
+    expect(ids(view.entries)).toEqual(["a", "gm", "m1"]);
+    expect(view.current).toBe(GM_ENTRY);
+    expect(playerView(t, () => true).current).toBe("m2");
+    expect(playerView({ ...t, current: null }, () => false).current).toBeNull();
   });
 });
 

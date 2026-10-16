@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, type ChangeEvent, type KeyboardEvent, type ReactNode } from "react";
 import type { Item } from "@owlbear-rodeo/sdk";
 import {
   DndContext,
@@ -18,19 +18,18 @@ import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
-import { syncTurn } from "../marker";
+import { afterTurnChange } from "../marker";
 import { parseSettings } from "../settings";
-import { errorMessage, notify } from "../utils";
 import {
   GM_ENTRY,
   NOTE_MAX,
-  ROLL_MAX,
-  ROLL_MIN,
   hpFromInput,
   moveTo,
   next,
+  parseRoll,
   parseTracker,
   phaseRound,
+  playerView,
   previous,
   prune,
   resetRounds,
@@ -85,19 +84,12 @@ const Tracker = ({ role }: { role: Role }) => {
     const updated = fn(tracker);
     if (updated === doc.value) return;
     void doc.write(updated);
-    if (updated.current !== tracker.current) {
-      syncTurn(updated.current, settings.value).catch((err) =>
-        notify(`Couldn't move the turn marker: ${errorMessage(err)}`, "WARNING"),
-      );
-    }
+    void afterTurnChange(tracker, updated, settings.value, items);
   };
 
-  // Players never see hidden tokens. If it's a hidden token's turn, players
-  // see the GM row as current instead.
-  const shown = gm
-    ? tracker.entries
-    : tracker.entries.filter((e) => e.id === GM_ENTRY || tokenInfo(byId.get(e.id)).visible);
-  const current = gm || shown.some((e) => e.id === tracker.current) ? tracker.current : tracker.current && GM_ENTRY;
+  const { entries: shown, current } = gm
+    ? tracker
+    : playerView(tracker, (id) => tokenInfo(byId.get(id)).visible);
   const top = shown.filter((e) => !e.monster);
   const monsters = shown.filter((e) => e.monster);
   const tokenFor = (e: Entry) => (e.id === GM_ENTRY ? null : tokenInfo(byId.get(e.id)));
@@ -330,26 +322,39 @@ const Portrait = ({ token, dead }: { token: Token | null; dead: boolean }) => (
 
 const ROLL_SLOT = "w-12 shrink-0";
 
-// Saves on Enter or when focus leaves. Empty = no roll.
-const RollInput = ({ name, value, save }: { name: string; value: number | null; save: (r: number | null) => void }) => {
-  const [draft, setDraft] = useState(value === null ? "" : String(value));
-  const commit = () => {
-    const n = draft.trim() === "" ? null : Number(draft);
-    if (n === null || (Number.isInteger(n) && n >= ROLL_MIN && n <= ROLL_MAX)) save(n);
-    else setDraft(value === null ? "" : String(value));
+// A text box that saves on Enter or when focus leaves. `read` turns the text
+// into a value, or undefined when it can't (the box then puts the old text
+// back). Unchanged text saves nothing.
+const useDraft = <T,>(shown: string, read: (text: string) => T | undefined, save: (value: T) => void) => {
+  const [draft, setDraft] = useState(shown);
+  return {
+    value: draft,
+    onChange: (e: ChangeEvent<HTMLInputElement>) => setDraft(e.target.value),
+    onBlur: () => {
+      if (draft === shown) return;
+      const value = read(draft);
+      if (value === undefined) setDraft(shown);
+      else save(value);
+    },
+    onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && e.currentTarget.blur(),
   };
-  return (
-    <input
-      aria-label={`Initiative for ${name}`}
-      inputMode="numeric"
-      className={`${ROLL_SLOT} rounded border border-obr-text-disabled bg-obr-paper px-1 py-0.5 text-right tabular-nums focus:border-obr-primary focus:outline-none`}
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-    />
-  );
 };
+
+// Borderless until hovered or focused.
+const GHOST_INPUT =
+  "rounded border border-transparent bg-transparent hover:border-obr-text-disabled focus:border-obr-primary focus:outline-none";
+
+// Empty = no roll.
+const readRoll = (text: string) => (text.trim() === "" ? null : (parseRoll(Number(text)) ?? undefined));
+
+const RollInput = ({ name, value, save }: { name: string; value: number | null; save: (r: number | null) => void }) => (
+  <input
+    aria-label={`Initiative for ${name}`}
+    inputMode="numeric"
+    className={`${ROLL_SLOT} rounded border border-obr-text-disabled bg-obr-paper px-1 py-0.5 text-right tabular-nums focus:border-obr-primary focus:outline-none`}
+    {...useDraft(value === null ? "" : String(value), readRoll, save)}
+  />
+);
 
 // GM-only. Current HP takes "-5" (damage), "+3" (healing) or a number; max
 // empty stops tracking. Unreadable input puts the old value back.
@@ -361,46 +366,27 @@ const HpInputs = ({ name, hp, save }: { name: string; hp: Hp | null; save: (hp: 
   </span>
 );
 
-const HpBox = (props: { label: string; box: "cur" | "max"; hp: Hp | null; save: (hp: Hp | null) => void }) => {
-  const shown = props.hp === null ? "" : String(props.hp[props.box]);
-  const [draft, setDraft] = useState(shown);
-  const commit = () => {
-    if (draft === shown) return;
-    const hp = hpFromInput(props.hp, props.box, draft);
-    if (hp === undefined) setDraft(shown);
-    else props.save(hp);
-  };
-  return (
-    <input
-      aria-label={props.label}
-      inputMode="numeric"
-      className={`w-9 rounded border border-transparent bg-transparent px-0.5 text-right tabular-nums hover:border-obr-text-disabled focus:border-obr-primary focus:outline-none ${
-        props.box === "cur" && props.hp?.cur === 0 ? "font-semibold text-red-500" : "text-obr-text"
-      }`}
-      placeholder="–"
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-    />
-  );
-};
+const HpBox = (props: { label: string; box: "cur" | "max"; hp: Hp | null; save: (hp: Hp | null) => void }) => (
+  <input
+    aria-label={props.label}
+    inputMode="numeric"
+    className={`w-9 px-0.5 text-right tabular-nums ${GHOST_INPUT} ${
+      props.box === "cur" && props.hp?.cur === 0 ? "font-semibold text-red-500" : "text-obr-text"
+    }`}
+    placeholder="–"
+    {...useDraft(props.hp === null ? "" : String(props.hp[props.box]), (text) => hpFromInput(props.hp, props.box, text), props.save)}
+  />
+);
 
-const NoteInput = ({ name, value, save }: { name: string; value: string; save: (n: string) => void }) => {
-  const [draft, setDraft] = useState(value);
-  return (
-    <input
-      aria-label={`Note for ${name}`}
-      placeholder="Add a note"
-      maxLength={NOTE_MAX}
-      className="w-full min-w-0 rounded border border-transparent bg-transparent px-1 text-sm text-obr-text-secondary hover:border-obr-text-disabled focus:border-obr-primary focus:outline-none"
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => draft !== value && save(draft)}
-      onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-    />
-  );
-};
+const NoteInput = ({ name, value, save }: { name: string; value: string; save: (n: string) => void }) => (
+  <input
+    aria-label={`Note for ${name}`}
+    placeholder="Add a note"
+    maxLength={NOTE_MAX}
+    className={`w-full min-w-0 px-1 text-sm text-obr-text-secondary ${GHOST_INPUT}`}
+    {...useDraft(value, (text) => text, save)}
+  />
+);
 
 type ButtonProps = { label: string; pressed?: boolean; onClick: () => void; children: ReactNode };
 

@@ -5,7 +5,7 @@
 import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 
 import { MENU_ID, MONSTER_MENU_ID, TRACKER_KEY } from "./constants";
-import { readSettings, syncTurn } from "./marker";
+import { afterTurnChange, readSettings } from "./marker";
 import { parseTracker, toggle, type Phase } from "./tracker";
 import { errorMessage, notify } from "./utils";
 
@@ -13,17 +13,13 @@ import { errorMessage, notify } from "./utils";
 // The panel may also be writing; both are the GM's own clicks, so they don't
 // overlap in practice (docs/design.md: GM is the only writer).
 export const toggleInitiative = async (ids: string[], monster = false) => {
-  const tracker = parseTracker((await OBR.scene.getMetadata())[TRACKER_KEY]);
+  const [scene, settings] = await Promise.all([OBR.scene.getMetadata(), readSettings()]);
+  const tracker = parseTracker(scene[TRACKER_KEY]);
   const updated = toggle(tracker, ids, monster);
   if (updated === tracker) return;
   await OBR.scene.setMetadata({ [TRACKER_KEY]: updated });
   // Removing the current token passed the turn on: move the marker with it.
-  // The initiative change is saved either way; a marker failure only warns.
-  if (updated.current !== tracker.current) {
-    await readSettings()
-      .then((settings) => syncTurn(updated.current, settings))
-      .catch((err) => console.warn(`Couldn't move the turn marker: ${errorMessage(err)}`));
-  }
+  await afterTurnChange(tracker, updated, settings);
 };
 
 const menuItem = (id: string, icon: string, label: string, monster: boolean) =>

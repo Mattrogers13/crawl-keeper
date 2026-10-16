@@ -62,6 +62,8 @@ const fresh = () => ({
   itemListeners: [] as Listener<Item[]>[],
   // This client's selected item ids.
   selection: [] as string[],
+  // Ids handed out by buildImage.
+  built: 0,
 });
 
 export const obr = fresh();
@@ -198,11 +200,10 @@ export const receiveBroadcast = (channel: string, data: unknown) =>
 
 // --- The mocked SDK ------------------------------------------------------
 
-let built = 0;
 /** buildImage: a chainable builder that records what it was given. */
 export const buildImage = (image: Record<string, unknown>, grid: Record<string, unknown>) => {
   const item: Record<string, unknown> = {
-    id: `built-${++built}`,
+    id: `built-${++obr.built}`,
     type: "IMAGE",
     image,
     grid,
