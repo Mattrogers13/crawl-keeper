@@ -179,12 +179,12 @@ const Row = (props: {
     <li
       aria-current={props.current ? "step" : undefined}
       className={`flex items-start gap-2 rounded p-1.5 ${props.current ? "bg-obr-primary/20 ring-1 ring-obr-primary" : "bg-obr-bg"} ${
-        entry.dead ? "opacity-50" : token && !token.visible ? "opacity-60" : ""
+        token && !token.visible ? "opacity-60" : ""
       }`}
     >
       <Portrait token={token} dead={entry.dead} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className={`truncate font-medium ${entry.dead ? "line-through" : ""}`}>
+        <span className={`truncate font-medium ${entry.dead ? "text-obr-text-secondary line-through" : ""}`}>
           {name}
           {entry.dead && <span className="sr-only"> (dead)</span>}
           {props.first && <span className="ml-1 text-xs text-obr-text-secondary">(first)</span>}
@@ -211,21 +211,21 @@ const Row = (props: {
           {/* The GM row has no dead or remove button: same-width gaps keep the roll boxes lined up. */}
           {token ? (
             <>
-              <IconButton
+              <RowAction
                 label={`Dead: ${name}`}
                 pressed={entry.dead}
                 onClick={() => change((t) => setDead(t, entry.id, !entry.dead, props.mode))}
               >
-                ☠
-              </IconButton>
-              <IconButton label={`Remove ${name}`} onClick={() => change((t) => remove(t, [entry.id], props.mode))}>
-                ✕
-              </IconButton>
+                <SkullIcon className="h-5 w-5" />
+              </RowAction>
+              <RowAction label={`Remove ${name}`} onClick={() => change((t) => remove(t, [entry.id], props.mode))}>
+                <CloseIcon />
+              </RowAction>
             </>
           ) : (
             <>
-              <span className={ICON_SLOT} aria-hidden />
-              <span className={ICON_SLOT} aria-hidden />
+              <span className={ROW_ACTION} aria-hidden />
+              <span className={ROW_ACTION} aria-hidden />
             </>
           )}
         </>
@@ -246,8 +246,8 @@ const Portrait = ({ token, dead }: { token: Token | null; dead: boolean }) => (
       </div>
     )}
     {dead && (
-      <span className="absolute inset-0 flex items-center justify-center text-xl" aria-hidden>
-        ☠
+      <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 text-white" aria-hidden>
+        <SkullIcon className="h-6 w-6" />
       </span>
     )}
   </div>
@@ -307,8 +307,25 @@ const Button = ({ label, primary, pressed, onClick, children }: ButtonProps & { 
   </button>
 );
 
-// Every row's trailing buttons take the same width (see Row).
 const ICON_SLOT = "w-5 shrink-0";
+
+// Dead and remove: full-size touch targets, the same width on every row (see Row).
+const ROW_ACTION = "h-7 w-7 shrink-0";
+
+const RowAction = (props: ButtonProps) => (
+  <button
+    type="button"
+    aria-label={props.label}
+    aria-pressed={props.pressed}
+    title={props.label}
+    className={`${ROW_ACTION} flex items-center justify-center rounded hover:bg-obr-paper hover:text-obr-text ${
+      props.pressed ? "bg-obr-primary text-obr-primary-contrast hover:bg-obr-primary hover:text-obr-primary-contrast" : "text-obr-text-secondary"
+    }`}
+    onClick={props.onClick}
+  >
+    {props.children}
+  </button>
+);
 
 const IconButton = (props: ButtonProps & { disabled?: boolean }) => (
   <button
@@ -324,6 +341,22 @@ const IconButton = (props: ButtonProps & { disabled?: boolean }) => (
   >
     {props.children}
   </button>
+);
+
+// Drawn for this extension (no icon font: no third-party requests).
+const SkullIcon = ({ className }: { className: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
+    <path
+      fillRule="evenodd"
+      d="M12 2a8 8 0 0 0-8 8c0 2.7 1.3 4.7 3 5.8V19a1 1 0 0 0 1 1h1v-2h2v2h2v-2h2v2h1a1 1 0 0 0 1-1v-3.2c1.7-1.1 3-3.1 3-5.8a8 8 0 0 0-8-8zM8.5 9a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM12 13.5l-1.2 2h2.4z"
+    />
+  </svg>
+);
+
+const CloseIcon = () => (
+  <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+    <path d="M4 4l8 8M12 4l-8 8" />
+  </svg>
 );
 
 // Bars shortening downward: the usual "sort, highest first" icon.

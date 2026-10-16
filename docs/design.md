@@ -28,7 +28,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 - **d20 order:** sort by roll, highest first. Ties: GM moves rows.
 - **Table Order:** the list order is the seating, clockwise from the top (GM moves rows). Highest roll takes the first turn; turns then go clockwise through the seating. No sort button here: sorting would scramble the seating.
 - Moving rows: ▲▼ per row, shown only while the GM's Reorder toggle is on (not saved, per GM).
-- **Dead:** GM toggles ☠ on a token row (not the GM row). Dead rows keep their seat, grey out for everyone, and get no turns; killing the current entry passes the turn on.
+- **Dead:** GM toggles ☠ on a token row (not the GM row). Dead rows keep their seat, show a skull badge on the portrait for everyone, and get no turns; killing the current entry passes the turn on.
 - Next / Previous turn. Round increments when the turn wraps.
 - Note under each name: GM edits, everyone sees.
 - Monster HP: cur/max with a damage/heal field, GM-only display.
@@ -53,7 +53,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
   2. Map and combat: monster HP, turn marker, selection toggle, Crawling/Combat states.
   3. Crawl: Standard checks and the Crawling Clock with all options.
 - **v0.2:** encounter roller (book's distance d6 / activity 2d6 / reaction 2d6+CHA, plus GM-pasted custom tables) and a standalone morale roller (d20 + WIS mod vs DC 15; holds / flees).
-- **Later:** death timer (GM marks a PC dying: 1d4 + CON mod rounds, min 1; d20 prompt on each of their turns, 20 = up with 1 HP; runs out = marked dead), Time Passes (advance N crawl rounds and run the encounter checks; no effect clearing), 3D-style d20 art for the clock, half-HP morale flag, Torchlight darkness link, Owlbear Dice as a roll source, table import/export, players editing notes.
+- **Later:** death timer (GM marks a PC dying: 1d4 + CON mod rounds, min 1; d20 prompt on each of their turns, 20 = up with 1 HP; runs out = marked dead; a dying badge with the rounds left on the portrait, visible to everyone), Time Passes (advance N crawl rounds and run the encounter checks; no effect clearing), 3D-style d20 art for the clock, half-HP morale flag, Torchlight darkness link, Owlbear Dice as a roll source, table import/export, players editing notes.
 - **Not doing:** player editing, real secrecy, shipping the book's text, light timers (Torchlight covers them), co-GM support.
 
 ## References (read-only, gitignored in `sources/`)
