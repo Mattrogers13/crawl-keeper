@@ -60,6 +60,10 @@ const fresh = () => ({
   sceneReadyListeners: [] as Listener<boolean>[],
   sceneMetadataListeners: [] as Listener<Metadata>[],
   itemListeners: [] as Listener<Item[]>[],
+  // This client's selected item ids.
+  selection: [] as string[],
+  // Ids handed out by buildImage.
+  built: 0,
 });
 
 export const obr = fresh();
@@ -92,6 +96,11 @@ const applySceneWrite = (update: Partial<Metadata>) => {
   obr.sceneMetadata = { ...obr.sceneMetadata, ...update };
   const snapshot = obr.sceneMetadata;
   [...obr.sceneMetadataListeners].forEach((l) => l(snapshot));
+};
+
+const applyItems = (items: Item[]) => {
+  obr.items = items;
+  [...obr.itemListeners].forEach((l) => l(items));
 };
 
 const needScene = () => {
@@ -163,6 +172,7 @@ export const token = (id: string, extra: Partial<Item> & { url?: string } = {}):
     layer: "CHARACTER",
     metadata: {},
     image: { url: url ?? `https://example.com/${id}.png`, width: 100, height: 100, mime: "image/png" },
+    grid: { dpi: 100, offset: { x: 50, y: 50 } },
     ...rest,
   } as Item;
 };
@@ -189,6 +199,31 @@ export const receiveBroadcast = (channel: string, data: unknown) =>
   });
 
 // --- The mocked SDK ------------------------------------------------------
+
+/** buildImage: a chainable builder that records what it was given. */
+export const buildImage = (image: Record<string, unknown>, grid: Record<string, unknown>) => {
+  const item: Record<string, unknown> = {
+    id: `built-${++obr.built}`,
+    type: "IMAGE",
+    image,
+    grid,
+    visible: true,
+    metadata: {},
+    position: { x: 0, y: 0 },
+    scale: { x: 1, y: 1 },
+    disableAttachmentBehavior: [],
+  };
+  const builder = {
+    build: () => item as unknown as Item,
+  } as Record<string, unknown>;
+  for (const key of ["name", "position", "attachedTo", "visible", "layer", "locked", "disableHit", "disableAttachmentBehavior", "metadata"]) {
+    builder[key] = (value: unknown) => {
+      item[key] = value;
+      return builder;
+    };
+  }
+  return builder as { build: () => Item } & Record<string, (v: unknown) => typeof builder>;
+};
 
 export const OBR = {
   isAvailable: true,
@@ -229,6 +264,9 @@ export const OBR = {
       return obr.role;
     }),
     onChange: vi.fn((cb: Listener<Player>) => subscribe(obr.playerListeners, cb)),
+    select: vi.fn(async (ids: string[], replace?: boolean) => {
+      obr.selection = replace ? [...ids] : [...new Set([...obr.selection, ...ids])];
+    }),
   },
   scene: {
     isReady: vi.fn(async () => obr.sceneReady),
@@ -244,13 +282,45 @@ export const OBR = {
     }),
     onMetadataChange: vi.fn((cb: Listener<Metadata>) => subscribe(obr.sceneMetadataListeners, cb)),
     items: {
-      // Only the id-list filter form is supported.
-      getItems: vi.fn(async (filter?: string[]) => {
+      getItems: vi.fn(async (filter?: string[] | ((item: Item) => boolean)) => {
         needScene();
-        return filter ? obr.items.filter((i) => filter.includes(i.id)) : obr.items;
+        if (!filter) return obr.items;
+        return obr.items.filter((i) => (typeof filter === "function" ? filter(i) : filter.includes(i.id)));
+      }),
+      // Like Owlbear: the change reaches every items.onChange listener.
+      addItems: vi.fn(async (items: Item[]) => {
+        needScene();
+        applyItems([...obr.items, ...items]);
+      }),
+      // Like Owlbear's (an immer draft): the updater edits copies of the items.
+      updateItems: vi.fn(async (ids: string[], update: (drafts: Item[]) => void) => {
+        needScene();
+        const drafts = obr.items.filter((i) => ids.includes(i.id)).map((i) => structuredClone(i));
+        update(drafts);
+        const byId = new Map(drafts.map((d) => [d.id, d]));
+        applyItems(obr.items.map((i) => byId.get(i.id) ?? i));
+      }),
+      deleteItems: vi.fn(async (ids: string[]) => {
+        needScene();
+        // Attachments go with their parent (default DELETE behaviour).
+        const gone = new Set(ids);
+        let grew = true;
+        while (grew) {
+          grew = false;
+          for (const i of obr.items) {
+            if (!gone.has(i.id) && i.attachedTo && gone.has(i.attachedTo)) {
+              gone.add(i.id);
+              grew = true;
+            }
+          }
+        }
+        applyItems(obr.items.filter((i) => !gone.has(i.id)));
       }),
       onChange: vi.fn((cb: Listener<Item[]>) => subscribe(obr.itemListeners, cb)),
     },
+  },
+  action: {
+    setHeight: vi.fn(async () => undefined),
   },
   contextMenu: {
     create: vi.fn(async () => undefined),

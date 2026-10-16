@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 import OBR from "@owlbear-rodeo/sdk";
 
-import { COMBAT_ALERT, createMenu, toggleInitiative, watchCombat } from "./background";
-import { TRACKER_KEY } from "./constants";
+import { COMBAT_ALERT, createMenu, toggleInitiative, watchCombat, watchMarkerVisibility } from "./background";
+import { MARKER_KEY, TRACKER_KEY } from "./constants";
 import { GM_ENTRY, parseTracker } from "./tracker";
-import { obr, setSceneReady, writeSceneFromElsewhere } from "./test/obrMock";
+import { changePlayer, obr, setItems, setSceneReady, token, writeSceneFromElsewhere } from "./test/obrMock";
 
 const saved = () => parseTracker(obr.sceneMetadata[TRACKER_KEY]);
 
@@ -23,11 +23,20 @@ describe("background: Add / Remove Initiative", () => {
     expect(saved().entries.map((e) => e.id)).toEqual(["x", GM_ENTRY, "y"]);
   });
 
-  it("registers a GM-only menu on character and mount images", async () => {
+  it("removing the current token moves the turn and the marker on", async () => {
+    obr.items = [token("a"), token("b")];
+    obr.sceneMetadata = { [TRACKER_KEY]: { entries: [{ id: "a" }, { id: "b" }, { id: GM_ENTRY }], current: "a", round: 1 } };
+    await toggleInitiative(["a"]);
+    expect(saved().current).toBe("b");
+    expect(obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefined).map((m) => m.attachedTo)).toEqual(["b"]);
+  });
+
+  it("registers one GM-only menu item on character and mount images", async () => {
     await createMenu();
-    const menu = vi.mocked(OBR.contextMenu.create).mock.calls[0][0];
-    expect(menu.icons[0].filter?.roles).toEqual(["GM"]);
-    expect(menu.icons[0].icon).toBe("/img/initiative.svg");
+    const menus = vi.mocked(OBR.contextMenu.create).mock.calls.map((c) => c[0]);
+    expect(menus).toHaveLength(1);
+    expect(menus[0].icons[0]).toMatchObject({ label: "Add / Remove Initiative", icon: "/img/initiative.svg" });
+    expect(menus[0].icons[0].filter?.roles).toEqual(["GM"]);
   });
 });
 
@@ -77,5 +86,34 @@ describe("background: combat alert", () => {
     off();
     await writeSceneFromElsewhere(phase("combat"));
     expect(alerts()).toHaveLength(0);
+  });
+});
+
+describe("background: turn marker visibility", () => {
+  const ring = (visible: boolean) => ({ ...token("r"), attachedTo: "a", visible, metadata: { [MARKER_KEY]: true } });
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+
+  it("the GM's client hides the ring when its token is hidden, panel closed", async () => {
+    obr.role = "GM";
+    const off = watchMarkerVisibility();
+    await settle();
+    await setItems([token("a", { visible: false }), ring(true)]);
+    await settle();
+    expect(obr.items.find((i) => i.id === "r")?.visible).toBe(false);
+    off();
+  });
+
+  it("players' clients never write", async () => {
+    obr.role = "PLAYER";
+    const off = watchMarkerVisibility();
+    await settle();
+    await setItems([token("a", { visible: false }), ring(true)]);
+    await settle();
+    expect(OBR.scene.items.updateItems).not.toHaveBeenCalled();
+    await changePlayer({ role: "GM" });
+    await setItems([token("a", { visible: false }), ring(true)]);
+    await settle();
+    expect(OBR.scene.items.updateItems).toHaveBeenCalled();
+    off();
   });
 });

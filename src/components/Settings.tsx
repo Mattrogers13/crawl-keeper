@@ -1,8 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import OBR from "@owlbear-rodeo/sdk";
 
 import Loading from "./Loading";
-import { SETTINGS_KEY } from "../constants";
+import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import { useRoomValue } from "../hooks/useRoomValue";
+import { syncTurnFromScene } from "../marker";
+import { errorMessage } from "../utils";
 import { parseSettings, type Settings as SettingsDoc } from "../settings";
 
 // The GM's settings (room metadata, so they follow the party across maps).
@@ -15,17 +18,69 @@ const Settings = () => {
     <div className="flex flex-col gap-3 text-sm">
       <Check
         label="Hide rounds from players"
-        hint="Players see Crawl or Combat, not the round count."
+        hint="Players see Crawl or Combat but not the round number."
         checked={settings.value.hideRound}
         onChange={(hideRound) => set({ hideRound })}
       />
       <Check
         label="Clear initiative rolls on combat"
-        hint="Everyone rolls fresh for combat (core p. 88). The combat order carries on when you switch back to Crawl."
+        hint="Switching to Combat empties every roll so everyone rolls fresh (core p. 88)."
         checked={settings.value.clearRollsOnCombat}
         onChange={(clearRollsOnCombat) => set({ clearRollsOnCombat })}
       />
+      <Check
+        label="Show the turn marker on the map"
+        hint="A gold ring around whoever's turn it is. Turn it on or off per token from the row menu (a gold dot shows which have it)."
+        checked={settings.value.showMarker}
+        onChange={(showMarker) => {
+          set({ showMarker });
+          // Add or remove it now, not at the next turn.
+          void syncTurnFromScene({ showMarker });
+        }}
+      />
+
+      <Check
+        label="Select the current token"
+        hint="Each turn, Owlbear selects that token on your screen so you can move it right away. Players' screens don't change."
+        checked={settings.value.selectOnTurn}
+        onChange={(selectOnTurn) => set({ selectOnTurn })}
+      />
+      <DataSize />
       <InstallLink />
+    </div>
+  );
+};
+
+const kB = (value: unknown) => `${(new Blob([JSON.stringify(value) ?? ""]).size / 1000).toFixed(1)} kB`;
+
+// How much Owlbear is storing, read when Settings opens. The room limit is
+// documented (16 kB, all extensions together); the scene limit isn't.
+const DataSize = () => {
+  const [sizes, setSizes] = useState<{ tracker: string; scene: string; room: string } | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let alive = true;
+    Promise.all([OBR.scene.isReady(), OBR.room.getMetadata()])
+      .then(async ([ready, room]) => {
+        const scene = ready ? await OBR.scene.getMetadata() : null;
+        if (alive) setSizes({ tracker: scene ? kB(scene[TRACKER_KEY]) : "–", scene: scene ? kB(scene) : "–", room: kB(room) });
+      })
+      .catch((err) => alive && setError(errorMessage(err)));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-0.5 border-t border-obr-text-disabled pt-3">
+      <span>Saved data</span>
+      <span className="text-xs text-obr-text-secondary" role="status">
+        {error
+          ? `Couldn't read: ${error}`
+          : sizes
+            ? `This map: ${sizes.tracker} tracker, ${sizes.scene} all extensions (limit not documented). Room: ${sizes.room} of 16 kB, all extensions.`
+            : "Reading…"}
+      </span>
     </div>
   );
 };

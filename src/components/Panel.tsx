@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import Loading from "./Loading";
+import ResizeGrip from "./ResizeGrip";
 import Settings from "./Settings";
 import Tracker from "./Tracker";
 import type { Role } from "../hooks/useRole";
@@ -14,8 +15,9 @@ const Panel = ({ role }: { role: Role }) => {
   const showSettings = settingsOpen && role === "GM";
 
   return (
-    <div className="flex min-h-screen flex-col gap-3 p-3">
-      <header className="flex items-center gap-2">
+    // Fills the popover: header and footer stay put, the content scrolls.
+    <div className="flex h-screen flex-col gap-3 p-3 pb-0">
+      <header className="flex shrink-0 items-center gap-2">
         {showSettings && (
           <button
             type="button"
@@ -40,17 +42,22 @@ const Panel = ({ role }: { role: Role }) => {
           </button>
         )}
       </header>
-      {showSettings ? (
-        <Settings />
-      ) : scene.ready === null ? (
-        <Loading />
-      ) : scene.ready ? (
-        // A new key per opened scene: switching maps reads the new map fresh.
-        <Tracker key={scene.opened} role={role} />
-      ) : (
-        <p className="text-sm text-obr-text-secondary">Open a scene to use the tracker.</p>
-      )}
+      <main className="flex min-h-0 flex-1 flex-col">
+        {showSettings ? (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <Settings />
+          </div>
+        ) : scene.ready === null ? (
+          <Loading />
+        ) : scene.ready ? (
+          // A new key per opened scene: switching maps reads the new map fresh.
+          <Tracker key={scene.opened} role={role} />
+        ) : (
+          <p className="text-sm text-obr-text-secondary">Open a scene to use the tracker.</p>
+        )}
+      </main>
       <Footer />
+      <ResizeGrip />
     </div>
   );
 };
@@ -66,7 +73,7 @@ const GearIcon = () => (
 );
 
 const Footer = () => (
-  <footer className="mt-auto text-xs text-obr-text-secondary">
+  <footer className="shrink-0 text-xs text-obr-text-secondary">
     v{VERSION}
     {import.meta.env.VITE_BUILD_LABEL && <div>{import.meta.env.VITE_BUILD_LABEL}</div>}
   </footer>

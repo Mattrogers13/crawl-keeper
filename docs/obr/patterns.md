@@ -37,6 +37,7 @@ buildImage(
   { dpi: 128 / 0.35, offset: { x: 64, y: 64 } }, // about a third of a grid cell
 )
   .attachedTo(token.id)
+  .visible(token.visible) // not inherited: see gotchas.md
   .layer("ATTACHMENT")
   .locked(true)
   .disableHit(true)
@@ -46,6 +47,7 @@ buildImage(
 ```
 
 - Images must be PNG/WebP, never SVG (black square). Keep `mime` in step with the file type.
+- An attachment doesn't take its parent's visibility: create it with the parent's, and re-match it when the parent is hidden or shown (GM's background page, `items.onChange`). Crawl Keeper: `src/marker.ts` (`markerVisibilityFixes`).
 - Find your items by your metadata key, and replace ones whose image URL is stale (lets you change the art later).
 - Decide what to do in a pure function (`plan(items, state) → { add, update, delete }`), unit-test that, and keep the SDK calls thin. Batch: one `addItems`, one `updateItems`, one `deleteItems`.
 

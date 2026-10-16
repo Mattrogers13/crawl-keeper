@@ -4,6 +4,7 @@
 import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 
 import { MENU_ID, TRACKER_KEY } from "./constants";
+import { afterTurnChange, fixMarkerVisibility, readSettings } from "./marker";
 import { parseTracker, toggle, type Phase } from "./tracker";
 import { errorMessage, notify } from "./utils";
 
@@ -11,11 +12,16 @@ import { errorMessage, notify } from "./utils";
 // The panel may also be writing; both are the GM's own clicks, so they don't
 // overlap in practice (docs/design.md: GM is the only writer).
 export const toggleInitiative = async (ids: string[]) => {
-  const tracker = parseTracker((await OBR.scene.getMetadata())[TRACKER_KEY]);
+  const [scene, settings] = await Promise.all([OBR.scene.getMetadata(), readSettings()]);
+  const tracker = parseTracker(scene[TRACKER_KEY]);
   const updated = toggle(tracker, ids);
-  if (updated !== tracker) await OBR.scene.setMetadata({ [TRACKER_KEY]: updated });
+  if (updated === tracker) return;
+  await OBR.scene.setMetadata({ [TRACKER_KEY]: updated });
+  // Removing the current token passed the turn on: move the marker with it.
+  await afterTurnChange(tracker, updated, settings);
 };
 
+// Players and monsters alike; the GM marks monsters in the tracker.
 export const createMenu = () =>
   OBR.contextMenu.create({
     id: MENU_ID,
@@ -77,7 +83,28 @@ export const watchCombat = () => {
   };
 };
 
+// The GM hid or showed a token with the turn marker: the ring follows
+// (Owlbear doesn't hide an attachment with its token). The GM's client only,
+// so there's one writer; panel open or not.
+export const watchMarkerVisibility = () => {
+  let gm = false;
+  const role = (r: string) => (gm = r === "GM");
+  OBR.player
+    .getRole()
+    .then(role)
+    .catch((err) => console.warn(`Couldn't read the role: ${errorMessage(err)}`));
+  const offPlayer = OBR.player.onChange((p) => role(p.role));
+  const offItems = OBR.scene.items.onChange((items) => {
+    if (gm) void fixMarkerVisibility(items);
+  });
+  return () => {
+    offPlayer();
+    offItems();
+  };
+};
+
 OBR.onReady(() => {
   createMenu().catch((err) => console.error(`Couldn't add the initiative menu: ${errorMessage(err)}`));
   watchCombat();
+  watchMarkerVisibility();
 });
