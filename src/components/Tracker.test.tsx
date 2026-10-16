@@ -420,6 +420,72 @@ describe("Tracker (GM)", () => {
     expect(rows().filter((r) => r.querySelector("[aria-selected=true]"))).toHaveLength(0);
   });
 
+  it("the GM rolls d20 + the monsters' modifier into the GM / Monsters roll", async () => {
+    // A d20 that rolls 11 (restored at the end: later tests roll for real).
+    const die = vi.spyOn(crypto, "getRandomValues").mockImplementation((buf) => {
+      (buf as Uint32Array)[0] = Math.floor((10.5 / 20) * 2 ** 32);
+      return buf;
+    });
+    scene([{ id: GM_ENTRY }]);
+    render(<App />);
+    const mod = await screen.findByLabelText("Monster DEX modifier");
+    fireEvent.change(mod, { target: { value: "+3" } });
+    fireEvent.blur(mod);
+    await waitFor(() => expect(saved().gmMod).toBe(3));
+    fireEvent.click(screen.getByLabelText(/Roll initiative for GM/));
+    await waitFor(() => expect(saved().entries.find((e) => e.id === GM_ENTRY)?.roll).toBe(14));
+    // Not a number: the box puts the old value back.
+    const saved3 = screen.getByLabelText("Monster DEX modifier");
+    expect(saved3).toHaveValue("+3");
+    fireEvent.change(saved3, { target: { value: "lots" } });
+    fireEvent.blur(saved3);
+    expect(saved3).toHaveValue("+3");
+    die.mockRestore();
+  });
+
+  it("hotkeys: N next, B back, R the due roll; not while typing", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    scene([{ id: "a" }, { id: GM_ENTRY }], null, 0);
+    render(<App />);
+    await screen.findByText("Aria");
+    fireEvent.keyDown(screen.getByLabelText("Note for Aria"), { key: "n" });
+    expect(saved().current).toBeNull();
+    fireEvent.keyDown(document.body, { key: "n" });
+    await waitFor(() => expect(saved()).toMatchObject({ current: "a", round: 1 }));
+    fireEvent.keyDown(document.body, { key: "N" });
+    await waitFor(() => expect(saved().current).toBe(GM_ENTRY));
+    fireEvent.keyDown(document.body, { key: "b" });
+    await waitFor(() => expect(saved().current).toBe("a"));
+    // Cmd-N is the browser's.
+    fireEvent.keyDown(document.body, { key: "n", metaKey: true });
+    expect(saved().current).toBe("a");
+  });
+
+  it("the roll button is always there, lit only when a roll is due on the GM's turn; R presses it", async () => {
+    scene([{ id: GM_ENTRY }], GM_ENTRY, 1, { crawl: { crawlRounds: 1 } });
+    render(<App />);
+    const card = await screen.findByRole("region", { name: "Encounter checks" });
+    const roll = within(card).getByRole("button", { name: "Roll check (d6)" });
+    expect(roll).not.toHaveClass("bg-obr-primary");
+    fireEvent.keyDown(document.body, { key: "r" });
+    await waitFor(() => expect(saved().crawl.last?.kind).toBe("check"));
+    // In combat the card (and R) are gone.
+    await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), phase: "combat", crawl: { crawlRounds: 3 } } });
+    fireEvent.keyDown(document.body, { key: "r" });
+    expect(saved().crawl.last).toBeNull();
+  });
+
+  it("Reset rounds and Remove monsters sit below the list, not by ◀ ▶", async () => {
+    obr.items = [token("m", { name: "Goblin" })];
+    scene([{ id: GM_ENTRY }, { id: "m", monster: true }]);
+    render(<App />);
+    await screen.findByText("Goblin");
+    const list = screen.getByLabelText("Monsters").closest(".overflow-y-auto")!;
+    const reset = screen.getByText("Reset rounds");
+    expect(list.compareDocumentPosition(reset) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(list.compareDocumentPosition(screen.getByText("Remove monsters")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   describe("the crawl card", () => {
     it("standard: calls for the check on the GM turn of the 3rd crawl round; the roll saves", async () => {
       obr.items = [token("a", { name: "Aria" })];
@@ -442,7 +508,7 @@ describe("Tracker (GM)", () => {
       const card = await screen.findByRole("region", { name: "Encounter checks" });
       fireEvent.click(within(card).getByText("deadly"));
       await waitFor(() => expect(saved().crawl.danger).toBe("deadly"));
-      fireEvent.click(within(card).getByLabelText(/In darkness/));
+      fireEvent.click(within(card).getByLabelText(/Darkness/));
       await waitFor(() => expect(saved().crawl.dark).toBe(true));
     });
 
@@ -454,7 +520,7 @@ describe("Tracker (GM)", () => {
       fireEvent.click(within(card).getByText("Roll d6"));
       await waitFor(() => expect(saved().crawl.last?.kind).toBe("clock"));
       expect(saved().crawl.clock).toBeLessThan(20);
-      expect(within(card).queryByRole("button", { name: /^Roll/ })).not.toBeInTheDocument();
+      expect(within(card).getByRole("button", { name: "Roll d6" })).not.toHaveClass("bg-obr-primary");
       expect(within(card).getByLabelText("Last roll")).toHaveTextContent(/Clock 20 → \d+|Encounter!/);
     });
 

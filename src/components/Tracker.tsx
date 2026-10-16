@@ -24,8 +24,8 @@ import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalList
 import { CSS } from "@dnd-kit/utilities";
 
 import Confirm from "./Confirm";
-import CrawlBar from "./CrawlBar";
-import { cryptoRand } from "../crawl";
+import CrawlBar, { ClockDial } from "./CrawlBar";
+import { cryptoRand, rollCheck, rollClock } from "../crawl";
 import Loading from "./Loading";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
@@ -37,6 +37,8 @@ import { parseSettings } from "../settings";
 import { errorMessage, notify } from "../utils";
 import {
   GM_ENTRY,
+  MOD_MAX,
+  MOD_MIN,
   NOTE_MAX,
   moveTo,
   next,
@@ -48,6 +50,8 @@ import {
   prune,
   removeMonsters,
   resetRounds,
+  rollGmInitiative,
+  setGmMod,
   remove,
   setDead,
   setMarker,
@@ -117,6 +121,25 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
     });
   }, [gmReady, items, docValue, writeDoc, settings.value]);
 
+  // The GM's hotkeys while the panel has focus (Owlbear keeps keys typed on
+  // the map): N next turn, B back, R the encounter roll. Not while
+  // typing, and not with Cmd / Ctrl / Alt (the browser's own shortcuts).
+  const hotkeys = useRef<Record<string, () => void>>({});
+  useEffect(() => {
+    if (role !== "GM") return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [role=menu], [role=alertdialog]")) return;
+      const run = hotkeys.current[e.key.toLowerCase()];
+      if (!run) return;
+      e.preventDefault();
+      run();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [role]);
+
   if (!settings.loaded || !doc.loaded || items === null) return <Loading />;
 
   const byId = new Map(items.map((i) => [i.id, i]));
@@ -153,7 +176,7 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
     setPicked(menuTargets(selection, id));
     setMenu({ x, y });
   };
-  const rowProps = { gm, change, show, openMenu, select };
+  const rowProps = { gm, change, show, openMenu, select, gmMod: tracker.gmMod };
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
   const round = tracker.round;
   const roundLabel =
@@ -162,6 +185,17 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
   // Players see the Crawling Clock unless the GM hides it; the GM sees it on the card.
   const showClock = !gm && settings.value.encounterMode === "clock" && !settings.value.hideClock;
   const showDanger = !gm && !combat && settings.value.encounterMode === "standard" && settings.value.showDanger;
+  const goNext = () =>
+    change((t) => (settings.value.autoRoll ? nextWithAutoRoll(t, settings.value.encounterMode, cryptoRand) : next(t)));
+  const mode = settings.value.encounterMode;
+  hotkeys.current = {
+    n: goNext,
+    b: () => change(previous),
+    // The card's roll button (always there while crawling).
+    r: () => {
+      if (!combat) change((t) => updateCrawl(t, (c) => (mode === "clock" ? rollClock(c, cryptoRand) : rollCheck(c, cryptoRand))));
+    },
+  };
   const drop = ({ active, over }: DragEndEvent) => {
     if (over) change((t) => moveTo(t, String(active.id), String(over.id)));
   };
@@ -178,11 +212,11 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
     >
       <div className="flex items-center gap-2">
         {gm ? (
-          <div role="group" aria-label="Phase" className="flex overflow-hidden rounded border border-obr-text-disabled text-sm font-medium">
+          <div role="group" aria-label="Phase" className="flex rounded-full bg-obr-bg p-[3px] text-sm font-medium">
             <button
               type="button"
               aria-pressed={!combat}
-              className={`px-2 py-0.5 ${combat ? "" : "bg-obr-primary text-obr-primary-contrast"}`}
+              className={`h-8 rounded-full px-4 ${combat ? "hover:bg-obr-text/10" : "bg-obr-primary text-obr-primary-contrast"}`}
               onClick={() => change((t) => backToCrawl(t, settings.value.encounterMode))}
             >
               Crawl
@@ -190,64 +224,47 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
             <button
               type="button"
               aria-pressed={combat}
-              className={`px-2 py-0.5 ${combat ? "bg-red-700 text-white" : ""}`}
+              className={`h-8 rounded-full px-4 ${combat ? "bg-red-700 text-white" : "hover:bg-obr-text/10"}`}
               onClick={() => change((t) => toCombat(t, settings.value.clearRollsOnCombat))}
             >
               Combat
             </button>
           </div>
         ) : (
-          <h2 className={`font-semibold ${combat ? "text-red-500" : ""}`}>{combat ? "Combat" : "Crawl"}</h2>
+          <h2
+            className={`flex h-8 items-center rounded-full px-3.5 font-medium ${combat ? "bg-red-700 text-white" : "bg-obr-bg"}`}
+          >
+            {combat ? "Combat" : "Crawl"}
+          </h2>
+        )}
+        {gm && (
+          <RoundButton label="Sort by roll" onClick={() => change(sortByRoll)}>
+            <SortIcon />
+          </RoundButton>
         )}
         {roundLabel && <span className="text-sm text-obr-text-secondary">{roundLabel}</span>}
         {showDanger && (
-          <span className="rounded bg-obr-bg px-1.5 text-xs font-medium capitalize" title="Danger level">
+          <span className="ml-auto flex h-8 items-center rounded-full bg-obr-bg px-3 text-xs font-medium capitalize" title="Danger level">
             {tracker.crawl.danger}
           </span>
         )}
         {showClock && (
-          <span className="text-sm text-obr-text-secondary" title="Crawling Clock">
-            Clock <span className="font-semibold text-obr-text tabular-nums">{tracker.crawl.clock}</span>
+          <span className="ml-auto flex items-center gap-2 text-sm text-obr-text-secondary" title="Crawling Clock">
+            Clock <ClockDial value={tracker.crawl.clock} size={44} />
           </span>
         )}
         {gm && (
-          <div className="ml-auto flex gap-1">
-            <Button label="Previous turn" disabled={tracker.current === null} onClick={() => change(previous)}>
-              ◀
-            </Button>
-            <Button
-              label="Next turn"
-              primary
-              onClick={() =>
-                change((t) => (settings.value.autoRoll ? nextWithAutoRoll(t, settings.value.encounterMode, cryptoRand) : next(t)))
-              }
-            >
-              ▶
-            </Button>
+          <div className="ml-auto flex gap-1.5">
+            <RoundButton label="Previous turn" hint="B" wide disabled={tracker.current === null} onClick={() => change(previous)}>
+              <PlayIcon back />
+            </RoundButton>
+            <RoundButton label="Next turn" hint="N" primary wide onClick={goNext}>
+              <PlayIcon />
+            </RoundButton>
           </div>
         )}
       </div>
 
-      {gm && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <Button label="Sort by roll" onClick={() => change(sortByRoll)}>
-            <SortIcon />
-          </Button>
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-            {/* After a fight: clear the monsters out (kept until then, so a fight can resume). */}
-            {!combat && tracker.entries.some((e) => e.monster) && (
-              <Confirm
-                label="Remove monsters"
-                question="Remove every monster from the tracker?"
-                action="Remove"
-                onConfirm={() => change(removeMonsters)}
-              />
-            )}
-            {/* A stray click would lose the crawl round count the encounter checks run on. */}
-            <Confirm label="Reset rounds" question="Reset the round count to 0?" action="Reset" onConfirm={() => change(resetRounds)} />
-          </div>
-        </div>
-      )}
       {gm &&
         !combat &&
         headerSlot &&
@@ -271,7 +288,7 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
         >
           {/* Two drag groups: players and the GM row; monsters inside the GM row. */}
           <SortableContext items={top.map((e) => e.id)} strategy={verticalListSortingStrategy}>
-            <ol className="flex flex-col gap-1">
+            <ol className="flex flex-col gap-0.5">
               {top.map((entry) => (
                 <Row
                   key={entry.id}
@@ -284,7 +301,10 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
                 >
                   {entry.id === GM_ENTRY && monsters.length > 0 && (
                     <SortableContext items={monsters.map((e) => e.id)} strategy={verticalListSortingStrategy}>
-                      <ol aria-label="Monsters" className="mt-1 flex flex-col gap-1">
+                      <span className="block px-2 pt-1 text-[11px] font-medium tracking-[0.06em] text-obr-text-secondary uppercase" aria-hidden>
+                        Monsters · {monsters.length}
+                      </span>
+                      <ol aria-label="Monsters" className="flex flex-col gap-0.5">
                         {monsters.map((m) => (
                           <Row key={m.id} entry={m} token={tokenFor(m)} current={m.id === current} selected={selection.ids.includes(m.id)} {...rowProps} />
                         ))}
@@ -302,6 +322,22 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
           </p>
         )}
       </div>
+      {/* Below the list, away from ◀ ▶ (a miss there shouldn't land on these). */}
+      {gm && (
+        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
+          {/* A stray click would lose the crawl round count the encounter checks run on. */}
+          <Confirm label="Reset rounds" question="Reset the round count to 0?" action="Reset" onConfirm={() => change(resetRounds)} />
+          {/* After a fight: clear the monsters out (kept until then, so a fight can resume). */}
+          {!combat && tracker.entries.some((e) => e.monster) && (
+            <Confirm
+              label="Remove monsters"
+              question="Remove every monster from the tracker?"
+              action="Remove"
+              onConfirm={() => change(removeMonsters)}
+            />
+          )}
+        </div>
+      )}
       {menu && targets.length > 0 && (
         <RowMenu
           entries={targets}
@@ -420,9 +456,11 @@ const Row = (props: {
   openMenu: (id: string, x: number, y: number) => void;
   select: (id: string, mods: { shift: boolean; toggle: boolean }) => void;
   selected: boolean;
+  // The monsters' initiative modifier (shown on the GM row).
+  gmMod: number;
   // The GM row's crawl card and monsters, listed under it.
   children?: ReactNode;
-  // The GM row with monsters: a red edge marks the group.
+  // The GM row with monsters: one card holds the group.
   bracket?: boolean;
 }) => {
   const { entry, token, gm, change } = props;
@@ -434,13 +472,17 @@ const Row = (props: {
       ref={sortable.setNodeRef}
       style={{ transform: CSS.Translate.toString(sortable.transform), transition: sortable.transition }}
       aria-current={props.current ? "step" : undefined}
-      // The GM row and its monsters share a red edge instead of an indent
-      // (an indent squeezes the monsters' notes).
-      className={`${sortable.isDragging ? "relative z-10 shadow-lg" : ""} ${props.bracket ? "rounded border-l-4 border-red-700/70" : ""}`}
+      // The GM row and its monsters share one card instead of an indent (an
+      // indent squeezes the monsters' notes).
+      className={`${sortable.isDragging ? "relative z-10 rounded-lg bg-obr-paper shadow-lg" : ""} ${
+        props.bracket ? "flex flex-col gap-0.5 rounded-[10px] bg-obr-bg p-1" : ""
+      }`}
     >
       <div
-        className={`flex items-start gap-2 rounded p-1.5 ${props.current ? "bg-obr-primary/20 ring-1 ring-obr-primary" : "bg-obr-bg"} ${
-          token && !token.visible ? "opacity-60" : ""
+        className={`group flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 ${
+          props.current ? "bg-obr-primary/20 shadow-[inset_3px_0_0_var(--obr-primary)]" : gm ? "hover:bg-obr-text/5" : ""
+        } ${token && !token.visible ? "opacity-60" : ""} ${
+          entry.dead ? "opacity-55" : ""
         } ${props.selected ? "outline-2 -outline-offset-2 outline-obr-secondary outline-dashed" : ""}`}
         aria-selected={gm && token ? props.selected : undefined}
         // GM: click to select (Shift: a range, Cmd/Ctrl: one more), except on
@@ -471,7 +513,7 @@ const Row = (props: {
             {...sortable.listeners}
             aria-label={`Move ${name}`}
             title="Drag to move"
-            className="flex h-9 w-4 shrink-0 cursor-grab touch-none items-center justify-center text-obr-text-secondary hover:text-obr-text active:cursor-grabbing"
+            className={`flex h-9 w-4 shrink-0 cursor-grab touch-none items-center justify-center text-obr-text-secondary hover:text-obr-text active:cursor-grabbing ${HOVER_ONLY}`}
           >
             <GripIcon />
           </button>
@@ -484,19 +526,20 @@ const Row = (props: {
           <Portrait token={token} dead={entry.dead} />
         )}
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className={`truncate font-medium ${entry.dead ? "text-obr-text-secondary line-through" : ""}`}>
+          <span className={`truncate font-medium ${entry.dead ? "line-through" : ""}`}>
             {name}
             {entry.dead && <span className="sr-only"> (dead)</span>}
           </span>
           {gm ? (
             <NoteInput key={entry.note} name={name} value={entry.note} save={(n) => change((t) => setNote(t, entry.id, n))} />
           ) : (
-            entry.note && <span className="text-sm whitespace-pre-wrap text-obr-text-secondary">{entry.note}</span>
+            entry.note && <span className="text-xs whitespace-pre-wrap text-obr-text-secondary">{entry.note}</span>
           )}
         </div>
         {gm ? (
           <>
             {/* Monsters act on the GM / Monsters roll: a gap keeps the columns lined up. */}
+            {!token && <ModInput key={props.gmMod} value={props.gmMod} save={(m) => change((t) => setGmMod(t, m))} />}
             {entry.monster ? (
               <span className={ROLL_SLOT} aria-hidden />
             ) : (
@@ -514,11 +557,17 @@ const Row = (props: {
                 <MoreIcon />
               </RowAction>
             ) : (
-              <span className={ROW_ACTION} aria-hidden />
+              <RowAction
+                label="Roll initiative for GM / Monsters (d20 + modifier)"
+                onClick={() => change((t) => rollGmInitiative(t, cryptoRand))}
+                always
+              >
+                <D20Icon />
+              </RowAction>
             )}
           </>
         ) : (
-          <span className="w-10 text-right tabular-nums">{entry.monster ? "" : (entry.roll ?? "–")}</span>
+          <span className="w-10 text-right text-lg font-bold tabular-nums">{entry.monster ? "" : (entry.roll ?? "–")}</span>
         )}
       </div>
       {props.children}
@@ -532,7 +581,7 @@ const Portrait = ({ token, dead, marker = false }: { token: Token | null; dead: 
     {token?.image ? (
       <img src={token.image} alt="" className={`h-9 w-9 rounded-full object-cover ${dead ? "grayscale" : ""}`} />
     ) : (
-      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-obr-paper text-xs font-semibold" aria-hidden>
+      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-obr-text/10 text-xs font-bold" aria-hidden>
         {token ? "?" : "GM"}
       </div>
     )}
@@ -543,7 +592,7 @@ const Portrait = ({ token, dead, marker = false }: { token: Token | null; dead: 
     )}
     {marker && (
       <span
-        className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-obr-bg bg-[#f5c542]"
+        className="absolute -right-px -bottom-px h-[11px] w-[11px] rounded-full border-2 border-obr-paper bg-[#f5c542]"
         title="Gets the turn marker"
         aria-label="Turn marker on"
         role="img"
@@ -583,8 +632,31 @@ const RollInput = ({ name, value, save }: { name: string; value: number | null; 
   <input
     aria-label={`Initiative for ${name}`}
     inputMode="numeric"
-    className={`${ROLL_SLOT} rounded border border-obr-text-disabled bg-obr-paper px-1 py-0.5 text-right tabular-nums focus:border-obr-primary focus:outline-none`}
+    placeholder="–"
+    className={`${ROLL_SLOT} px-1 py-0.5 text-right text-lg font-bold tabular-nums placeholder:font-normal placeholder:text-obr-text-disabled ${GHOST_INPUT}`}
     {...useDraft(value === null ? "" : String(value), readRoll, save)}
+  />
+);
+
+// "+2", "-1" or "2"; empty = 0. Out of range or not a number: put it back.
+const readMod = (text: string) => {
+  const t = text.trim();
+  if (t === "") return 0;
+  if (!/^[+-]?\d+$/.test(t)) return undefined;
+  const n = Number(t);
+  return n >= MOD_MIN && n <= MOD_MAX ? n : undefined;
+};
+const showMod = (n: number) => (n === 0 ? "" : n > 0 ? `+${n}` : String(n));
+
+// The monsters' DEX modifier, added to the GM's d20.
+const ModInput = ({ value, save }: { value: number; save: (m: number) => void }) => (
+  <input
+    aria-label="Monster DEX modifier"
+    title="Monster DEX modifier: the highest among them (added to the GM's d20)"
+    inputMode="numeric"
+    placeholder="+0"
+    className={`w-9 shrink-0 px-1 py-0.5 text-center text-xs tabular-nums text-obr-text-secondary placeholder:text-obr-text-disabled ${GHOST_INPUT}`}
+    {...useDraft(showMod(value), readMod, save)}
   />
 );
 
@@ -593,39 +665,48 @@ const NoteInput = ({ name, value, save }: { name: string; value: string; save: (
     aria-label={`Note for ${name}`}
     placeholder="Add a note"
     maxLength={NOTE_MAX}
-    className={`w-full min-w-0 px-1 text-sm text-obr-text-secondary ${GHOST_INPUT}`}
+    className={`-ml-1 w-full min-w-0 px-1 text-xs text-obr-text-secondary ${GHOST_INPUT}`}
     {...useDraft(value, (text) => text, save)}
   />
 );
 
 type ButtonProps = { label: string; pressed?: boolean; onClick: (e: MouseEvent<HTMLButtonElement>) => void; children: ReactNode };
 
-const Button = ({ label, primary, pressed, disabled, onClick, children }: ButtonProps & { primary?: boolean; disabled?: boolean }) => (
+// Icon buttons in the turn bar: round (36 px), or a wider pill for ◀ ▶.
+// `hint`: its hotkey, shown in the tooltip.
+const RoundButton = (
+  props: Omit<ButtonProps, "pressed"> & { primary?: boolean; wide?: boolean; disabled?: boolean; hint?: string },
+) => (
   <button
     type="button"
-    aria-label={label}
-    aria-pressed={pressed}
-    title={label}
-    disabled={disabled}
-    className={`flex min-h-6 items-center rounded px-2 py-0.5 text-sm font-medium disabled:opacity-40 ${
-      primary || pressed ? "bg-obr-primary text-obr-primary-contrast" : "border border-obr-text-disabled"
-    }`}
-    onClick={onClick}
+    aria-label={props.label}
+    aria-keyshortcuts={props.hint}
+    title={props.hint ? `${props.label} (${props.hint})` : props.label}
+    disabled={props.disabled}
+    className={`flex h-9 shrink-0 items-center justify-center rounded-full disabled:opacity-40 ${
+      props.wide ? (props.primary ? "w-14" : "w-11") : "w-9"
+    } ${props.primary ? "bg-obr-primary text-obr-primary-contrast" : "bg-obr-bg hover:enabled:bg-obr-text/10"}`}
+    onClick={props.onClick}
   >
-    {children}
+    {props.children}
   </button>
 );
+
+// The grip and ⋯ show on hovering the row, or focusing them; on touch screens
+// (no hover) they always show.
+const HOVER_ONLY = "[@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-visible:opacity-100";
 
 // Dead and remove: full-size touch targets, the same width on every row (see Row).
 const ROW_ACTION = "h-7 w-7 shrink-0";
 
-const RowAction = (props: ButtonProps) => (
+// `always`: shown without hovering (the GM row's roll).
+const RowAction = (props: ButtonProps & { always?: boolean }) => (
   <button
     type="button"
     aria-label={props.label}
     aria-pressed={props.pressed}
     title={props.label}
-    className={`${ROW_ACTION} flex items-center justify-center rounded hover:bg-obr-paper hover:text-obr-text ${
+    className={`${ROW_ACTION} flex items-center justify-center rounded-full hover:bg-obr-paper hover:text-obr-text ${props.always ? "" : HOVER_ONLY} ${
       props.pressed ? "bg-obr-primary text-obr-primary-contrast hover:bg-obr-primary hover:text-obr-primary-contrast" : "text-obr-text-secondary"
     }`}
     onClick={props.onClick}
@@ -644,6 +725,14 @@ const SkullIcon = ({ className }: { className: string }) => (
   </svg>
 );
 
+// A d20 face-on: the GM / Monsters initiative roll.
+const D20Icon = () => (
+  <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" aria-hidden>
+    <path d="M8 1.5l5.6 3.25v6.5L8 14.5l-5.6-3.25v-6.5z" />
+    <path d="M8 4.5l3 5H5z M8 1.5v3 M2.4 4.75L5 9.5 M13.6 4.75L11 9.5 M5 9.5L8 14.5 M11 9.5L8 14.5 M2.4 11.25L5 9.5 M13.6 11.25L11 9.5" />
+  </svg>
+);
+
 // Three dots: more actions.
 const MoreIcon = () => (
   <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-hidden>
@@ -657,6 +746,13 @@ const MoreIcon = () => (
 const GripIcon = () => (
   <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
     <path d="M3 4h10M3 8h10M3 12h10" />
+  </svg>
+);
+
+// A play triangle: ▶ next, ◀ back.
+const PlayIcon = ({ back = false }: { back?: boolean }) => (
+  <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="currentColor" aria-hidden>
+    <path d={back ? "M11 2L4 8l7 6z" : "M5 2l7 6-7 6z"} />
   </svg>
 );
 

@@ -20,7 +20,7 @@ const Panel = ({ role }: { role: Role }) => {
   return (
     // Fills the popover: header and footer stay put, the content scrolls.
     <div className="flex h-screen flex-col gap-3 p-3 pb-0">
-      <header className="flex shrink-0 flex-col gap-2 border-b border-obr-text-disabled pb-3">
+      <header className="flex shrink-0 flex-col gap-2.5 border-b border-obr-text/10 pb-3">
         <div className="flex items-center gap-2">
           {showSettings && (
             <button
@@ -33,13 +33,14 @@ const Panel = ({ role }: { role: Role }) => {
               ←
             </button>
           )}
-          <h1 className="text-lg font-semibold">{showSettings ? "Settings" : "Crawl Keeper"}</h1>
+          {!showSettings && <KeyIcon />}
+          <h1 className="text-[17px] font-medium tracking-[0.01em]">{showSettings ? "Settings" : "Crawl Keeper"}</h1>
           {role === "GM" && !showSettings && (
             <button
               type="button"
               aria-label="Settings"
               title="Settings"
-              className="ml-auto rounded p-1 text-obr-text-secondary hover:bg-obr-bg hover:text-obr-text"
+              className="ml-auto flex h-9 w-9 items-center justify-center rounded-full text-obr-text-secondary hover:bg-obr-bg hover:text-obr-text"
               onClick={() => setSettingsOpen(true)}
             >
               <GearIcon />
@@ -67,6 +68,24 @@ const Panel = ({ role }: { role: Role }) => {
     </div>
   );
 };
+
+// The Keeper's key: a key with a torch-flame bow, beside the turn order. The
+// same drawing as the toolbar icon (public/img/action.svg).
+const KeyIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    className="h-[22px] w-[22px] shrink-0"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <path d="M8 3.5c1.8 1.7 3 3.3 3 5.2a3 3 0 0 1-6 0c0-1.2.6-2 1.3-2.7.3 1 .9 1.5 1.5 1.5C8 6.3 7.8 4.9 8 3.5z" />
+    <path d="M8 12v9M8 16.5h3M8 19h2.5M14 8h7M14 12h7M14 16h5" />
+  </svg>
+);
 
 // Drawn for this extension: eight teeth around a hole.
 const GearIcon = () => (
