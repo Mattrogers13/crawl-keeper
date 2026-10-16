@@ -7,6 +7,7 @@ import {
   add,
   emptyTracker,
   moveTo,
+  backToCrawl,
   next,
   nextWithAutoRoll,
   parseTracker,
@@ -185,6 +186,15 @@ describe("crawl and combat", () => {
     const crawl = { ...t.crawl, crawlRounds: 1 };
     expect(nextWithAutoRoll({ ...t, crawl, phase: "combat" }, "clock", four).crawl.last).toBeNull();
     expect(nextWithAutoRoll({ ...t, crawl, current: GM_ENTRY }, "clock", four)).toMatchObject({ current: "b", crawl: { last: null } });
+  });
+
+  it("Crawl after combat: a fresh clock in clock mode only; already crawling changes nothing", () => {
+    const t = { ...tracker({ a: 1, gm: 2 }), phase: "combat" as const };
+    const low = { ...t, crawl: { ...t.crawl, clock: 6 } };
+    expect(backToCrawl(low, "clock")).toMatchObject({ phase: "crawl", crawl: { clock: 20 } });
+    expect(backToCrawl(low, "standard")).toMatchObject({ phase: "crawl", crawl: { clock: 6 } });
+    const crawling = { ...low, phase: "crawl" as const };
+    expect(backToCrawl(crawling, "clock")).toBe(crawling);
   });
 
   it("keeps the rolls unless told to clear them", () => {

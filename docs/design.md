@@ -62,6 +62,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 
 - **Standard:** check on the danger level's cadence: Unsafe every 3 rounds, Risky every 2, Deadly every round. In darkness: every round. 1d6, encounter on 1.
 - **Crawling Clock:** starts at 20 (GM reset button on entering a dangerous location). Roll the crawling die (d6; d8 when in darkness). Max roll explodes (add another roll; chain capped at 10). Subtract from the clock. At 0 or below: encounter, clock resets to 20 minus the overflow. At 1–5: omen prompt (GM may roll the encounter early).
+- Back to Crawl from Combat (clock mode): a fresh clock of 20, unless the clock's own encounter already started one (that keeps its carry-over). Decided 2026-10-16.
 - Roll automatically (setting, default off): ▶ onto the GM / Monsters turn in a crawl round with a roll due rolls it (check or crawling die) in the same write; Undo still works.
 - "Check now" / "Roll again" for loud disturbances (standard: an extra check; clock: an extra crawling-die roll). One-level undo of the last roll. "Reset clock" (asks first; also right-click the clock) resets to 20 for a new dangerous place. Rolling the encounter early at an omen starts a fresh clock.
 - Rolls use `crypto.getRandomValues`.

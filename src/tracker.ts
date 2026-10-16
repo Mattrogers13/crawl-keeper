@@ -15,6 +15,7 @@ import {
   emptyCrawl,
   parseCrawl,
   resetCrawlRounds,
+  clockAfterCombat,
   rollCheck,
   rollClock,
   type Crawl,
@@ -177,6 +178,13 @@ export const previous = (t: Tracker): Tracker => {
   if (t.round <= 1) return t;
   const crawl = t.phase === "crawl" ? crawlRoundUndone(t.crawl) : t.crawl;
   return { ...t, round: t.round - 1, current: order[order.length - 1].id, crawl };
+};
+
+// The GM's Crawl button: back from a fight, the Crawling Clock starts fresh.
+export const backToCrawl = (t: Tracker, mode: EncounterMode): Tracker => {
+  if (t.phase === "crawl") return t;
+  const crawled = toCrawl(t);
+  return mode === "clock" ? { ...crawled, crawl: clockAfterCombat(crawled.crawl) } : crawled;
 };
 
 // The GM's "roll automatically" setting: ▶ onto the GM / Monsters turn in a

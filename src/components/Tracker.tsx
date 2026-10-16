@@ -55,8 +55,8 @@ import {
   setNote,
   setRoll,
   sortByRoll,
+  backToCrawl,
   toCombat,
-  toCrawl,
   updateCrawl,
   type Entry,
   type Tracker as TrackerDoc,
@@ -106,7 +106,7 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
     if (pruned === doc.value || json === lastPrune.current) return;
     lastPrune.current = json;
     void doc.write(pruned);
-    void afterTurnChange(doc.value, pruned, settings.value, items);
+    void afterTurnChange(doc.value, pruned, settings.value);
   }, [gmReady, items, doc, settings.value]);
 
   if (!settings.loaded || !doc.loaded || items === null) return <Loading />;
@@ -123,7 +123,7 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
     const updated = fn(tracker);
     if (updated === doc.value) return;
     void doc.write(updated);
-    void afterTurnChange(tracker, updated, settings.value, items);
+    void afterTurnChange(tracker, updated, settings.value);
   };
 
   const { entries: shown, current } = gm
@@ -173,7 +173,7 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
               type="button"
               aria-pressed={!combat}
               className={`px-2 py-0.5 ${combat ? "" : "bg-obr-primary text-obr-primary-contrast"}`}
-              onClick={() => change(toCrawl)}
+              onClick={() => change((t) => backToCrawl(t, settings.value.encounterMode))}
             >
               Crawl
             </button>

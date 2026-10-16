@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import {
   CLOCK_START,
   cadence,
+  clockAfterCombat,
   crawlRoundStarted,
   crawlRoundUndone,
   cryptoRand,
@@ -45,6 +46,11 @@ describe("parseCrawl", () => {
     const c = parseCrawl({ last: { kind: "clock", dice: [6, 6, 2, 9, "x"], sides: 6, before: 20, after: 6, encounter: false } });
     expect(c.last).toEqual({ kind: "clock", dice: [6, 6, 2], sides: 6, before: 20, after: 6, encounter: false });
     expect(parseCrawl({ last: { dice: [] } }).last).toBeNull();
+  });
+
+  it("keeps an encounter rolled early (it has no dice)", () => {
+    const early = encounterNow(crawl({ clock: 4 }));
+    expect(parseCrawl(JSON.parse(JSON.stringify(early))).last).toEqual(early.last);
   });
 });
 
@@ -103,6 +109,13 @@ describe("Crawling Clock", () => {
     expect(omen(crawl({ clock: 6 }))).toBe(false);
     expect(omen(crawl({ clock: 5 }))).toBe(true);
     expect(encounterNow(crawl({ clock: 4 }))).toMatchObject({ clock: 20, last: { kind: "early", before: 4, encounter: true } });
+  });
+
+  it("back from combat: a fresh clock, unless the clock's encounter already started one", () => {
+    expect(clockAfterCombat(crawl({ clock: 9 })).clock).toBe(20);
+    const afterEncounter = rollClock(crawl({ clock: 3 }), dice(6, 5));
+    expect(clockAfterCombat(afterEncounter)).toBe(afterEncounter);
+    expect(afterEncounter.clock).toBe(18);
   });
 
   it("New clock for a new dangerous place; nothing to reset keeps the object", () => {

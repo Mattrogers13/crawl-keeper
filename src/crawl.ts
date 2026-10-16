@@ -69,8 +69,9 @@ const parseRoll = (raw: unknown): CrawlRoll | null => {
   if (!isObject(raw) || !Array.isArray(raw.dice)) return null;
   const sides = raw.sides === 8 ? 8 : 6;
   const dice = raw.dice.filter((d): d is number => typeof d === "number" && Number.isInteger(d) && d >= 1 && d <= sides).slice(0, MAX_DICE);
-  if (dice.length === 0) return null;
   const kind = raw.kind === "clock" || raw.kind === "early" ? raw.kind : "check";
+  // An encounter rolled early has no dice; any other roll has some.
+  if (dice.length === 0 && kind !== "early") return null;
   return {
     kind,
     dice,
@@ -170,6 +171,12 @@ export const encounterNow = (c: Crawl): Crawl => ({
   last: { kind: "early", dice: [], sides: 6, before: c.clock, after: CLOCK_START, encounter: true },
   undo: snapshot(c),
 });
+
+// Back to crawling after a fight: a fresh clock, unless the clock's own
+// encounter already started one (keeping its carry-over). The last result
+// stays on show.
+export const clockAfterCombat = (c: Crawl): Crawl =>
+  c.clock === CLOCK_START || c.last?.encounter ? c : { ...c, clock: CLOCK_START, undo: null };
 
 // Entering a new dangerous place: a fresh clock.
 export const resetClock = (c: Crawl): Crawl =>

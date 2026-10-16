@@ -91,11 +91,18 @@ export const markedToken = (t: Tracker): string | null => {
 };
 
 // Put the marker on `tokenId` (null: none anywhere) and, if set, select it on
-// this client. `items` is the scene's items when the caller already has them
-// (the panel keeps them live); otherwise they're read, which copies the whole
-// scene over postMessage.
-export const syncTurn = async (tokenId: string | null, settings: TurnSettings, items?: Item[]) => {
-  const all = items ?? (await OBR.scene.items.getItems());
+// this client. Syncs run one at a time, each reading the scene fresh: two
+// overlapping syncs (quick clicks) working from the same old item list would
+// both delete the same ring, and the second delete fails.
+let queue: Promise<unknown> = Promise.resolve();
+export const syncTurn = (tokenId: string | null, settings: TurnSettings): Promise<void> => {
+  const run = queue.then(() => syncNow(tokenId, settings));
+  queue = run.catch(() => {});
+  return run;
+};
+
+const syncNow = async (tokenId: string | null, settings: TurnSettings) => {
+  const all = await OBR.scene.items.getItems();
   const token = all.find((i) => i.id === tokenId);
   const target = settings.showMarker && isImage(token) ? token : null;
   const image = markerImage();
@@ -119,12 +126,12 @@ export const syncTurn = async (tokenId: string | null, settings: TurnSettings, i
 // right-click). The tracker change is saved either way; a marker failure
 // only warns.
 // A token's own marker setting changing on the current turn counts too.
-export const afterTurnChange = async (before: Tracker, after: Tracker, settings: TurnSettings, items?: Item[]) => {
+export const afterTurnChange = async (before: Tracker, after: Tracker, settings: TurnSettings) => {
   const token = markedToken(after);
   if (after.current === before.current && token === markedToken(before)) return;
   // Same turn, only the token's marker setting changed: don't reselect.
   const select = settings.selectOnTurn && after.current !== before.current;
-  await syncTurn(token, { showMarker: settings.showMarker, selectOnTurn: select }, items).catch(report);
+  await syncTurn(token, { showMarker: settings.showMarker, selectOnTurn: select }).catch(report);
 };
 
 // After the marker setting changes: add or remove it for whoever's turn it
