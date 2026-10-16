@@ -18,6 +18,7 @@ import {
   setRoll,
   sortByRoll,
   removeMonsters,
+  setMarker,
   setMonster,
   resetRounds,
   toCombat,
@@ -32,7 +33,7 @@ import { DEFAULT_SETTINGS, parseSettings } from "./settings";
 const tracker = (rolls: Record<string, number | null>, current: string | null = null, round = 0, dead: string[] = []): Tracker => ({
   entries: Object.entries(rolls).map(([id, roll]) => {
     const monster = id.startsWith("m");
-    return { id, roll: monster ? null : roll, note: "", dead: dead.includes(id), monster };
+    return { id, roll: monster ? null : roll, note: "", dead: dead.includes(id), monster, marker: !monster && id !== GM_ENTRY };
   }),
   phase: "crawl",
   current,
@@ -61,9 +62,9 @@ describe("parseTracker", () => {
       round: 2,
     });
     expect(t.entries).toEqual([
-      { id: "a", roll: 12, note: "hi", dead: false, monster: false },
-      { id: "b", roll: null, note: "", dead: false, monster: false },
-      { id: GM_ENTRY, roll: null, note: "", dead: false, monster: false },
+      { id: "a", roll: 12, note: "hi", dead: false, monster: false, marker: true },
+      { id: "b", roll: null, note: "", dead: false, monster: false, marker: true },
+      { id: GM_ENTRY, roll: null, note: "", dead: false, monster: false, marker: false },
     ]);
     expect(t.current).toBe("b");
     expect(t.round).toBe(2);
@@ -235,24 +236,62 @@ describe("monsters", () => {
   });
 
   it("marking: a monster loses its roll and acts last in the GM turn; and back", () => {
-    let t = setMonster(tracker({ a: 14, gm: 9, m1: null }), "a", true);
+    let t = setMonster(tracker({ a: 14, gm: 9, m1: null }), ["a"], true);
     expect(t.entries.map((e) => [e.id, e.monster, e.roll])).toEqual([
       [GM_ENTRY, false, 9],
       ["m1", true, null],
       ["a", true, null],
     ]);
-    t = setMonster(t, "a", false);
+    t = setMonster(t, ["a"], false);
     expect(t.entries.map((e) => [e.id, e.monster])).toEqual([[GM_ENTRY, false], ["a", false], ["m1", true]]);
-    expect(setMonster(t, "a", false)).toBe(t);
-    expect(setMonster(t, GM_ENTRY, true)).toBe(t);
-    expect(setMonster(t, "ghost", true)).toBe(t);
+    expect(setMonster(t, ["a"], false)).toBe(t);
+    expect(setMonster(t, [GM_ENTRY], true)).toBe(t);
+    expect(setMonster(t, ["ghost"], true)).toBe(t);
+  });
+
+  it("batch: several switch at once, keeping their order; the marker takes the new kind's default", () => {
+    const t = setMonster(tracker({ a: 1, b: 2, c: 3, gm: 4 }), ["c", "a"], true);
+    expect(t.entries.map((e) => [e.id, e.monster, e.marker])).toEqual([
+      ["b", false, true],
+      [GM_ENTRY, false, false],
+      ["a", true, false],
+      ["c", true, false],
+    ]);
   });
 
   it("switching the current token's kind keeps its turn", () => {
     const combat = { ...tracker({ a: 14, gm: 9, b: 3 }, "a", 1), phase: "combat" as const };
-    const t = setMonster(combat, "a", true);
+    const t = setMonster(combat, ["a"], true);
     expect(t.current).toBe("a");
     expect(ids(turnOrder(t))).toEqual(["gm", "a", "b"]);
+  });
+});
+
+describe("turn marker per token", () => {
+  it("parse: kept as given, else on for players and allies, off for monsters; never the GM row", () => {
+    const t = parseTracker({
+      entries: [{ id: "p" }, { id: "q", marker: false }, { id: "m", monster: true }, { id: "n", monster: true, marker: true }, { id: GM_ENTRY, marker: true }],
+    });
+    expect(t.entries.map((e) => [e.id, e.marker])).toEqual([
+      ["p", true],
+      ["q", false],
+      [GM_ENTRY, false],
+      ["m", false],
+      ["n", true],
+    ]);
+  });
+
+  it("set for one or many; no change keeps the object", () => {
+    const t = tracker({ a: 1, gm: 2, m1: null, m2: null });
+    const on = setMarker(t, ["m1", "m2", GM_ENTRY], true);
+    expect(on.entries.map((e) => e.marker)).toEqual([true, false, true, true]);
+    expect(setMarker(on, ["m1"], true)).toBe(on);
+  });
+
+  it("batch dead: several at once; the turn passes once", () => {
+    const t = setDead(tracker({ a: 1, b: 2, c: 3, gm: 4 }, "a", 1), ["a", "b"], true);
+    expect(t.entries.map((e) => e.dead)).toEqual([true, true, false, false]);
+    expect(t.current).toBe("c");
   });
 });
 
@@ -276,18 +315,18 @@ describe("dead", () => {
 
   it("killing the current entry passes the turn; reviving gives turns back", () => {
     let t = tracker({ a: 1, b: 2, gm: 3 }, "b", 2);
-    t = setDead(t, "b", true);
+    t = setDead(t, ["b"], true);
     expect([t.current, t.round]).toEqual(["gm", 2]);
     expect(next(t)).toMatchObject({ current: "a", round: 3 });
-    t = setDead(t, "b", false);
+    t = setDead(t, ["b"], false);
     expect(next(next(t)).current).toBe("b");
   });
 
   it("the GM row can't die; no-ops keep the object", () => {
     const t = tracker({ a: 1, gm: 2 });
-    expect(setDead(t, GM_ENTRY, true)).toBe(t);
-    expect(setDead(t, "a", false)).toBe(t);
-    expect(setDead(t, "missing", true)).toBe(t);
+    expect(setDead(t, [GM_ENTRY], true)).toBe(t);
+    expect(setDead(t, ["a"], false)).toBe(t);
+    expect(setDead(t, ["missing"], true)).toBe(t);
   });
 });
 
@@ -378,14 +417,8 @@ describe("size", () => {
 describe("parseSettings", () => {
   it("defaults anything malformed", () => {
     expect(parseSettings(undefined)).toEqual(DEFAULT_SETTINGS);
-    expect(DEFAULT_SETTINGS).toEqual({
-      hideRound: false,
-      clearRollsOnCombat: true,
-      showMarker: true,
-      selectOnTurn: true,
-      markMonsters: false,
-    });
-    const off = { hideRound: true, clearRollsOnCombat: false, showMarker: false, selectOnTurn: false, markMonsters: true };
+    expect(DEFAULT_SETTINGS).toEqual({ hideRound: false, clearRollsOnCombat: true, showMarker: true, selectOnTurn: true });
+    const off = { hideRound: true, clearRollsOnCombat: false, showMarker: false, selectOnTurn: false };
     expect(parseSettings(off)).toEqual(off);
     // Rooms saved while Table order existed keep working.
     expect(parseSettings({ orderMode: "table", hideRound: "yes", clearRollsOnCombat: "no", showMarker: 0 })).toEqual(DEFAULT_SETTINGS);

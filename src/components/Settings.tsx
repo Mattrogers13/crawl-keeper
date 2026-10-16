@@ -30,23 +30,15 @@ const Settings = () => {
       />
       <Check
         label="Show the turn marker on the map"
-        hint="A gold ring on the current token. Hidden tokens' rings stay hidden."
+        hint="A gold ring on the current token. Per token in its row menu: on for players and allies, off for monsters to start. Hidden tokens' rings stay hidden."
         checked={settings.value.showMarker}
         onChange={(showMarker) => {
           set({ showMarker });
           // Add or remove it now, not at the next turn.
-          void syncTurnFromScene({ ...settings.value, showMarker });
+          void syncTurnFromScene({ showMarker });
         }}
       />
-      <Check
-        label="Mark monsters' turns too"
-        hint="Off: the ring and selection follow players' tokens only."
-        checked={settings.value.markMonsters}
-        onChange={(markMonsters) => {
-          set({ markMonsters });
-          void syncTurnFromScene({ ...settings.value, markMonsters });
-        }}
-      />
+
       <Check
         label="Select the current token"
         hint="On your screen only, each turn."

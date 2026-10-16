@@ -102,8 +102,6 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ hideRound: true, clearRollsOnCombat: false }));
     fireEvent.click(screen.getByLabelText("Select the current token", { exact: false }));
     await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ selectOnTurn: false }));
-    fireEvent.click(screen.getByLabelText("Mark monsters' turns too", { exact: false }));
-    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ markMonsters: true }));
     expect(await screen.findByText(/This map: .* kB tracker/)).toBeInTheDocument();
     expect(screen.getByLabelText("Install link")).toHaveValue(`${window.location.origin}/manifest.json`);
     fireEvent.click(screen.getByLabelText("Back to tracker"));
@@ -211,6 +209,7 @@ describe("Tracker (GM)", () => {
     expect(within(menu).getAllByRole("menuitem").map((b) => b.textContent)).toEqual([
       "Mark as monster",
       "Mark dead",
+      "Turn marker off",
       "Show on map",
       "Remove from initiative",
     ]);
@@ -275,14 +274,55 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(ringed()).toEqual(["p"]));
   });
 
-  it("marks monsters too when the setting is on", async () => {
-    obr.metadata = { [SETTINGS_KEY]: { markMonsters: true } };
+  it("a monster gets the marker when its own marker is turned on, at once if it's its turn", async () => {
     obr.items = [token("m1", { name: "Goblin" })];
-    scene([{ id: GM_ENTRY }, { id: "m1", monster: true }], GM_ENTRY, 1, COMBAT);
+    scene([{ id: GM_ENTRY }, { id: "m1", monster: true }], "m1", 1, COMBAT);
     render(<App />);
-    fireEvent.click(await screen.findByLabelText("Next turn"));
-    await waitFor(() => expect(obr.selection).toEqual(["m1"]));
-    expect(obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefined).map((m) => m.attachedTo)).toEqual(["m1"]);
+    const ringed = () => obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefined).map((m) => m.attachedTo);
+    await pick("Goblin", "Turn marker on");
+    await waitFor(() => expect(ringed()).toEqual(["m1"]));
+    expect(saved().entries[1].marker).toBe(true);
+    expect(OBR.player.select).not.toHaveBeenCalled();
+    await pick("Goblin", "Turn marker off");
+    await waitFor(() => expect(ringed()).toEqual([]));
+  });
+
+  it("batch: click, Shift-click and Cmd-click select rows; the menu acts on all of them", async () => {
+    obr.items = ["a", "b", "c", "d"].map((id) => token(id, { name: id.toUpperCase() + "name" }));
+    scene([{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }, { id: GM_ENTRY }]);
+    render(<App />);
+    fireEvent.click(await screen.findByText("Aname"));
+    fireEvent.click(screen.getByText("Cname"), { shiftKey: true });
+    const selected = () => rows().filter((r) => r.querySelector("[aria-selected=true]")).length;
+    expect(selected()).toBe(3);
+    fireEvent.click(screen.getByText("Bname"), { metaKey: true });
+    expect(selected()).toBe(2);
+    fireEvent.contextMenu(screen.getByText("Aname"));
+    const menu = await screen.findByRole("menu", { name: "2 selected" });
+    expect(within(menu).queryByRole("menuitem", { name: "Show on map" })).not.toBeInTheDocument();
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Mark as monster" }));
+    await waitFor(() => expect(saved().entries.filter((e) => e.monster).map((e) => e.id)).toEqual(["a", "c"]));
+    // A mixed selection offers both ways.
+    fireEvent.click(screen.getByText("Bname"), { metaKey: true });
+    fireEvent.contextMenu(screen.getByText("Bname"));
+    const mixed = await screen.findByRole("menu", { name: "3 selected" });
+    expect(within(mixed).getByRole("menuitem", { name: "Mark as monster" })).toBeInTheDocument();
+    expect(within(mixed).getByRole("menuitem", { name: "Mark as player or ally" })).toBeInTheDocument();
+    fireEvent.click(within(mixed).getByRole("menuitem", { name: "Remove 3 from initiative" }));
+    await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["d", GM_ENTRY]));
+    expect(selected()).toBe(0);
+  });
+
+  it("right-clicking outside the selection acts on that row only; Escape clears the selection", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
+    render(<App />);
+    fireEvent.click(await screen.findByText("Aria"));
+    fireEvent.contextMenu(screen.getByText("Borin"));
+    expect(await screen.findByRole("menu", { name: "Borin" })).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    fireEvent.keyDown(screen.getByText("Borin"), { key: "Escape" });
+    expect(rows().filter((r) => r.querySelector("[aria-selected=true]"))).toHaveLength(0);
   });
 
   describe("drag to move", () => {

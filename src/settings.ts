@@ -8,11 +8,9 @@ export type Settings = {
   clearRollsOnCombat: boolean;
   // A ring on the current token on the map (follows the token's visibility).
   showMarker: boolean;
-  // Select the current token on the GM's screen on each turn.
+  // Select the current token on the GM's screen on each turn (tokens whose
+  // turn marker is on; see Entry.marker).
   selectOnTurn: boolean;
-  // The marker and selection also go to monsters on their combat turns
-  // (otherwise players' tokens only).
-  markMonsters: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -20,7 +18,6 @@ export const DEFAULT_SETTINGS: Settings = {
   clearRollsOnCombat: true,
   showMarker: true,
   selectOnTurn: true,
-  markMonsters: false,
 };
 
 export const parseSettings = (raw: unknown): Settings => {
@@ -30,6 +27,5 @@ export const parseSettings = (raw: unknown): Settings => {
     clearRollsOnCombat: r.clearRollsOnCombat !== false,
     showMarker: r.showMarker !== false,
     selectOnTurn: r.selectOnTurn !== false,
-    markMonsters: r.markMonsters === true,
   };
 };

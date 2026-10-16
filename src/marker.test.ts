@@ -57,16 +57,16 @@ describe("buildMarker", () => {
 
 describe("markedToken", () => {
   const t = parseTracker({
-    entries: [{ id: "p" }, { id: GM_ENTRY }, { id: "m", monster: true }],
+    entries: [{ id: "p" }, { id: GM_ENTRY }, { id: "m", monster: true }, { id: "boss", monster: true, marker: true }],
     phase: "combat",
     round: 1,
   });
-  it("players' tokens; monsters only when asked; never the GM row or between rounds", () => {
-    expect(markedToken({ ...t, current: "p" }, false)).toBe("p");
-    expect(markedToken({ ...t, current: "m" }, false)).toBeNull();
-    expect(markedToken({ ...t, current: "m" }, true)).toBe("m");
-    expect(markedToken({ ...t, current: GM_ENTRY }, true)).toBeNull();
-    expect(markedToken({ ...t, current: null }, true)).toBeNull();
+  it("tokens whose marker is on; never the GM row or between rounds", () => {
+    expect(markedToken({ ...t, current: "p" })).toBe("p");
+    expect(markedToken({ ...t, current: "m" })).toBeNull();
+    expect(markedToken({ ...t, current: "boss" })).toBe("boss");
+    expect(markedToken({ ...t, current: GM_ENTRY })).toBeNull();
+    expect(markedToken({ ...t, current: null })).toBeNull();
   });
 });
 
@@ -107,9 +107,9 @@ describe("syncTurn", () => {
   it("a settings change adds or removes the marker for the current turn", async () => {
     obr.items = [token("a")];
     obr.sceneMetadata = { [TRACKER_KEY]: { entries: [{ id: "a" }], current: "a", round: 1 } };
-    await syncTurnFromScene({ showMarker: true, markMonsters: false });
+    await syncTurnFromScene({ showMarker: true });
     expect(markers().map((m) => m.attachedTo)).toEqual(["a"]);
-    await syncTurnFromScene({ showMarker: false, markMonsters: false });
+    await syncTurnFromScene({ showMarker: false });
     expect(markers()).toEqual([]);
     expect(OBR.player.select).not.toHaveBeenCalled();
   });

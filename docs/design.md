@@ -12,7 +12,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 
 | Where | Key | Contents | Writer |
 |---|---|---|---|
-| Scene metadata | `${ID}/tracker` | entries `[{ id: itemId \| "gm", roll, note, dead, monster }]` (players and GM row in turn order, then monsters), phase (`crawl` \| `combat`), current turn id, round | GM |
+| Scene metadata | `${ID}/tracker` | entries `[{ id: itemId \| "gm", roll, note, dead, monster, marker }]` (players and GM row in turn order, then monsters), phase (`crawl` \| `combat`), current turn id, round | GM |
 | Room metadata | `${ID}/settings` | encounter mode (`standard` \| `clock`), danger level, in darkness, hide clock, hide rounds, clear rolls on combat, select on turn | GM |
 | Room metadata | `${ID}/crawl` | clock value, last roll (dice, total, exploded, carry), rounds since last check | GM |
 | Room metadata (v0.2) | `${ID}/tables` | custom encounter tables | GM |
@@ -29,11 +29,11 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 - Moving rows: the GM drags a row by its grip (≡; mouse, touch, or keyboard: focus the grip, Space, arrows, Space). Players can't.
 - **Dead:** GM marks a token row dead from its row menu (not the GM row). Dead rows keep their seat, show a skull badge on the portrait for everyone, and get no turns; killing the current entry passes the turn on.
 - ◀ / ▶ turns. Round increments when the turn wraps.
-- **Row menu (GM only):** right-click a token's row, or its ⋯ button (touch), for: Mark as monster / player or ally, Mark dead / alive, Show on map (selects the token; Owlbear's own selection highlight is enough, so no extra ring), Remove from initiative. Tapping the portrait also selects it. Dead rows show a skull on the portrait.
+- **Row menu and batch (GM only):** click a token row to select it, Shift-click for a range, Cmd/Ctrl-click to add or remove single rows (dashed outline; Escape clears). Right-click a row, or its ⋯ button (touch), for: Mark as monster / player or ally, Mark dead / alive, Turn marker on / off, Show on map (one row only; selects the token, Owlbear's own highlight), Remove from initiative. Inside the selection the menu acts on all selected rows; a mixed selection offers both ways. Tapping the portrait also selects the token on the map.
 - Remove monsters (GM, Crawl only, asks to confirm): clears every monster after a fight. Kept until then, so a fight that resumes keeps them (decided 2026-10-16).
 - Reset rounds (GM, asks to confirm): the round count to 0, no one's turn; order, rolls and phase stay.
 - Note under each name: GM edits, everyone sees.
-- On a turn change from a GM click (▶ ◀, phase, reset, dead, remove, right-click remove; never from a data change event, or every client would add one): a gold ring (WebP, ATTACHMENT layer, locked, unclickable) moves to the current token (players' tokens; monsters only with the "Mark monsters' turns too" setting), sized 1.5x its footprint. It follows the token's position, scale, visibility and deletion (attachment defaults; visibility unverified live). No marker on the GM row or between rounds. Select the current token on the GM's screen (setting, default on).
+- On a turn change from a GM click (▶ ◀, phase, reset, dead, remove, right-click remove; never from a data change event, or every client would add one): a gold ring (WebP, ATTACHMENT layer, locked, unclickable) moves to the current token (tokens whose own turn marker is on: players and allies start on, monsters off; changed per token in the row menu), sized 1.5x its footprint. It follows the token's position, scale, visibility and deletion (attachment defaults; visibility unverified live). No marker on the GM row or between rounds. Select the current token on the GM's screen (setting, default on).
 
 ## Crawl and Combat
 
@@ -51,7 +51,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 
 ## Settings (GM only, gear in the panel header)
 
-- Hide rounds from players. Clear initiative rolls on combat. Show the turn marker (default on; toggling adds or removes it at once). Select the current token (default on). Mark monsters' turns too (default off). Saved data sizes. The install link (this build's manifest URL, with Copy). Later PRs add theirs here (encounter mode, danger level, select on turn, hide clock).
+- Hide rounds from players. Clear initiative rolls on combat. Show the turn marker (default on; toggling adds or removes it at once). Select the current token (default on). Saved data sizes. The install link (this build's manifest URL, with Copy). Later PRs add theirs here (encounter mode, danger level, select on turn, hide clock).
 
 ## Crawl prompt (GM panel, Tracker tab, card under the GM / Monsters row on its turn)
 

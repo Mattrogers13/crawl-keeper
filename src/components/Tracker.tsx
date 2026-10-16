@@ -28,6 +28,7 @@ import type { Role } from "../hooks/useRole";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
 import { afterTurnChange } from "../marker";
+import { NO_SELECTION, clickRow, keepRows, menuTargets, type Selection } from "../selection";
 import { parseSettings } from "../settings";
 import { errorMessage, notify } from "../utils";
 import {
@@ -44,6 +45,7 @@ import {
   resetRounds,
   remove,
   setDead,
+  setMarker,
   setMonster,
   setNote,
   setRoll,
@@ -77,8 +79,10 @@ const Tracker = ({ role }: { role: Role }) => {
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
-  // The GM's row menu (right-click or ⋯): which row, and where.
-  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  // The GM's row selection (click, Shift-click, Cmd/Ctrl-click) and row menu
+  // (right-click or ⋯), which acts on the selection.
+  const [picked, setPicked] = useState<Selection>(NO_SELECTION);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 
   if (!settings.loaded || !doc.loaded || items === null) return <Loading />;
 
@@ -106,9 +110,16 @@ const Tracker = ({ role }: { role: Role }) => {
   // GM only: select the token on the map (Owlbear's own highlight).
   const show = (id: string) =>
     OBR.player.select([id], true).catch((err) => notify(`Couldn't select the token: ${errorMessage(err)}`, "WARNING"));
-  const openMenu = (id: string, x: number, y: number) => setMenu({ id, x, y });
-  const rowProps = { gm, change, show, openMenu };
-  const menuEntry = menu && tracker.entries.find((e) => e.id === menu.id);
+  // Token rows in the order shown (monsters right after the GM row).
+  const order = top.flatMap((e) => (e.id === GM_ENTRY ? monsters : [e])).map((e) => e.id);
+  const selection = keepRows(picked, order);
+  const select = (id: string, mods: { shift: boolean; toggle: boolean }) => setPicked(clickRow(selection, id, order, mods));
+  const openMenu = (id: string, x: number, y: number) => {
+    setPicked(menuTargets(selection, id));
+    setMenu({ x, y });
+  };
+  const rowProps = { gm, change, show, openMenu, select };
+  const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
   const round = tracker.round;
   const roundLabel =
     round === 0 ? (gm ? "Press ▶ to begin" : "") : gm || !settings.value.hideRound ? `Round ${round}` : "";
@@ -118,7 +129,11 @@ const Tracker = ({ role }: { role: Role }) => {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
+    // Escape clears the GM's row selection.
+    <div
+      className="flex min-h-0 flex-1 flex-col gap-2"
+      onKeyDown={(e) => e.key === "Escape" && !menu && setPicked(NO_SELECTION)}
+    >
       <div className="flex items-center gap-2">
         {gm ? (
           <div role="group" aria-label="Phase" className="flex overflow-hidden rounded border border-obr-text-disabled text-sm font-medium">
@@ -188,12 +203,12 @@ const Tracker = ({ role }: { role: Role }) => {
           <SortableContext items={top.map((e) => e.id)} strategy={verticalListSortingStrategy}>
             <ol className="flex flex-col gap-1">
               {top.map((entry) => (
-                <Row key={entry.id} entry={entry} token={tokenFor(entry)} current={entry.id === current} {...rowProps}>
+                <Row key={entry.id} entry={entry} token={tokenFor(entry)} current={entry.id === current} selected={selection.ids.includes(entry.id)} {...rowProps}>
                   {entry.id === GM_ENTRY && monsters.length > 0 && (
                     <SortableContext items={monsters.map((e) => e.id)} strategy={verticalListSortingStrategy}>
                       <ol aria-label="Monsters" className="mt-1 flex flex-col gap-1">
                         {monsters.map((m) => (
-                          <Row key={m.id} entry={m} token={tokenFor(m)} current={m.id === current} {...rowProps} />
+                          <Row key={m.id} entry={m} token={tokenFor(m)} current={m.id === current} selected={selection.ids.includes(m.id)} {...rowProps} />
                         ))}
                       </ol>
                     </SortableContext>
@@ -209,34 +224,37 @@ const Tracker = ({ role }: { role: Role }) => {
           </p>
         )}
       </div>
-      {menu && menuEntry && (
+      {menu && targets.length > 0 && (
         <RowMenu
-          entry={menuEntry}
-          name={tokenInfo(byId.get(menuEntry.id)).name}
+          entries={targets}
+          name={targets.length === 1 ? tokenInfo(byId.get(targets[0].id)).name : `${targets.length} selected`}
           x={menu.x}
           y={menu.y}
           close={() => setMenu(null)}
           change={change}
           show={show}
+          clear={() => setPicked(NO_SELECTION)}
         />
       )}
     </div>
   );
 };
 
-// The GM's actions for one token row. Opened by right-clicking the row or
-// its ⋯ button (touch has no right-click). Closes on a choice, Escape, or a
-// click elsewhere.
+// The GM's actions for the selected token rows (one or many). Opened by
+// right-clicking a row or its ⋯ button (touch has no right-click). Closes on
+// a choice, Escape, or a click elsewhere. A mixed selection offers both ways.
 const RowMenu = (props: {
-  entry: Entry;
+  entries: Entry[];
   name: string;
   x: number;
   y: number;
   close: () => void;
   change: (fn: (t: TrackerDoc) => TrackerDoc) => void;
   show: (id: string) => void;
+  clear: () => void;
 }) => {
-  const { entry, close, change } = props;
+  const { entries, close, change } = props;
+  const ids = entries.map((e) => e.id);
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: props.x, top: props.y });
 
@@ -256,11 +274,24 @@ const RowMenu = (props: {
     return () => document.removeEventListener("pointerdown", outside);
   }, [close]);
 
-  const items: [string, () => void][] = [
-    [entry.monster ? "Mark as player or ally" : "Mark as monster", () => change((t) => setMonster(t, entry.id, !entry.monster))],
-    [entry.dead ? "Mark alive" : "Mark dead", () => change((t) => setDead(t, entry.id, !entry.dead))],
-    ["Show on map", () => props.show(entry.id)],
-    ["Remove from initiative", () => change((t) => remove(t, [entry.id]))],
+  // [label, shown?, action]
+  const some = (f: (e: Entry) => boolean) => entries.some(f);
+  const items: [string, boolean, () => void][] = [
+    ["Mark as monster", some((e) => !e.monster), () => change((t) => setMonster(t, ids, true))],
+    ["Mark as player or ally", some((e) => e.monster), () => change((t) => setMonster(t, ids, false))],
+    ["Mark dead", some((e) => !e.dead), () => change((t) => setDead(t, ids, true))],
+    ["Mark alive", some((e) => e.dead), () => change((t) => setDead(t, ids, false))],
+    ["Turn marker on", some((e) => !e.marker), () => change((t) => setMarker(t, ids, true))],
+    ["Turn marker off", some((e) => e.marker), () => change((t) => setMarker(t, ids, false))],
+    ["Show on map", ids.length === 1, () => props.show(ids[0])],
+    [
+      ids.length === 1 ? "Remove from initiative" : `Remove ${ids.length} from initiative`,
+      true,
+      () => {
+        change((t) => remove(t, ids));
+        props.clear();
+      },
+    ],
   ];
   // Up / Down move between items.
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -281,7 +312,9 @@ const RowMenu = (props: {
       className="fixed z-50 flex min-w-44 flex-col rounded border border-obr-text-disabled bg-obr-paper py-1 text-sm shadow-lg"
       onKeyDown={onKeyDown}
     >
-      {items.map(([label, run]) => (
+      {items
+        .filter(([, shown]) => shown)
+        .map(([label, , run]) => (
         <button
           key={label}
           type="button"
@@ -294,7 +327,7 @@ const RowMenu = (props: {
         >
           {label}
         </button>
-      ))}
+        ))}
     </div>
   );
 };
@@ -336,6 +369,8 @@ const Row = (props: {
   change: (fn: (t: TrackerDoc) => TrackerDoc) => void;
   show: (id: string) => void;
   openMenu: (id: string, x: number, y: number) => void;
+  select: (id: string, mods: { shift: boolean; toggle: boolean }) => void;
+  selected: boolean;
   // The GM row's monsters, listed under it.
   children?: ReactNode;
 }) => {
@@ -355,7 +390,18 @@ const Row = (props: {
       <div
         className={`flex items-start gap-2 rounded p-1.5 ${props.current ? "bg-obr-primary/20 ring-1 ring-obr-primary" : "bg-obr-bg"} ${
           token && !token.visible ? "opacity-60" : ""
-        }`}
+        } ${props.selected ? "outline-2 -outline-offset-2 outline-obr-secondary outline-dashed" : ""}`}
+        aria-selected={gm && token ? props.selected : undefined}
+        // GM: click to select (Shift: a range, Cmd/Ctrl: one more), except on
+        // the row's own boxes and buttons.
+        onClick={
+          gm && token
+            ? (e) => {
+                if ((e.target as HTMLElement).closest("input, button")) return;
+                props.select(entry.id, { shift: e.shiftKey, toggle: e.metaKey || e.ctrlKey });
+              }
+            : undefined
+        }
         // GM: right-click a token's row for its menu.
         onContextMenu={
           gm && token

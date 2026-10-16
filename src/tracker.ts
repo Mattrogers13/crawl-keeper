@@ -29,6 +29,9 @@ export type Entry = {
   dead: boolean;
   // Acts in the GM / Monsters turn. Never the GM row; roll always null.
   monster: boolean;
+  // Gets the turn marker on its turn. Starts on for players and allies, off
+  // for monsters; the GM changes it per token. Never the GM row.
+  marker: boolean;
 };
 
 export type Phase = "crawl" | "combat";
@@ -76,6 +79,7 @@ export const parseTracker = (raw: unknown): Tracker => {
         note: typeof e.note === "string" ? e.note.slice(0, NOTE_MAX) : "",
         dead: e.dead === true,
         monster: e.monster === true,
+        marker: typeof e.marker === "boolean" ? e.marker : e.monster !== true,
       }),
     );
     if (entries.length === MAX_ENTRIES) break;
@@ -101,16 +105,18 @@ export const parseTracker = (raw: unknown): Tracker => {
 const normalized = (e: Entry): Entry => {
   const gm = e.id === GM_ENTRY;
   const monster = e.monster && !gm;
-  return { ...e, dead: e.dead && !gm, monster, roll: monster ? null : e.roll };
+  return { ...e, dead: e.dead && !gm, monster, roll: monster ? null : e.roll, marker: e.marker && !gm };
 };
 
 const sameEntry = (a: Entry, b: Entry) =>
   a.roll === b.roll &&
   a.note === b.note &&
   a.dead === b.dead &&
-  a.monster === b.monster;
+  a.monster === b.monster &&
+  a.marker === b.marker;
 
-const newEntry = (id: string, monster: boolean): Entry => ({ id, roll: null, note: "", dead: false, monster });
+const newEntry = (id: string, monster: boolean): Entry =>
+  normalized({ id, roll: null, note: "", dead: false, monster, marker: !monster });
 
 // Players and the GM row first, then the monsters, each keeping its order.
 const grouped = (entries: Entry[]): Entry[] => [...entries.filter((e) => !e.monster), ...entries.filter((e) => e.monster)];
@@ -200,13 +206,15 @@ export const add = (t: Tracker, ids: string[]): Tracker => {
   return withEntries(t, grouped([...t.entries, ...fresh.slice(0, room).map((id) => newEntry(id, false))]));
 };
 
-// Players and allies <-> monsters. The entry moves to the end of its new group
-// (a new monster acts last in the GM turn) and loses its roll if it becomes
-// a monster.
-export const setMonster = (t: Tracker, id: string, monster: boolean): Tracker => {
-  const entry = t.entries.find((e) => e.id === id);
-  if (!entry || entry.id === GM_ENTRY || entry.monster === monster) return t;
-  return withEntries(t, grouped([...t.entries.filter((e) => e.id !== id), normalized({ ...entry, monster })]));
+// Players and allies <-> monsters, one or many (the GM's batch selection).
+// Switched entries move to the end of their new group in their current order
+// (new monsters act last in the GM turn), lose their roll if they become
+// monsters, and take the new kind's turn-marker default.
+export const setMonster = (t: Tracker, ids: string[], monster: boolean): Tracker => {
+  const switching = new Set(ids.filter((id) => t.entries.some((e) => e.id === id && e.id !== GM_ENTRY && e.monster !== monster)));
+  if (switching.size === 0) return t;
+  const switched = t.entries.filter((e) => switching.has(e.id)).map((e) => normalized({ ...e, monster, marker: !monster }));
+  return withEntries(t, grouped([...t.entries.filter((e) => !switching.has(e.id)), ...switched]));
 };
 
 export const remove = (t: Tracker, ids: string[]): Tracker => {
@@ -253,11 +261,24 @@ export const setRoll = (t: Tracker, id: string, roll: number | null): Tracker =>
 export const setNote = (t: Tracker, id: string, note: string): Tracker =>
   edit(t, id, { note: note.slice(0, NOTE_MAX) });
 
+// The same change on several entries; null if none changed.
+const updateMany = (t: Tracker, ids: string[], change: Partial<Entry>): Entry[] | null => {
+  let entries: Entry[] | null = null;
+  for (const id of ids) entries = update(entries ? { ...t, entries } : t, id, change) ?? entries;
+  return entries;
+};
+
 // Dead entries keep their seat but get no turns; killing the current entry
 // passes the turn on. The GM row can't die.
-export const setDead = (t: Tracker, id: string, dead: boolean): Tracker => {
-  const entries = update(t, id, { dead });
+export const setDead = (t: Tracker, ids: string[], dead: boolean): Tracker => {
+  const entries = updateMany(t, ids, { dead });
   return entries ? withEntries(t, entries) : t;
+};
+
+// The turn marker on or off for these tokens' turns.
+export const setMarker = (t: Tracker, ids: string[], marker: boolean): Tracker => {
+  const entries = updateMany(t, ids, { marker });
+  return entries ? { ...t, entries } : t;
 };
 
 // The GM's drag and drop: move an entry to where `overId` is. Players and

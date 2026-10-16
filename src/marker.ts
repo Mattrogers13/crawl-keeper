@@ -9,7 +9,7 @@ import { parseSettings, type Settings } from "./settings";
 import { GM_ENTRY, parseTracker, type Tracker } from "./tracker";
 import { errorMessage, notify } from "./utils";
 
-type TurnSettings = Pick<Settings, "showMarker" | "selectOnTurn" | "markMonsters">;
+type TurnSettings = Pick<Settings, "showMarker" | "selectOnTurn">;
 
 // WebP, never SVG on the map (black square). Source: art/turn-marker.svg.
 export const markerImage = () => `${window.location.origin}/img/turn-marker.webp`;
@@ -56,19 +56,18 @@ export const buildMarker = (token: Image, image: string) => {
     .build();
 };
 
-// Pure: the token whose turn it is, if it gets the marker and selection.
-// None for the GM row or between rounds; monsters only with markMonsters.
-export const markedToken = (t: Tracker, markMonsters: boolean): string | null => {
+// Pure: the token whose turn it is, if it gets the marker and selection
+// (its own setting; never the GM row, none between rounds).
+export const markedToken = (t: Tracker): string | null => {
   const entry = t.entries.find((e) => e.id === t.current);
-  if (!entry || entry.id === GM_ENTRY || (entry.monster && !markMonsters)) return null;
-  return entry.id;
+  return entry && entry.id !== GM_ENTRY && entry.marker ? entry.id : null;
 };
 
 // Put the marker on `tokenId` (null: none anywhere) and, if set, select it on
 // this client. `items` is the scene's items when the caller already has them
 // (the panel keeps them live); otherwise they're read, which copies the whole
 // scene over postMessage.
-export const syncTurn = async (tokenId: string | null, settings: Omit<TurnSettings, "markMonsters">, items?: Item[]) => {
+export const syncTurn = async (tokenId: string | null, settings: TurnSettings, items?: Item[]) => {
   const all = items ?? (await OBR.scene.items.getItems());
   const token = all.find((i) => i.id === tokenId);
   const target = settings.showMarker && isImage(token) ? token : null;
@@ -94,20 +93,24 @@ const report = (err: unknown) => notify(`Couldn't move the turn marker: ${errorM
 // Every write that may change whose turn it is calls this (panel and
 // right-click). The tracker change is saved either way; a marker failure
 // only warns.
+// A token's own marker setting changing on the current turn counts too.
 export const afterTurnChange = async (before: Tracker, after: Tracker, settings: TurnSettings, items?: Item[]) => {
-  if (after.current === before.current) return;
-  await syncTurn(markedToken(after, settings.markMonsters), settings, items).catch(report);
+  const token = markedToken(after);
+  if (after.current === before.current && token === markedToken(before)) return;
+  // Same turn, only the token's marker setting changed: don't reselect.
+  const select = settings.selectOnTurn && after.current !== before.current;
+  await syncTurn(token, { showMarker: settings.showMarker, selectOnTurn: select }, items).catch(report);
 };
 
-// After a marker setting changes: add, move or remove it for whoever's turn
-// it is now (no selection change). No scene open: nothing to do.
-export const syncTurnFromScene = (settings: Pick<Settings, "showMarker" | "markMonsters">) =>
+// After the marker setting changes: add or remove it for whoever's turn it
+// is now (no selection change). No scene open: nothing to do.
+export const syncTurnFromScene = (settings: Pick<Settings, "showMarker">) =>
   OBR.scene
     .isReady()
     .then(async (ready) => {
       if (!ready) return;
       const scene = await OBR.scene.getMetadata();
-      const tokenId = markedToken(parseTracker(scene[TRACKER_KEY]), settings.markMonsters);
+      const tokenId = markedToken(parseTracker(scene[TRACKER_KEY]));
       await syncTurn(tokenId, { showMarker: settings.showMarker, selectOnTurn: false });
     })
     .catch(report);

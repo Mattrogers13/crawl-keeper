@@ -60,7 +60,7 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 | 5 | GM: Combat, ▶ through a round | GM / Monsters, then each living monster in order, then the next player; dead monsters skipped | |
 | 6 | GM: ▶ onto a player's token | Gold ring (a bit bigger than the token) around it; the token is selected on the GM's screen | |
 | 7 | GM: ▶ onto a monster (combat) | No ring, no selection | |
-| 8 | GM: gear → "Mark monsters' turns too" on; ▶ onto a monster | Ring and selection on the monster | |
+| 8 | GM: row menu on a monster → Turn marker on; ▶ onto it (and try it on its own turn) | Ring and selection on that monster only; turning it on during its turn adds the ring at once | |
 | 9 | GM: a hidden monster's turn (with step 8 on) | GM sees the ring (faded like the token); player sees neither, and the GM row shows as current | |
 | 10 | GM: ▶ onto GM / Monsters | Ring disappears; selection unchanged | |
 | 11 | GM: move, resize and rotate the current token | Ring follows position and size, stays upright | |
@@ -75,3 +75,4 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 | 20 | GM: row menu → Show on map; then tap a portrait | The token is selected on the GM's screen (no extra ring); players see nothing | |
 | 21 | GM: ▶ through a crawl round into Combat and on, then back to Crawl | The round count keeps going (no restart in combat) | |
 | 22 | GM: ring on a player's turn; gear → turn marker off | Ring disappears at once. If not: any "Couldn't move the turn marker" warning? Record it here | Pass 2026-10-16 |
+| 23 | GM: click a row, Shift-click another, Cmd-click a third elsewhere; right-click inside the selection | Dashed outlines on the chosen rows; menu titled "N selected" without Show on map; Mark as monster / dead / marker and Remove apply to all; Escape clears | |
