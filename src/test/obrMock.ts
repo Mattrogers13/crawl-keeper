@@ -33,6 +33,9 @@ export const LIGHT_THEME: Theme = {
 };
 
 const fresh = () => ({
+  // Owlbear has finished connecting (see becomeReady).
+  ready: true,
+  readyCallbacks: [] as (() => void)[],
   role: "GM" as Role,
   playerId: "player-1",
   playerName: "Test Player",
@@ -82,6 +85,13 @@ const playerSnapshot = () => ({ id: obr.playerId, name: obr.playerName, role: ob
 
 // --- Helpers for tests ---------------------------------------------------
 
+/** Owlbear finishes connecting (start a test with `obr.ready = false`). */
+export const becomeReady = () =>
+  act(async () => {
+    obr.ready = true;
+    obr.readyCallbacks.splice(0).forEach((cb) => cb());
+  });
+
 /** Apply the oldest deferred write (see `deferWrites`). */
 export const flushWrite = () =>
   act(async () => {
@@ -119,9 +129,14 @@ export const receiveBroadcast = (channel: string, data: unknown) =>
 
 export const OBR = {
   isAvailable: true,
-  isReady: true,
+  get isReady() {
+    return obr.ready;
+  },
   // The real onReady calls back at once when already ready.
-  onReady: vi.fn((cb: () => void) => cb()),
+  onReady: vi.fn((cb: () => void) => {
+    if (obr.ready) cb();
+    else obr.readyCallbacks.push(cb);
+  }),
   room: {
     id: "room-1",
     getMetadata: vi.fn(async () => obr.metadata),

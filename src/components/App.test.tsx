@@ -3,9 +3,34 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import App from "./App";
 import { NOTE_KEY } from "../constants";
-import { changePlayer, changeTheme, LIGHT_THEME, obr, writeFromElsewhere } from "../test/obrMock";
+import OBR from "@owlbear-rodeo/sdk";
+import { act } from "@testing-library/react";
+
+import { becomeReady, changePlayer, changeTheme, DARK_THEME, LIGHT_THEME, obr, writeFromElsewhere } from "../test/obrMock";
 
 describe("App", () => {
+  it("makes no SDK calls until Owlbear is ready (they would throw)", async () => {
+    obr.ready = false;
+    render(<App />);
+    expect(screen.getByText("Loading…")).toBeInTheDocument();
+    expect(OBR.player.getRole).not.toHaveBeenCalled();
+    expect(OBR.room.getMetadata).not.toHaveBeenCalled();
+    expect(OBR.theme.getTheme).not.toHaveBeenCalled();
+    await becomeReady();
+    expect(await screen.findByLabelText("Note for the table")).toBeInTheDocument();
+  });
+
+  it("lets a theme change beat a slower theme lookup", async () => {
+    let answer!: () => void;
+    vi.spyOn(OBR.theme, "getTheme").mockImplementation(
+      () => new Promise((resolve) => (answer = () => resolve(DARK_THEME))),
+    );
+    render(<App />);
+    await changeTheme(LIGHT_THEME);
+    await act(async () => answer());
+    expect(document.documentElement).not.toHaveClass("dark");
+  });
+
   it("lets the GM share a note with the room", async () => {
     render(<App />);
     fireEvent.change(await screen.findByLabelText("Note for the table"), { target: { value: "Doors are locked" } });

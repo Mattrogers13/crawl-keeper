@@ -1,6 +1,12 @@
 # Patterns: adding Owlbear features
 
-Not shipped in the starter (most extensions don't need all of them). Each was built and used in Torchlight; its repo (github.com/Mattrogers13/obr-torchlight) has the full code. SDK reference: `sources/sdk/src/api/`.
+Not shipped in the starter (most extensions don't need all of them). Each was built and used in Torchlight (public repo github.com/Mattrogers13/obr-torchlight). "Torchlight: `path`" means read that file there:
+
+```bash
+gh api repos/Mattrogers13/obr-torchlight/contents/<path> --jq .content | base64 -d
+```
+
+SDK reference: `sources/sdk/src/api/`.
 
 ## Background page (runs while the extension is enabled, panel open or not)
 

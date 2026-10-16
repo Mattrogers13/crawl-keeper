@@ -31,11 +31,16 @@ export const useRoomValue = <T>(key: string, parse: (raw: unknown) => T) => {
   const loaded = useRef(false);
   const parseRef = useRef(parse);
   parseRef.current = parse;
+  // The key this hook is on now. A read or re-read started for an earlier
+  // key can land late; it must not mark the new key as loaded.
+  const keyRef = useRef(key);
+  keyRef.current = key;
 
   // Take the room's value for `key`. Other keys changing (including other
   // extensions' writes) don't re-render.
   const take = useCallback(
     (metadata: Metadata) => {
+      if (key !== keyRef.current) return;
       const raw = JSON.stringify(metadata[key]) ?? "undefined";
       const wasLoaded = loaded.current;
       loaded.current = true;

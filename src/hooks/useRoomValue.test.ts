@@ -61,6 +61,29 @@ describe("useRoomValue", () => {
     expect(result.current.value).toBe(2);
   });
 
+  it("ignores a re-read for the old key that lands after the key changed", async () => {
+    obr.metadata = { a: 1, b: 2 };
+    const { result, rerender } = renderHook(({ k }) => useRoomValue(k, parse), { initialProps: { k: "a" } });
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    const pending: (() => void)[] = [];
+    vi.spyOn(OBR.room, "getMetadata").mockImplementation(
+      () => new Promise((resolve) => pending.push(() => resolve(obr.metadata))),
+    );
+    obr.failWrites = true;
+    await act(async () => {
+      result.current.write(5); // fails, then re-reads key "a" (held)
+    });
+    rerender({ k: "b" }); // reads key "b" (held)
+    obr.failWrites = false;
+    await act(async () => pending[0]()); // the stale "a" re-read lands
+    let saved = true;
+    await act(async () => {
+      saved = await result.current.write(99);
+    });
+    expect(saved).toBe(false);
+    expect(obr.metadata.b).toBe(2);
+  });
+
   it("follows other clients' writes", async () => {
     const { result } = renderHook(() => useRoomValue(KEY, parse));
     await waitFor(() => expect(result.current.loaded).toBe(true));

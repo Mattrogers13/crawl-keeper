@@ -14,6 +14,7 @@
 | Failed writes (e.g. 16 kB cap) | `obr.failWrites = true` |
 | Writes in flight (sync races) | `obr.deferWrites = true`, then `await flushWrite()` per write |
 | Failed role lookups | `obr.failRoleLookups = n` |
+| Owlbear not ready yet | `obr.ready = false`, then `await becomeReady()` |
 | One-off behavior | `vi.spyOn(OBR.room, "getMetadata").mockImplementation(...)` |
 
 Add SDK APIs to the mock as you use them. Every mock function must return a promise when the real one does.
