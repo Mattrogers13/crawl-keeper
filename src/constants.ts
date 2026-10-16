@@ -2,6 +2,12 @@
 // broadcast channel, so it can't collide with another extension.
 export const ID = "io.github.mattrogers13.crawl-keeper";
 
-// Room metadata keys. Keep this file free of React imports so a background
-// page or embedded menu can use it without pulling React in.
-export const NOTE_KEY = `${ID}/note`;
+// Metadata keys. Keep this file free of React imports so the background page
+// can use it without pulling React in.
+
+// Scene metadata: the initiative tracker for this map (see tracker.ts).
+export const TRACKER_KEY = `${ID}/tracker`;
+// Room metadata: GM settings (see settings.ts).
+export const SETTINGS_KEY = `${ID}/settings`;
+
+export const MENU_ID = `${ID}/initiative-menu`;

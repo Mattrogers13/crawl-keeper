@@ -25,6 +25,7 @@ export default defineConfig({
       // listed here or Vite won't build it. See docs/obr/patterns.md.
       input: {
         main: resolve("index.html"),
+        background: resolve("background.html"),
       },
     },
   },

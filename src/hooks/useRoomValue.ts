@@ -6,7 +6,18 @@ import { errorMessage, notify } from "../utils";
 const FIRST_RETRY_MS = 2000;
 const MAX_RETRY_MS = 30_000;
 
-// One value stored under one room metadata key, shared by everyone in the room.
+// Where a value lives: OBR.room (the whole room) or OBR.scene (the open
+// map; only usable while a scene is ready, so mount under useSceneReady).
+export type MetadataStore = {
+  getMetadata: () => Promise<Metadata>;
+  setMetadata: (update: Partial<Metadata>) => Promise<void>;
+  onMetadataChange: (cb: (metadata: Metadata) => void) => () => void;
+};
+
+export const useRoomValue = <T>(key: string, parse: (raw: unknown) => T) => useMetadataValue(OBR.room, key, parse);
+export const useSceneValue = <T>(key: string, parse: (raw: unknown) => T) => useMetadataValue(OBR.scene, key, parse);
+
+// One value stored under one metadata key, shared by everyone in the room.
 //
 // Built for ONE WRITER per key (e.g. only the GM writes it, everyone reads).
 // With several clients writing the same key, each write replaces the whole
@@ -20,7 +31,7 @@ const MAX_RETRY_MS = 30_000;
 //   then. Writing a default before the read would wipe the room's real value.
 // - A failed write tells the user and re-reads the room, so the optimistic
 //   local value doesn't silently stick.
-export const useRoomValue = <T>(key: string, parse: (raw: unknown) => T) => {
+export const useMetadataValue = <T>(store: MetadataStore, key: string, parse: (raw: unknown) => T) => {
   // State remembers which key it belongs to, so a new key reads as unloaded
   // on the very render it changes (before the effect below re-reads).
   const [state, setState] = useState(() => ({ key, loaded: false, value: parse(undefined) }));
@@ -69,18 +80,18 @@ export const useRoomValue = <T>(key: string, parse: (raw: unknown) => T) => {
     let wait = FIRST_RETRY_MS;
     let reported = false;
     const read = () =>
-      OBR.room
+      store
         .getMetadata()
         .then((m) => alive && !fromEvent && take(m))
         .catch((err) => {
           if (!alive || fromEvent) return;
-          if (!reported) notify(`Couldn't read the room, retrying: ${errorMessage(err)}`, "ERROR");
+          if (!reported) notify(`Couldn't read Owlbear's data, retrying: ${errorMessage(err)}`, "ERROR");
           reported = true;
           retry = setTimeout(read, wait);
           wait = Math.min(wait * 2, MAX_RETRY_MS);
         });
     read();
-    const off = OBR.room.onMetadataChange((m) => {
+    const off = store.onMetadataChange((m) => {
       fromEvent = true;
       take(m);
     });
@@ -89,7 +100,7 @@ export const useRoomValue = <T>(key: string, parse: (raw: unknown) => T) => {
       clearTimeout(retry);
       off();
     };
-  }, [take]);
+  }, [store, take]);
 
   const write = useCallback(
     async (value: T): Promise<boolean> => {
@@ -97,19 +108,19 @@ export const useRoomValue = <T>(key: string, parse: (raw: unknown) => T) => {
       lastRaw.current = JSON.stringify(value) ?? "undefined";
       setState({ key, loaded: true, value });
       try {
-        await OBR.room.setMetadata({ [key]: value });
+        await store.setMetadata({ [key]: value });
         return true;
       } catch (err) {
         notify(`Couldn't save: ${errorMessage(err)}`, "ERROR");
         lastRaw.current = null;
-        await OBR.room
+        await store
           .getMetadata()
           .then(take)
           .catch(() => {});
         return false;
       }
     },
-    [key, take],
+    [store, key, take],
   );
 
   const current = state.key === key ? state : { key, loaded: false, value: parse(undefined) };
