@@ -171,6 +171,22 @@ describe("Tracker (GM)", () => {
     }
   });
 
+  it("removes the monsters after a fight, only when asked and only while crawling", async () => {
+    obr.items = [token("p", { name: "Aria" }), token("m1", { name: "Goblin" })];
+    scene([{ id: "p" }, { id: GM_ENTRY }, { id: "m1", monster: true }], null, 0, COMBAT);
+    render(<App />);
+    await screen.findByText("Goblin");
+    expect(screen.queryByText("Remove monsters")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Crawl"));
+    fireEvent.click(await screen.findByText("Remove monsters"));
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(screen.getByText("Goblin")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Remove monsters"));
+    fireEvent.click(screen.getByText("Remove"));
+    await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["p", GM_ENTRY]));
+    expect(screen.queryByText("Remove monsters")).not.toBeInTheDocument();
+  });
+
   it("rings and selects players only, unless monsters are marked too", async () => {
     obr.items = [token("p", { name: "Aria" }), token("m1", { name: "Goblin" })];
     scene([{ id: "p" }, { id: GM_ENTRY }, { id: "m1", monster: true }], GM_ENTRY, 1, COMBAT);

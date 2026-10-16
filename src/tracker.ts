@@ -278,6 +278,10 @@ export const moveTo = (t: Tracker, id: string, overId: string): Tracker => {
   return { ...t, entries };
 };
 
+// After a fight: every monster out (the GM row stays).
+export const removeMonsters = (t: Tracker): Tracker =>
+  remove(t, t.entries.filter((e) => e.monster).map((e) => e.id));
+
 // The right-click "Add / Remove Initiative" (players) and "Add / Remove
 // Monster": if every clicked token is already tracked as that kind, remove
 // them; otherwise add (or switch) them.

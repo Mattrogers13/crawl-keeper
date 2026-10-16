@@ -31,6 +31,7 @@ import {
   playerView,
   previous,
   prune,
+  removeMonsters,
   resetRounds,
   remove,
   setDead,
@@ -137,11 +138,23 @@ const Tracker = ({ role }: { role: Role }) => {
       </div>
 
       {gm && (
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
           <Button label="Sort by roll" onClick={() => change(sortByRoll)}>
             <SortIcon />
           </Button>
-          <ResetRounds reset={() => change(resetRounds)} />
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+            {/* After a fight: clear the monsters out (kept until then, so a fight can resume). */}
+            {!combat && tracker.entries.some((e) => e.monster) && (
+              <Confirm
+                label="Remove monsters"
+                question="Remove every monster from the tracker?"
+                action="Remove"
+                onConfirm={() => change(removeMonsters)}
+              />
+            )}
+            {/* A stray click would lose the crawl round count the encounter checks run on. */}
+            <Confirm label="Reset rounds" question="Reset both round counts to 0?" action="Reset" onConfirm={() => change(resetRounds)} />
+          </div>
         </div>
       )}
 
@@ -182,28 +195,27 @@ const Tracker = ({ role }: { role: Role }) => {
   );
 };
 
-// Asks before resetting: a stray click would lose the crawl round count,
-// which the encounter checks run on.
-const ResetRounds = ({ reset }: { reset: () => void }) => {
+// A link that asks before doing something hard to undo.
+const Confirm = (props: { label: string; question: string; action: string; onConfirm: () => void }) => {
   const [asking, setAsking] = useState(false);
   if (!asking)
     return (
-      <button type="button" className="ml-auto text-xs text-obr-text-secondary underline hover:text-obr-text" onClick={() => setAsking(true)}>
-        Reset rounds
+      <button type="button" className="text-xs text-obr-text-secondary underline hover:text-obr-text" onClick={() => setAsking(true)}>
+        {props.label}
       </button>
     );
   return (
-    <div role="alertdialog" aria-label="Reset rounds?" className="ml-auto flex items-center gap-1 text-xs">
-      <span>Reset both round counts to 0?</span>
+    <div role="alertdialog" aria-label={props.question} className="flex items-center gap-1 text-xs">
+      <span>{props.question}</span>
       <button
         type="button"
         className="rounded bg-red-700 px-2 py-0.5 font-medium text-white"
         onClick={() => {
-          reset();
+          props.onConfirm();
           setAsking(false);
         }}
       >
-        Reset
+        {props.action}
       </button>
       <button type="button" className="rounded border border-obr-text-disabled px-2 py-0.5" onClick={() => setAsking(false)}>
         Cancel

@@ -17,6 +17,7 @@ import {
   setNote,
   setRoll,
   sortByRoll,
+  removeMonsters,
   resetRounds,
   toCombat,
   toCrawl,
@@ -213,6 +214,13 @@ describe("monsters", () => {
   it("sorting moves players and the GM row; monsters keep their order", () => {
     const t = sortByRoll(tracker({ a: 3, gm: 12, b: 9, m2: null, m1: null }));
     expect(ids(t.entries)).toEqual(["gm", "b", "a", "m2", "m1"]);
+  });
+
+  it("remove monsters: all of them, nothing else; none to remove keeps the object", () => {
+    const t = tracker({ a: 5, gm: 3, m1: null, m2: null });
+    expect(ids(removeMonsters(t).entries)).toEqual(["a", "gm"]);
+    const none = tracker({ a: 5, gm: 3 });
+    expect(removeMonsters(none)).toBe(none);
   });
 
   it("monsters take no roll", () => {

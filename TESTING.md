@@ -71,3 +71,4 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 | 16 | Add enough tokens to overflow the panel; scroll the list | Crawl Keeper title, Crawl/Combat, arrows and sort stay in view | |
 | 17 | Drag the grip at the bottom down, close and reopen the panel | Panel grows and keeps its height (player: same, their own) | |
 | 18 | GM: gear → Saved data | Shows tracker, whole map and room sizes | |
+| 19 | GM: in Combat, look for "Remove monsters"; switch to Crawl; Remove monsters → Cancel; then → Remove | Not offered in Combat; Cancel keeps them; Remove clears every monster, players and GM row stay | |

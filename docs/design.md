@@ -29,6 +29,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 - Moving rows: the GM drags a row by its grip (≡; mouse, touch, or keyboard: focus the grip, Space, arrows, Space). Players can't.
 - **Dead:** GM toggles ☠ on a token row (not the GM row). Dead rows keep their seat, show a skull badge on the portrait for everyone, and get no turns; killing the current entry passes the turn on.
 - ◀ / ▶ turns. Round increments when the turn wraps.
+- Remove monsters (GM, Crawl only, asks to confirm): clears every monster after a fight. Kept until then, so a fight that resumes keeps them (decided 2026-10-16).
 - Reset rounds (GM, asks to confirm): both round counts to 0, no one's turn; order, rolls and phase stay.
 - Note under each name: GM edits, everyone sees.
 - On a turn change from a GM click (▶ ◀, phase, reset, dead, remove, right-click remove; never from a data change event, or every client would add one): a gold ring (WebP, ATTACHMENT layer, locked, unclickable) moves to the current token (players' tokens; monsters only with the "Mark monsters' turns too" setting), sized 1.5x its footprint. It follows the token's position, scale, visibility and deletion (attachment defaults; visibility unverified live). No marker on the GM row or between rounds. Select the current token on the GM's screen (setting, default on).
