@@ -147,10 +147,14 @@ const Tracker = ({ role }: { role: Role }) => {
   };
 
   return (
-    // Escape clears the GM's row selection.
+    // Escape, or a click anywhere in the panel but a token row or the menu,
+    // clears the GM's row selection.
     <div
       className="flex min-h-0 flex-1 flex-col gap-2"
       onKeyDown={(e) => e.key === "Escape" && !menu && setPicked(NO_SELECTION)}
+      onClick={(e) => {
+        if (!(e.target as HTMLElement).closest("[aria-selected], [role=menu]")) setPicked(NO_SELECTION);
+      }}
     >
       <div className="flex items-center gap-2">
         {gm ? (

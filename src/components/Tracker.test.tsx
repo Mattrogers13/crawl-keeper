@@ -366,6 +366,21 @@ describe("Tracker (GM)", () => {
     expect(selected()).toBe(0);
   });
 
+  it("clicking in the panel outside the token rows clears the selection", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
+    render(<App />);
+    fireEvent.click(await screen.findByText("Aria"));
+    fireEvent.click(screen.getByText("Borin"), { metaKey: true });
+    const selected = () => rows().filter((r) => r.querySelector("[aria-selected=true]")).length;
+    expect(selected()).toBe(2);
+    fireEvent.click(screen.getByText("GM / Monsters"));
+    expect(selected()).toBe(0);
+    fireEvent.click(screen.getByText("Aria"));
+    fireEvent.click(screen.getByLabelText("Sort by roll"));
+    expect(selected()).toBe(0);
+  });
+
   it("right-clicking outside the selection acts on that row only; Escape clears the selection", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);

@@ -53,28 +53,29 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 
 | # | Steps | Expect | Result |
 |---|---|---|---|
-| 1 | GM: right-click two tokens on the map → "Add / Remove Initiative" (the only item); in the tracker right-click each row → Mark as monster | They move under GM / Monsters with a red edge, not indented, no roll box; notes full width; player sees them (unless hidden) | |
-| 2 | GM: row menu on one of them → Mark as player or ally; then the ⋯ button on a row (and on the iPad) | It goes back to a player row with a roll box; ⋯ opens the same menu (Mark dead / alive, Show on map, Remove too); Escape or a click elsewhere closes it | |
-| 3 | GM: drag monsters within the group; drag the GM row among players | Monsters reorder in the group only and travel with the GM row; Sort leaves the monsters' order alone | |
-| 4 | GM: Crawl, ▶ through a round | GM / Monsters, then the next player: monsters get no turns of their own | |
-| 5 | GM: Combat, ▶ through a round | GM / Monsters, then each living monster in order, then the next player; dead monsters skipped | |
-| 6 | GM: ▶ onto a player's token | Gold ring (a bit bigger than the token) around it; the token is selected on the GM's screen | |
-| 7 | GM: ▶ onto a monster (combat) | No ring, no selection | |
-| 8 | GM: row menu on a monster → Turn marker on; ▶ onto it (and try it on its own turn) | Ring and selection on that monster only; turning it on during its turn adds the ring at once | |
-| 9 | GM: a hidden token's turn (marker on); then show it, hide it again | GM sees the ring faded like the token; player never sees the ring while the token is hidden, and sees it once shown; the GM row shows as current for the player while hidden | |
-| 10 | GM: ▶ onto GM / Monsters | Ring disappears; selection unchanged | |
-| 11 | GM: move, resize and rotate the current token | Ring follows position and size, stays upright | |
-| 12 | GM: delete the current token from the map (panel open); then make another token current and remove it with the map right-click, then with the row menu | Each time: the turn and the ring pass to the next token | |
-| 13 | Player | Ring visible on visible tokens; can't select or move it | |
-| 14 | GM: gear → turn marker off, then on | Ring disappears at once, comes back on the current token | |
-| 15 | GM: gear → Select the current token off; ▶ | Turn moves, selection doesn't | |
-| 16 | Add enough tokens to overflow the panel; scroll the list | Crawl Keeper title, Crawl/Combat, arrows and sort stay in view | |
-| 17 | Drag the grip at the bottom down, close and reopen the panel | Panel grows and keeps its height (player: same, their own) | |
-| 18 | GM: gear → Saved data | Shows tracker, whole map and room sizes | |
-| 19 | GM: in Combat, look for "Remove monsters"; switch to Crawl; Remove monsters → Cancel; then → Remove | Not offered in Combat; Cancel keeps them; Remove clears every monster, players and GM row stay | |
-| 20 | GM: row menu → Show on map; then tap a portrait | The token is selected on the GM's screen (no extra ring); players see nothing | |
-| 21 | GM: ▶ through a crawl round into Combat and on, then back to Crawl | The round count keeps going (no restart in combat) | |
+| 1 | GM: right-click two tokens on the map → "Add / Remove Initiative" (the only item); in the tracker right-click each row → Mark as monster | They move under GM / Monsters with a red edge, not indented, no roll box; notes full width; player sees them (unless hidden) | Pass 2026-10-16 |
+| 2 | GM: row menu on one of them → Mark as player or ally; then the ⋯ button on a row (and on the iPad) | It goes back to a player row with a roll box; ⋯ opens the same menu (Mark dead / alive, Show on map, Remove too); Escape or a click elsewhere closes it | Pass 2026-10-16 |
+| 3 | GM: drag monsters within the group; drag the GM row among players | Monsters reorder in the group only and travel with the GM row; Sort leaves the monsters' order alone | Pass 2026-10-16 |
+| 4 | GM: Crawl, ▶ through a round | GM / Monsters, then the next player: monsters get no turns of their own | Pass 2026-10-16 |
+| 5 | GM: Combat, ▶ through a round | GM / Monsters, then each living monster in order, then the next player; dead monsters skipped | Pass 2026-10-16 |
+| 6 | GM: ▶ onto a player's token | Gold ring (a bit bigger than the token) around it; the token is selected on the GM's screen | Pass 2026-10-16 |
+| 7 | GM: ▶ onto a monster (combat) | No ring, no selection | Pass 2026-10-16 |
+| 8 | GM: row menu on a monster → Turn marker on; ▶ onto it (and try it on its own turn) | Ring and selection on that monster only; turning it on during its turn adds the ring at once | Pass 2026-10-16 |
+| 9 | GM: a hidden token's turn (marker on); then show it, hide it again | GM sees the ring faded like the token; player never sees the ring while the token is hidden, and sees it once shown; the GM row shows as current for the player while hidden | Pass 2026-10-16 |
+| 10 | GM: ▶ onto GM / Monsters | Ring disappears; selection unchanged | Pass 2026-10-16 |
+| 11 | GM: move, resize and rotate the current token | Ring follows position and size, stays upright | Pass 2026-10-16 |
+| 12 | GM: delete the current token from the map (panel open); then make another token current and remove it with the map right-click, then with the row menu | Each time: the turn and the ring pass to the next token | Pass 2026-10-16 |
+| 13 | Player | Ring visible on visible tokens; can't select or move it | Pass 2026-10-16 |
+| 14 | GM: gear → turn marker off, then on | Ring disappears at once, comes back on the current token | Pass 2026-10-16 |
+| 15 | GM: gear → Select the current token off; ▶ | Turn moves, selection doesn't | Pass 2026-10-16 |
+| 16 | Add enough tokens to overflow the panel; scroll the list | Crawl Keeper title, Crawl/Combat, arrows and sort stay in view | Pass 2026-10-16 |
+| 17 | Drag the grip at the bottom down, close and reopen the panel | Panel grows and keeps its height (player: same, their own) | Pass 2026-10-16 |
+| 18 | GM: gear → Saved data | Shows tracker, whole map and room sizes | Pass 2026-10-16 |
+| 19 | GM: in Combat, look for "Remove monsters"; switch to Crawl; Remove monsters → Cancel; then → Remove | Not offered in Combat; Cancel keeps them; Remove clears every monster, players and GM row stay | Pass 2026-10-16 |
+| 20 | GM: row menu → Show on map; then tap a portrait | The token is selected on the GM's screen (no extra ring); players see nothing | Pass 2026-10-16 |
+| 21 | GM: ▶ through a crawl round into Combat and on, then back to Crawl | The round count keeps going (no restart in combat) | Pass 2026-10-16 |
 | 22 | GM: ring on a player's turn; gear → turn marker off | Ring disappears at once. If not: any "Couldn't move the turn marker" warning? Record it here | Pass 2026-10-16 |
-| 23 | GM: click a row, Shift-click another, Cmd-click a third elsewhere; right-click inside the selection | Dashed outlines on the chosen rows; menu titled "N selected" without Show on map; Mark as monster / dead / marker and Remove apply to all; Escape clears | |
-| 24 | GM: gold dots | A small gold dot on the portraits of tokens that get the turn marker; it moves when you turn the marker on/off in the row menu; players see no dots | |
-| 25 | GM: gear | Each setting has a one-line plain description | |
+| 23 | GM: click a row, Shift-click another, Cmd-click a third elsewhere; right-click inside the selection | Dashed outlines on the chosen rows; menu titled "N selected" without Show on map; Mark as monster / dead / marker and Remove apply to all; Escape clears | Pass 2026-10-16 |
+| 24 | GM: gold dots | A small gold dot on the portraits of tokens that get the turn marker; it moves when you turn the marker on/off in the row menu; players see no dots | Pass 2026-10-16 |
+| 25 | GM: gear | Each setting has a one-line plain description | Pass 2026-10-16 |
+| 26 | GM: select rows, then click anywhere in the panel outside the token rows | The dashed outlines clear | |
