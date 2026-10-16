@@ -86,7 +86,7 @@ Reload the room after a Dev rebuild (the background page loads once per room).
 
 | # | Steps | Expect | Result |
 |---|---|---|---|
-| 1 | GM, Crawl: look at the top bar | "Checks" strip with Unsafe / Risky / Deadly and "In darkness (every round)"; "Next in 3 crawl rounds"; it stays put when the list scrolls. Players see no strip | |
+| 1 | GM, Crawl: look at the header | Right under "Crawl Keeper", above Crawl/Combat: a "Checks" strip with Unsafe / Risky / Deadly and "In darkness (every round)"; "Next in 3 crawl rounds"; it stays put when the list scrolls. Players see no strip | |
 | 2 | GM: ▶ through 3 crawl rounds (Unsafe) | On the GM turn of round 3 the card lights up: "A check is due"; "Roll check (d6)" | |
 | 3 | GM: Roll check; then Undo | Big result: the die, then "No encounter" or a red "ENCOUNTER!" block; Undo puts it back | |
 | 4 | GM: Risky, then Deadly, then In darkness | Checks every 2 crawl rounds, every round, every round | |

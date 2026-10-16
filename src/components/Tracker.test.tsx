@@ -444,11 +444,15 @@ describe("Tracker (GM)", () => {
       await waitFor(() => expect(saved().crawl.clock).toBe(20));
     });
 
-    it("sits in the top bar, outside the scrolling list", async () => {
+    it("sits in the top bar with the title, not in the list; not there in Settings", async () => {
       scene([{ id: GM_ENTRY }]);
       render(<App />);
       const card = await screen.findByRole("region", { name: "Encounter checks" });
+      expect(card.closest("header")).toHaveTextContent("Crawl Keeper");
       expect(card.closest("li")).toBeNull();
+      fireEvent.click(screen.getByLabelText("Settings"));
+      await screen.findByText("Saved data");
+      expect(screen.queryByRole("region", { name: "Encounter checks" })).not.toBeInTheDocument();
     });
 
     it("no card in combat, and none for players", async () => {

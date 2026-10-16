@@ -13,34 +13,40 @@ const Panel = ({ role }: { role: Role }) => {
   // Settings are the GM's only.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const showSettings = settingsOpen && role === "GM";
+  // Under the title, part of the top bar: the tracker puts the crawl
+  // controls here (a portal), so they sit with the title.
+  const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
 
   return (
     // Fills the popover: header and footer stay put, the content scrolls.
     <div className="flex h-screen flex-col gap-3 p-3 pb-0">
-      <header className="flex shrink-0 items-center gap-2">
-        {showSettings && (
-          <button
-            type="button"
-            aria-label="Back to tracker"
-            title="Back to tracker"
-            className="rounded px-1 text-lg leading-none hover:bg-obr-bg"
-            onClick={() => setSettingsOpen(false)}
-          >
-            ←
-          </button>
-        )}
-        <h1 className="text-lg font-semibold">{showSettings ? "Settings" : "Crawl Keeper"}</h1>
-        {role === "GM" && !showSettings && (
-          <button
-            type="button"
-            aria-label="Settings"
-            title="Settings"
-            className="ml-auto rounded p-1 text-obr-text-secondary hover:bg-obr-bg hover:text-obr-text"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <GearIcon />
-          </button>
-        )}
+      <header className="flex shrink-0 flex-col gap-2 border-b border-obr-text-disabled pb-3">
+        <div className="flex items-center gap-2">
+          {showSettings && (
+            <button
+              type="button"
+              aria-label="Back to tracker"
+              title="Back to tracker"
+              className="rounded px-1 text-lg leading-none hover:bg-obr-bg"
+              onClick={() => setSettingsOpen(false)}
+            >
+              ←
+            </button>
+          )}
+          <h1 className="text-lg font-semibold">{showSettings ? "Settings" : "Crawl Keeper"}</h1>
+          {role === "GM" && !showSettings && (
+            <button
+              type="button"
+              aria-label="Settings"
+              title="Settings"
+              className="ml-auto rounded p-1 text-obr-text-secondary hover:bg-obr-bg hover:text-obr-text"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <GearIcon />
+            </button>
+          )}
+        </div>
+        {!showSettings && <div ref={setHeaderSlot} className="empty:hidden" />}
       </header>
       <main className="flex min-h-0 flex-1 flex-col">
         {showSettings ? (
@@ -51,7 +57,7 @@ const Panel = ({ role }: { role: Role }) => {
           <Loading />
         ) : scene.ready ? (
           // A new key per opened scene: switching maps reads the new map fresh.
-          <Tracker key={scene.opened} role={role} />
+          <Tracker key={scene.opened} role={role} headerSlot={headerSlot} />
         ) : (
           <p className="text-sm text-obr-text-secondary">Open a scene to use the tracker.</p>
         )}

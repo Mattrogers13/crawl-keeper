@@ -8,6 +8,7 @@ import {
   type MouseEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import OBR, { type Item } from "@owlbear-rodeo/sdk";
 import {
   DndContext,
@@ -72,7 +73,8 @@ const tokenInfo = (item: Item | undefined): Token => {
   };
 };
 
-const Tracker = ({ role }: { role: Role }) => {
+// headerSlot: where the crawl controls go (the panel's top bar).
+const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLElement | null }) => {
   const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   const doc = useSceneValue(TRACKER_KEY, parseTracker);
   const items = useSceneItems();
@@ -228,14 +230,18 @@ const Tracker = ({ role }: { role: Role }) => {
           </div>
         </div>
       )}
-      {gm && !combat && (
-        <CrawlBar
-          crawl={tracker.crawl}
-          mode={settings.value.encounterMode}
-          gmTurn={tracker.current === GM_ENTRY}
-          change={(fn) => change((t) => updateCrawl(t, fn))}
-        />
-      )}
+      {gm &&
+        !combat &&
+        headerSlot &&
+        createPortal(
+          <CrawlBar
+            crawl={tracker.crawl}
+            mode={settings.value.encounterMode}
+            gmTurn={tracker.current === GM_ENTRY}
+            change={(fn) => change((t) => updateCrawl(t, fn))}
+          />,
+          headerSlot,
+        )}
 
       {/* Only the list scrolls: the controls above stay in view. */}
       <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pt-px">
