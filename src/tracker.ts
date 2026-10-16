@@ -14,6 +14,11 @@ export const MAX_ENTRIES = 40;
 export const NOTE_MAX = 200;
 export const ROLL_MIN = -99;
 export const ROLL_MAX = 99;
+export const HP_MAX = 9999;
+
+// Hit points, GM-only (players never see them). Meant for monsters; any
+// token row can have them.
+export type Hp = { cur: number; max: number };
 
 export type Entry = {
   // An item id, or GM_ENTRY for the built-in GM / Monsters row.
@@ -22,6 +27,8 @@ export type Entry = {
   note: string;
   // Never true for the GM row.
   dead: boolean;
+  // null = not tracked. Never on the GM row.
+  hp: Hp | null;
 };
 
 export type Phase = "crawl" | "combat";
@@ -38,7 +45,7 @@ export type Tracker = {
 };
 
 export const emptyTracker = (): Tracker => ({
-  entries: [{ id: GM_ENTRY, roll: null, note: "", dead: false }],
+  entries: [{ id: GM_ENTRY, roll: null, note: "", dead: false, hp: null }],
   phase: "crawl",
   current: null,
   round: 0,
@@ -72,12 +79,13 @@ export const parseTracker = (raw: unknown): Tracker => {
       roll: parseRoll(e.roll),
       note: typeof e.note === "string" ? e.note.slice(0, NOTE_MAX) : "",
       dead: e.dead === true && e.id !== GM_ENTRY,
+      hp: e.id === GM_ENTRY ? null : parseHp(e.hp),
     });
     if (entries.length === MAX_ENTRIES) break;
   }
   if (!seen.has(GM_ENTRY)) {
     if (entries.length === MAX_ENTRIES) entries.pop();
-    entries.push({ id: GM_ENTRY, roll: null, note: "", dead: false });
+    entries.push({ id: GM_ENTRY, roll: null, note: "", dead: false, hp: null });
   }
   const phase: Phase = raw.phase === "combat" ? "combat" : "crawl";
   const t: Tracker = {
@@ -90,6 +98,16 @@ export const parseTracker = (raw: unknown): Tracker => {
   // A turn only exists inside a round, and only for a living entry.
   const current = typeof raw.current === "string" && entries.some((e) => e.id === raw.current && !e.dead) ? raw.current : null;
   return current && phaseRound(t) > 0 ? { ...t, current } : t;
+};
+
+const hpNumber = (v: unknown, min: number): number | null =>
+  typeof v === "number" && Number.isInteger(v) && v >= min && v <= HP_MAX ? v : null;
+
+export const parseHp = (raw: unknown): Hp | null => {
+  if (!isObject(raw)) return null;
+  const cur = hpNumber(raw.cur, 0);
+  const max = hpNumber(raw.max, 1);
+  return cur === null || max === null ? null : { cur, max };
 };
 
 const parseCount = (raw: unknown): number =>
@@ -163,7 +181,7 @@ export const add = (t: Tracker, ids: string[]): Tracker => {
   if (fresh.length === 0 || room <= 0) return t;
   return {
     ...t,
-    entries: [...t.entries, ...fresh.slice(0, room).map((id) => ({ id, roll: null, note: "", dead: false }))],
+    entries: [...t.entries, ...fresh.slice(0, room).map((id) => ({ id, roll: null, note: "", dead: false, hp: null }))],
   };
 };
 
@@ -193,7 +211,14 @@ const update = (t: Tracker, id: string, change: Partial<Entry>): Entry[] | null 
   if (i < 0) return null;
   const old = t.entries[i];
   const entry = { ...old, ...change };
-  if (entry.roll === old.roll && entry.note === old.note && entry.dead === old.dead) return null;
+  if (
+    entry.roll === old.roll &&
+    entry.note === old.note &&
+    entry.dead === old.dead &&
+    entry.hp?.cur === old.hp?.cur &&
+    entry.hp?.max === old.hp?.max
+  )
+    return null;
   const entries = [...t.entries];
   entries[i] = entry;
   return entries;
@@ -209,6 +234,29 @@ export const setRoll = (t: Tracker, id: string, roll: number | null): Tracker =>
 
 export const setNote = (t: Tracker, id: string, note: string): Tracker =>
   edit(t, id, { note: note.slice(0, NOTE_MAX) });
+
+export const setHp = (t: Tracker, id: string, hp: Hp | null): Tracker =>
+  id === GM_ENTRY ? t : edit(t, id, { hp: hp === null ? null : parseHp(hp) });
+
+// What the GM typed in an HP box. Current: "-5" is damage, "+3" healing, "12"
+// sets it (never below 0). Max: a number; empty stops tracking HP. Starting
+// from nothing, either box sets both. undefined = not understood (the box
+// reverts).
+export const hpFromInput = (hp: Hp | null, box: "cur" | "max", text: string): Hp | null | undefined => {
+  const s = text.trim();
+  if (s === "") return box === "max" || hp === null ? null : undefined;
+  const m = /^([+-]?)(\d{1,4})$/.exec(s);
+  if (!m) return undefined;
+  const n = Number(m[2]);
+  const clamp = (v: number) => Math.min(Math.max(v, 0), HP_MAX);
+  if (box === "max") {
+    if (m[1] || n < 1) return undefined;
+    return hp === null ? { cur: n, max: n } : { cur: Math.min(hp.cur, n), max: n };
+  }
+  if (hp === null) return m[1] || n < 1 ? undefined : { cur: n, max: n };
+  const cur = m[1] === "-" ? hp.cur - n : m[1] === "+" ? hp.cur + n : n;
+  return { cur: clamp(Math.min(cur, hp.max)), max: hp.max };
+};
 
 // Dead entries keep their seat but get no turns; killing the current entry
 // passes the turn on. The GM row can't die.

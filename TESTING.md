@@ -48,3 +48,20 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 | 13 | GM: gear → Install link → Copy | "Copied" (or the text is selected with a Cmd+C hint); pasted URL is the Dev manifest | Pass 2026-10-16 |
 | 14 | After removing and re-adding the Dev extension | One toolbar icon; one combat alert per client | Pass 2026-10-16 |
 | 15 | GM: Reset rounds → Cancel; then Reset rounds → Reset | Cancel changes nothing; Reset puts both counts to 0 and "Press ▶ to begin", rolls and order kept | Pass 2026-10-16 |
+
+## PR 3: HP, turn marker, select the current token (v0.1, 2026-10-16)
+
+| # | Steps | Expect | Result |
+|---|---|---|---|
+| 1 | GM: ▶ onto a token | Gold ring around that token on the map; the token is selected on the GM's screen | |
+| 2 | GM: ▶ onto GM / Monsters | Ring disappears; selection unchanged | |
+| 3 | GM: move, resize and rotate the current token | Ring follows position and size, stays upright | |
+| 4 | GM: a hidden monster's turn | GM sees the ring (faded like the token); player sees neither | |
+| 5 | GM: delete the current token from the map | Ring goes with it | |
+| 6 | GM: right-click → remove the current token from initiative | Turn and ring pass to the next token | |
+| 7 | Player | Ring visible on visible tokens; can't select or move it | |
+| 8 | GM: gear → turn marker off, then on | Ring disappears at once, comes back on the current token | |
+| 9 | GM: gear → Select the current token off; ▶ | Turn moves, selection doesn't | |
+| 10 | GM: HP max 20 on a monster; current "-7", then "+3", then "abc" | 13, then 16; "abc" puts 16 back. Player sees no HP | |
+| 11 | GM: HP to 0 | Shows red; nothing else happens | |
+| 12 | Size: the 40-token map; give 10 tokens HP; Combat | Saves without "Couldn't save" | |

@@ -66,3 +66,4 @@ Learned building Torchlight (github.com/Mattrogers13/obr-torchlight), 2026-10. E
 - `allowScripts` in `package.json` denies esbuild/workerd/fsevents install scripts; builds work without them. **Torchlight**
 - TypeScript stays on 5.x: TS 7 (native rewrite) was too new to trust with Vite tooling at setup time. Revisit. **decision**
 - `navigator.clipboard.writeText` inside Owlbear's iframe: **unverified** (may be blocked by the iframe's permissions). Crawl Keeper's Copy button falls back to selecting the text.
+- Turn marker (Crawl Keeper): a WebP attachment on the ATTACHMENT layer; that it hides with a hidden parent and that WebP draws (not a black square) are **unverified** until TESTING PR 3 steps 1 and 4 pass.

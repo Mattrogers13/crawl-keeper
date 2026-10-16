@@ -5,8 +5,8 @@ import { resetObr } from "./obrMock";
 
 // Every test gets the in-memory SDK (src/test/obrMock.ts), reset between tests.
 vi.mock("@owlbear-rodeo/sdk", async () => {
-  const { OBR } = await import("./obrMock");
-  return { default: OBR };
+  const { OBR, buildImage } = await import("./obrMock");
+  return { default: OBR, buildImage };
 });
 
 beforeEach(() => {

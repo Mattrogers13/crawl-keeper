@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest";
 import OBR from "@owlbear-rodeo/sdk";
 
 import { COMBAT_ALERT, createMenu, toggleInitiative, watchCombat } from "./background";
-import { TRACKER_KEY } from "./constants";
+import { MARKER_KEY, TRACKER_KEY } from "./constants";
 import { GM_ENTRY, parseTracker } from "./tracker";
-import { obr, setSceneReady, writeSceneFromElsewhere } from "./test/obrMock";
+import { obr, setSceneReady, token, writeSceneFromElsewhere } from "./test/obrMock";
 
 const saved = () => parseTracker(obr.sceneMetadata[TRACKER_KEY]);
 
@@ -21,6 +21,14 @@ describe("background: Add / Remove Initiative", () => {
     await toggleInitiative(["y"]);
     expect(saved()).toMatchObject({ current: "x", round: 2 });
     expect(saved().entries.map((e) => e.id)).toEqual(["x", GM_ENTRY, "y"]);
+  });
+
+  it("removing the current token moves the turn and the marker on", async () => {
+    obr.items = [token("a"), token("b")];
+    obr.sceneMetadata = { [TRACKER_KEY]: { entries: [{ id: "a" }, { id: "b" }, { id: GM_ENTRY }], current: "a", round: 1 } };
+    await toggleInitiative(["a"]);
+    expect(saved().current).toBe("b");
+    expect(obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefined).map((m) => m.attachedTo)).toEqual(["b"]);
   });
 
   it("registers a GM-only menu on character and mount images", async () => {

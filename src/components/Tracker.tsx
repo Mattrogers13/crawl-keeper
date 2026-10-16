@@ -18,12 +18,15 @@ import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
+import { syncTurn } from "../marker";
 import { parseSettings } from "../settings";
+import { errorMessage, notify } from "../utils";
 import {
   GM_ENTRY,
   NOTE_MAX,
   ROLL_MAX,
   ROLL_MIN,
+  hpFromInput,
   moveTo,
   next,
   parseTracker,
@@ -33,12 +36,14 @@ import {
   resetRounds,
   remove,
   setDead,
+  setHp,
   setNote,
   setRoll,
   sortByRoll,
   toCombat,
   toCrawl,
   type Entry,
+  type Hp,
   type Tracker as TrackerDoc,
 } from "../tracker";
 
@@ -73,10 +78,18 @@ const Tracker = ({ role }: { role: Role }) => {
   const tracker = prune(doc.value, (id) => byId.has(id));
   const gm = role === "GM";
 
-  // Every GM edit: apply a pure change and save it if anything changed.
+  // Every GM edit: apply a pure change and save it if anything changed. A
+  // new turn also moves the marker and the selection (GM clicks only; see
+  // marker.ts).
   const change = (fn: (t: TrackerDoc) => TrackerDoc) => {
     const updated = fn(tracker);
-    if (updated !== doc.value) void doc.write(updated);
+    if (updated === doc.value) return;
+    void doc.write(updated);
+    if (updated.current !== tracker.current) {
+      syncTurn(updated.current, settings.value).catch((err) =>
+        notify(`Couldn't move the turn marker: ${errorMessage(err)}`, "WARNING"),
+      );
+    }
   };
 
   // Players never see hidden tokens. If it's a hidden token's turn, players
@@ -239,7 +252,10 @@ const Row = (props: {
           {entry.dead && <span className="sr-only"> (dead)</span>}
         </span>
         {gm ? (
-          <NoteInput key={entry.note} name={name} value={entry.note} save={(n) => change((t) => setNote(t, entry.id, n))} />
+          <div className="flex items-center gap-1">
+            <NoteInput key={entry.note} name={name} value={entry.note} save={(n) => change((t) => setNote(t, entry.id, n))} />
+            {token && <HpInputs name={name} hp={entry.hp} save={(hp) => change((t) => setHp(t, entry.id, hp))} />}
+          </div>
         ) : (
           entry.note && <span className="text-sm whitespace-pre-wrap text-obr-text-secondary">{entry.note}</span>
         )}
@@ -313,6 +329,41 @@ const RollInput = ({ name, value, save }: { name: string; value: number | null; 
   );
 };
 
+// GM-only. Current HP takes "-5" (damage), "+3" (healing) or a number; max
+// empty stops tracking. Unreadable input puts the old value back.
+const HpInputs = ({ name, hp, save }: { name: string; hp: Hp | null; save: (hp: Hp | null) => void }) => (
+  <span className="flex shrink-0 items-center gap-0.5 text-xs text-obr-text-secondary">
+    HP
+    <HpBox key={`cur-${hp?.cur}`} label={`HP for ${name}`} box="cur" hp={hp} save={save} />/
+    <HpBox key={`max-${hp?.max}`} label={`Max HP for ${name}`} box="max" hp={hp} save={save} />
+  </span>
+);
+
+const HpBox = (props: { label: string; box: "cur" | "max"; hp: Hp | null; save: (hp: Hp | null) => void }) => {
+  const shown = props.hp === null ? "" : String(props.hp[props.box]);
+  const [draft, setDraft] = useState(shown);
+  const commit = () => {
+    if (draft === shown) return;
+    const hp = hpFromInput(props.hp, props.box, draft);
+    if (hp === undefined) setDraft(shown);
+    else props.save(hp);
+  };
+  return (
+    <input
+      aria-label={props.label}
+      inputMode="numeric"
+      className={`w-9 rounded border border-transparent bg-transparent px-0.5 text-right tabular-nums hover:border-obr-text-disabled focus:border-obr-primary focus:outline-none ${
+        props.box === "cur" && props.hp?.cur === 0 ? "font-semibold text-red-500" : "text-obr-text"
+      }`}
+      placeholder="–"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+    />
+  );
+};
+
 const NoteInput = ({ name, value, save }: { name: string; value: string; save: (n: string) => void }) => {
   const [draft, setDraft] = useState(value);
   return (
@@ -320,7 +371,7 @@ const NoteInput = ({ name, value, save }: { name: string; value: string; save: (
       aria-label={`Note for ${name}`}
       placeholder="Add a note"
       maxLength={NOTE_MAX}
-      className="w-full rounded border border-transparent bg-transparent px-1 text-sm text-obr-text-secondary hover:border-obr-text-disabled focus:border-obr-primary focus:outline-none"
+      className="w-full min-w-0 rounded border border-transparent bg-transparent px-1 text-sm text-obr-text-secondary hover:border-obr-text-disabled focus:border-obr-primary focus:outline-none"
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => draft !== value && save(draft)}

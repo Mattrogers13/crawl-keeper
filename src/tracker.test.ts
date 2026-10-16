@@ -12,7 +12,9 @@ import {
   previous,
   prune,
   remove,
+  hpFromInput,
   setDead,
+  setHp,
   setNote,
   setRoll,
   sortByRoll,
@@ -23,11 +25,10 @@ import {
   turnOrder,
   type Tracker,
 } from "./tracker";
-import { DEFAULT_SETTINGS } from "./settings";
-import { parseSettings } from "./settings";
+import { DEFAULT_SETTINGS, parseSettings } from "./settings";
 
 const tracker = (rolls: Record<string, number | null>, current: string | null = null, round = 0, dead: string[] = []): Tracker => ({
-  entries: Object.entries(rolls).map(([id, roll]) => ({ id, roll, note: "", dead: dead.includes(id) })),
+  entries: Object.entries(rolls).map(([id, roll]) => ({ id, roll, note: "", dead: dead.includes(id), hp: null })),
   phase: "crawl",
   current,
   round,
@@ -56,9 +57,9 @@ describe("parseTracker", () => {
       round: 2,
     });
     expect(t.entries).toEqual([
-      { id: "a", roll: 12, note: "hi", dead: false },
-      { id: "b", roll: null, note: "", dead: false },
-      { id: GM_ENTRY, roll: null, note: "", dead: false },
+      { id: "a", roll: 12, note: "hi", dead: false, hp: null },
+      { id: "b", roll: null, note: "", dead: false, hp: null },
+      { id: GM_ENTRY, roll: null, note: "", dead: false, hp: null },
     ]);
     expect(t.current).toBe("b");
     expect(t.round).toBe(2);
@@ -176,6 +177,48 @@ describe("crawl and combat", () => {
   });
 });
 
+describe("hp", () => {
+  it("parses whole numbers in range, never on the GM row", () => {
+    const t = parseTracker({
+      entries: [
+        { id: "a", hp: { cur: 3, max: 10 } },
+        { id: "b", hp: { cur: -1, max: 10 } },
+        { id: "c", hp: { cur: 2, max: 0 } },
+        { id: "d", hp: "lots" },
+        { id: GM_ENTRY, hp: { cur: 5, max: 5 } },
+      ],
+    });
+    expect(t.entries.map((e) => e.hp)).toEqual([{ cur: 3, max: 10 }, null, null, null, null]);
+  });
+
+  it("reads the HP boxes: damage, healing, set, and starting from nothing", () => {
+    const hp = { cur: 8, max: 12 };
+    expect(hpFromInput(hp, "cur", "-5")).toEqual({ cur: 3, max: 12 });
+    expect(hpFromInput(hp, "cur", "-20")).toEqual({ cur: 0, max: 12 });
+    expect(hpFromInput(hp, "cur", "+3")).toEqual({ cur: 11, max: 12 });
+    expect(hpFromInput(hp, "cur", "+30")).toEqual({ cur: 12, max: 12 });
+    expect(hpFromInput(hp, "cur", " 4 ")).toEqual({ cur: 4, max: 12 });
+    expect(hpFromInput(hp, "max", "6")).toEqual({ cur: 6, max: 6 });
+    expect(hpFromInput(hp, "max", "")).toBeNull();
+    expect(hpFromInput(null, "cur", "9")).toEqual({ cur: 9, max: 9 });
+    expect(hpFromInput(null, "max", "9")).toEqual({ cur: 9, max: 9 });
+    expect(hpFromInput(null, "cur", "")).toBeNull();
+    for (const bad of ["abc", "1.5", "--2", "12345", "5-"]) expect(hpFromInput(hp, "cur", bad)).toBeUndefined();
+    for (const bad of ["0", "+4", "-4"]) expect(hpFromInput(hp, "max", bad)).toBeUndefined();
+    expect(hpFromInput(hp, "cur", "")).toBeUndefined();
+    expect(hpFromInput(null, "cur", "-3")).toBeUndefined();
+  });
+
+  it("sets HP on token rows only; no-ops keep the object", () => {
+    const t = tracker({ a: 1, gm: 2 });
+    expect(setHp(t, "a", { cur: 4, max: 9 }).entries[0].hp).toEqual({ cur: 4, max: 9 });
+    expect(setHp(t, GM_ENTRY, { cur: 4, max: 9 })).toBe(t);
+    expect(setHp(t, "a", null)).toBe(t);
+    const withHp = setHp(t, "a", { cur: 4, max: 9 });
+    expect(setHp(withHp, "a", { cur: 4, max: 9 })).toBe(withHp);
+  });
+});
+
 describe("dead", () => {
   it("dead entries keep their seat but get no turns", () => {
     const t = tracker({ a: 3, b: 18, gm: 10, c: 5 }, null, 0, ["b"]);
@@ -262,27 +305,34 @@ describe("toggle (right-click)", () => {
 });
 
 describe("size", () => {
-  it("a full tracker in combat stays under 12 kB (about that much passed in a real room; see TESTING.md)", () => {
+  // About 12 kB passed in a real room (PR 1); HP took the worst case just
+  // past that, so TESTING.md re-checks it (PR 3).
+  it("a full tracker in combat, every row with HP, stays under 12.5 kB", () => {
     const id = (i: number) => `${"x".repeat(30)}-${i}`; // Owlbear ids are shorter
     const full = parseTracker({
-      entries: Array.from({ length: MAX_ENTRIES }, (_, i) => ({ id: id(i), roll: -99, note: "n".repeat(NOTE_MAX), dead: i > 0 })),
+      entries: Array.from({ length: MAX_ENTRIES }, (_, i) => ({
+        id: id(i),
+        roll: -99,
+        note: "n".repeat(NOTE_MAX),
+        dead: i > 0,
+        hp: { cur: 9999, max: 9999 },
+      })),
       phase: "combat",
       current: id(0),
       round: 9999,
       combatRound: 9999,
     });
-    expect(new Blob([JSON.stringify(full)]).size).toBeLessThan(12_000);
+    expect(new Blob([JSON.stringify(full)]).size).toBeLessThan(12_500);
   });
 });
 
 describe("parseSettings", () => {
   it("defaults anything malformed", () => {
-    expect(parseSettings(undefined)).toEqual({ hideRound: false, clearRollsOnCombat: true });
-    expect(parseSettings({ hideRound: true, clearRollsOnCombat: false })).toEqual({ hideRound: true, clearRollsOnCombat: false });
+    expect(parseSettings(undefined)).toEqual(DEFAULT_SETTINGS);
+    expect(DEFAULT_SETTINGS).toEqual({ hideRound: false, clearRollsOnCombat: true, showMarker: true, selectOnTurn: true });
+    const off = { hideRound: true, clearRollsOnCombat: false, showMarker: false, selectOnTurn: false };
+    expect(parseSettings(off)).toEqual(off);
     // Rooms saved while Table order existed keep working.
-    expect(parseSettings({ orderMode: "table", hideRound: "yes", clearRollsOnCombat: "no" })).toEqual({
-      hideRound: false,
-      clearRollsOnCombat: true,
-    });
+    expect(parseSettings({ orderMode: "table", hideRound: "yes", clearRollsOnCombat: "no", showMarker: 0 })).toEqual(DEFAULT_SETTINGS);
   });
 });

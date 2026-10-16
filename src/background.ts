@@ -4,6 +4,7 @@
 import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 
 import { MENU_ID, TRACKER_KEY } from "./constants";
+import { readSettings, syncTurn } from "./marker";
 import { parseTracker, toggle, type Phase } from "./tracker";
 import { errorMessage, notify } from "./utils";
 
@@ -13,7 +14,15 @@ import { errorMessage, notify } from "./utils";
 export const toggleInitiative = async (ids: string[]) => {
   const tracker = parseTracker((await OBR.scene.getMetadata())[TRACKER_KEY]);
   const updated = toggle(tracker, ids);
-  if (updated !== tracker) await OBR.scene.setMetadata({ [TRACKER_KEY]: updated });
+  if (updated === tracker) return;
+  await OBR.scene.setMetadata({ [TRACKER_KEY]: updated });
+  // Removing the current token passed the turn on: move the marker with it.
+  // The initiative change is saved either way; a marker failure only warns.
+  if (updated.current !== tracker.current) {
+    await readSettings()
+      .then((settings) => syncTurn(updated.current, settings))
+      .catch((err) => console.warn(`Couldn't move the turn marker: ${errorMessage(err)}`));
+  }
 };
 
 export const createMenu = () =>

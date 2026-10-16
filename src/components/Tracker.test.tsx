@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import OBR from "@owlbear-rodeo/sdk";
 
 import App from "./App";
-import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
+import { MARKER_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import { GM_ENTRY, parseTracker } from "../tracker";
 import { obr, setItems, setSceneReady, token, writeSceneFromElsewhere } from "../test/obrMock";
 
@@ -11,7 +11,7 @@ const saved = () => parseTracker(obr.sceneMetadata[TRACKER_KEY]);
 const rows = () => screen.getAllByRole("listitem");
 const rowOf = (name: string) => rows().find((r) => within(r).queryByText(name))!;
 
-const scene = (entries: { id: string; roll?: number | null; note?: string; dead?: boolean }[], current: string | null = null, round = 0) => {
+const scene = (entries: { id: string; roll?: number | null; note?: string; dead?: boolean; hp?: { cur: number; max: number } }[], current: string | null = null, round = 0) => {
   obr.sceneMetadata = {
     [TRACKER_KEY]: { entries: entries.map((e) => ({ roll: null, note: "", dead: false, ...e })), current, round },
   };
@@ -89,9 +89,11 @@ describe("Tracker (GM)", () => {
     render(<App />);
     fireEvent.click(await screen.findByLabelText("Settings"));
     fireEvent.click(await screen.findByLabelText("Hide rounds from players", { exact: false }));
-    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toEqual({ hideRound: true, clearRollsOnCombat: true }));
+    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ hideRound: true, clearRollsOnCombat: true }));
     fireEvent.click(screen.getByLabelText("Clear initiative rolls on combat", { exact: false }));
-    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toEqual({ hideRound: true, clearRollsOnCombat: false }));
+    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ hideRound: true, clearRollsOnCombat: false }));
+    fireEvent.click(screen.getByLabelText("Select the current token", { exact: false }));
+    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ selectOnTurn: false }));
     expect(screen.getByLabelText("Install link")).toHaveValue(`${window.location.origin}/manifest.json`);
     fireEvent.click(screen.getByLabelText("Back to tracker"));
     expect(await screen.findByText("GM / Monsters")).toBeInTheDocument();
@@ -133,6 +135,45 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(saved()).toMatchObject({ current: null, round: 0, combatRound: 0 }));
     expect(saved().entries[0].roll).toBe(7);
     expect(screen.getByText("Press ▶ to begin")).toBeInTheDocument();
+  });
+
+  it("a new turn moves the marker and the selection to that token", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
+    render(<App />);
+    fireEvent.click(await screen.findByLabelText("Next turn"));
+    await waitFor(() => expect(obr.selection).toEqual(["a"]));
+    fireEvent.click(screen.getByLabelText("Next turn"));
+    await waitFor(() => expect(obr.selection).toEqual(["b"]));
+    const markers = obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefined);
+    expect(markers.map((m) => m.attachedTo)).toEqual(["b"]);
+  });
+
+  it("tracks HP: set max, take damage, heal; the GM row has none", async () => {
+    obr.items = [token("a", { name: "Ogre" })];
+    scene([{ id: "a" }, { id: GM_ENTRY }]);
+    render(<App />);
+    const max = await screen.findByLabelText("Max HP for Ogre");
+    fireEvent.change(max, { target: { value: "20" } });
+    fireEvent.blur(max);
+    await waitFor(() => expect(saved().entries[0].hp).toEqual({ cur: 20, max: 20 }));
+    const cur = screen.getByLabelText("HP for Ogre");
+    fireEvent.change(cur, { target: { value: "-7" } });
+    fireEvent.blur(cur);
+    await waitFor(() => expect(saved().entries[0].hp).toEqual({ cur: 13, max: 20 }));
+    expect(screen.getByLabelText("HP for Ogre")).toHaveValue("13");
+    expect(screen.queryByLabelText("HP for GM / Monsters")).not.toBeInTheDocument();
+  });
+
+  it("puts back HP it can't read", async () => {
+    obr.items = [token("a", { name: "Ogre" })];
+    scene([{ id: "a", hp: { cur: 5, max: 9 } }, { id: GM_ENTRY }]);
+    render(<App />);
+    const cur = await screen.findByLabelText("HP for Ogre");
+    fireEvent.change(cur, { target: { value: "lots" } });
+    fireEvent.blur(cur);
+    expect(cur).toHaveValue("5");
+    expect(OBR.scene.setMetadata).not.toHaveBeenCalled();
   });
 
   describe("drag to move", () => {
@@ -212,6 +253,7 @@ describe("Tracker (player)", () => {
     expect(screen.getByText("Round 3")).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.queryByText(/HP/)).not.toBeInTheDocument();
   });
 
   it("never shows hidden tokens; a hidden token's turn shows as the GM's", async () => {

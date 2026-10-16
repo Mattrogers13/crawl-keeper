@@ -17,7 +17,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 | Room metadata | `${ID}/crawl` | clock value, last roll (dice, total, exploded, carry), rounds since last check | GM |
 | Room metadata (v0.2) | `${ID}/tables` | custom encounter tables | GM |
 
-- Caps: 40 entries, notes 200 chars. Worst case about 12 kB in the scene doc. The undocumented scene limit: a full tracker (about 12 kB) saved fine in a real room, 2026-10-16.
+- Caps: 40 entries, notes 200 chars. Worst case about 12 kB in the scene doc (12.05 kB with HP on every row). The undocumented scene limit: a full tracker (about 12 kB) saved fine in a real room, 2026-10-16.
 - Entries whose token no longer exists are dropped on read.
 - HP lives only in the tracker; removing a monster from initiative drops its HP.
 - Changes that belong together (turn + round + crawl roll) go out in one write.
@@ -31,8 +31,8 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 - ◀ / ▶ turns. Round increments when the turn wraps.
 - Reset rounds (GM, asks to confirm): both round counts to 0, no one's turn; order, rolls and phase stay.
 - Note under each name: GM edits, everyone sees.
-- Monster HP: cur/max with a damage/heal field, GM-only display.
-- On turn change (from the GM's click, never from a data change event): attach the turn marker (WebP, ATTACHMENT layer) to the current token; attachments inherit visibility and deletion from the parent (believed from SDK types, verify). GM row has no marker. Optional: select the token on the GM's client (setting, default on).
+- HP (GM-only; players never see it): current / max on any token row, meant for monsters. Current takes "-5" (damage, not below 0), "+3" (healing, up to max) or a number; clearing max stops tracking. 0 shows red; nothing is automatic (a PC at 0 is dying, not dead).
+- On a turn change from a GM click (▶ ◀, phase, reset, dead, remove, right-click remove; never from a data change event, or every client would add one): a gold ring (WebP, ATTACHMENT layer, locked, unclickable) moves to the current token, sized 1.3x its footprint. It follows the token's position, scale, visibility and deletion (attachment defaults; visibility unverified live). No marker on the GM row or between rounds. Select the current token on the GM's screen (setting, default on).
 
 ## Crawl and Combat
 
@@ -45,7 +45,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 
 ## Settings (GM only, gear in the panel header)
 
-- Hide rounds from players. Clear initiative rolls on combat. The install link (this build's manifest URL, with Copy). Later PRs add theirs here (encounter mode, danger level, select on turn, hide clock).
+- Hide rounds from players. Clear initiative rolls on combat. Show the turn marker (default on; toggling adds or removes it at once). Select the current token (default on). The install link (this build's manifest URL, with Copy). Later PRs add theirs here (encounter mode, danger level, select on turn, hide clock).
 
 ## Crawl prompt (GM panel, Tracker tab, card under the GM / Monsters row on its turn)
 
@@ -59,7 +59,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 - **v0.1**, four PRs, each tested in a real room (GM + player) before the next:
   1. Tracker core: scene doc, GM row, sort, editing, notes, next/prev, round + hide toggle, player view, context menu. Verify the scene metadata limit.
   2. Crawl/Combat phases, combat alert, settings menu.
-  3. Map: monster HP, turn marker, selection toggle.
+  3. Map: HP, turn marker, select the current token.
   4. Crawl: Standard checks and the Crawling Clock with all options.
 - **v0.2:** encounter roller (book's distance d6 / activity 2d6 / reaction 2d6+CHA, plus GM-pasted custom tables) and a standalone morale roller (d20 + WIS mod vs DC 15; holds / flees).
 - **Later:** a setting to hide the GM / Monsters row once monsters are added one by one (the crawl prompt lives on that row's turn, so it needs another home first), death timer (GM marks a PC dying: 1d4 + CON mod rounds, min 1; d20 prompt on each of their turns, 20 = up with 1 HP; runs out = marked dead; a dying badge with the rounds left on the portrait, visible to everyone), Time Passes (advance N crawl rounds and run the encounter checks; no effect clearing), 3D-style d20 art for the clock, half-HP morale flag, Torchlight darkness link, Owlbear Dice as a roll source, table import/export, players editing notes.

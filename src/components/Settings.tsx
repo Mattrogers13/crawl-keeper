@@ -3,7 +3,9 @@ import { useRef, useState } from "react";
 import Loading from "./Loading";
 import { SETTINGS_KEY } from "../constants";
 import { useRoomValue } from "../hooks/useRoomValue";
+import { syncTurnFromScene } from "../marker";
 import { parseSettings, type Settings as SettingsDoc } from "../settings";
+import { errorMessage } from "../utils";
 
 // The GM's settings (room metadata, so they follow the party across maps).
 const Settings = () => {
@@ -24,6 +26,22 @@ const Settings = () => {
         hint="Everyone rolls fresh for combat (core p. 88). The combat order carries on when you switch back to Crawl."
         checked={settings.value.clearRollsOnCombat}
         onChange={(clearRollsOnCombat) => set({ clearRollsOnCombat })}
+      />
+      <Check
+        label="Show the turn marker on the map"
+        hint="A gold ring on the current token. Hidden tokens' rings stay hidden."
+        checked={settings.value.showMarker}
+        onChange={(showMarker) => {
+          set({ showMarker });
+          // Add or remove it now, not at the next turn. No scene open: nothing to do.
+          syncTurnFromScene({ showMarker }).catch((err) => console.warn(`Turn marker not updated: ${errorMessage(err)}`));
+        }}
+      />
+      <Check
+        label="Select the current token"
+        hint="On your screen only, each turn."
+        checked={settings.value.selectOnTurn}
+        onChange={(selectOnTurn) => set({ selectOnTurn })}
       />
       <InstallLink />
     </div>
