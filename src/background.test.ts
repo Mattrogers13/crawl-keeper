@@ -31,11 +31,17 @@ describe("background: Add / Remove Initiative", () => {
     expect(obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefined).map((m) => m.attachedTo)).toEqual(["b"]);
   });
 
-  it("registers a GM-only menu on character and mount images", async () => {
+  it("adds monsters from their own menu item", async () => {
+    await toggleInitiative(["m"], true);
+    expect(saved().entries.map((e) => [e.id, e.monster])).toEqual([[GM_ENTRY, false], ["m", true]]);
+  });
+
+  it("registers two GM-only menu items on character and mount images", async () => {
     await createMenu();
-    const menu = vi.mocked(OBR.contextMenu.create).mock.calls[0][0];
-    expect(menu.icons[0].filter?.roles).toEqual(["GM"]);
-    expect(menu.icons[0].icon).toBe("/img/initiative.svg");
+    const menus = vi.mocked(OBR.contextMenu.create).mock.calls.map((c) => c[0]);
+    expect(menus.map((m) => m.icons[0].label)).toEqual(["Add / Remove Initiative", "Add / Remove Monster"]);
+    expect(menus.map((m) => m.icons[0].icon)).toEqual(["/img/initiative.svg", "/img/monster.svg"]);
+    for (const m of menus) expect(m.icons[0].filter?.roles).toEqual(["GM"]);
   });
 });
 

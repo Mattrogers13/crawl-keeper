@@ -12,27 +12,28 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 
 | Where | Key | Contents | Writer |
 |---|---|---|---|
-| Scene metadata | `${ID}/tracker` | entries `[{ id: itemId \| "gm", roll, note, dead, hp?: { cur, max } }]` in turn order, phase (`crawl` \| `combat`), current turn id, crawl round, combat round | GM |
+| Scene metadata | `${ID}/tracker` | entries `[{ id: itemId \| "gm", roll, note, dead, monster, hp: { cur, max } \| null }]` (players and GM row in turn order, then monsters), phase (`crawl` \| `combat`), current turn id, crawl round, combat round | GM |
 | Room metadata | `${ID}/settings` | encounter mode (`standard` \| `clock`), danger level, in darkness, hide clock, hide rounds, clear rolls on combat, select on turn | GM |
 | Room metadata | `${ID}/crawl` | clock value, last roll (dice, total, exploded, carry), rounds since last check | GM |
 | Room metadata (v0.2) | `${ID}/tables` | custom encounter tables | GM |
 
-- Caps: 40 entries, notes 200 chars. Worst case about 12 kB in the scene doc (12.05 kB with HP on every row). The undocumented scene limit: a full tracker (about 12 kB) saved fine in a real room, 2026-10-16.
+- Caps: 40 entries, notes 200 chars. Worst case about 12 kB in the scene doc (about 12.7 kB with 38 monsters all with HP; PR 3 re-checks in a real room). The undocumented scene limit: a full tracker (about 12 kB) saved fine in a real room, 2026-10-16.
 - Entries whose token no longer exists are dropped on read.
 - HP lives only in the tracker; removing a monster from initiative drops its HP.
 - Changes that belong together (turn + round + crawl roll) go out in one write.
 
 ## Tracker
 
-- Entries: tokens added via right-click "Add to Initiative" (background page context menu), plus the built-in **GM / Monsters** row (can't be removed). Monsters roll once as a group: the GM rolls d20 + the highest monster DEX mod (core pp. 82, 88). Individual monster tokens may still be added (for HP, turn marker).
+- Entries: players added via right-click "Add / Remove Initiative", monsters via "Add / Remove Monster" (background page context menu; picking the other item switches a token's kind), plus the built-in **GM / Monsters** row (can't be removed). Monsters roll once as a group: the GM rolls d20 + the highest monster DEX mod into the GM / Monsters row (core pp. 82, 88).
+- **Monsters** are listed indented under the GM / Monsters row, have no roll box, and each take a turn right after that row, in their list order (the GM drags to set it); the marker moves monster to monster. Players see the visible ones. Replaces the earlier idea of hiding the GM row (decided 2026-10-16).
 - **Order:** the list is the turn order. Sort puts the highest roll first (unrolled last); ties: GM moves rows.
 - Moving rows: the GM drags a row by its grip (≡; mouse, touch, or keyboard: focus the grip, Space, arrows, Space). Players can't.
 - **Dead:** GM toggles ☠ on a token row (not the GM row). Dead rows keep their seat, show a skull badge on the portrait for everyone, and get no turns; killing the current entry passes the turn on.
 - ◀ / ▶ turns. Round increments when the turn wraps.
 - Reset rounds (GM, asks to confirm): both round counts to 0, no one's turn; order, rolls and phase stay.
 - Note under each name: GM edits, everyone sees.
-- HP (GM-only; players never see it): current / max on any token row, meant for monsters. Current takes "-5" (damage, not below 0), "+3" (healing, up to max) or a number; clearing max stops tracking. 0 shows red; nothing is automatic (a PC at 0 is dying, not dead).
-- On a turn change from a GM click (▶ ◀, phase, reset, dead, remove, right-click remove; never from a data change event, or every client would add one): a gold ring (WebP, ATTACHMENT layer, locked, unclickable) moves to the current token, sized 1.3x its footprint. It follows the token's position, scale, visibility and deletion (attachment defaults; visibility unverified live). No marker on the GM row or between rounds. Select the current token on the GM's screen (setting, default on).
+- HP (GM-only; players never see it): current / max on monster rows only (players track their own on the sheet). Current takes "-5" (damage, not below 0), "+3" (healing, up to max) or a number; clearing max stops tracking. 0 shows red; nothing is automatic (a PC at 0 is dying, not dead).
+- On a turn change from a GM click (▶ ◀, phase, reset, dead, remove, right-click remove; never from a data change event, or every client would add one): a gold ring (WebP, ATTACHMENT layer, locked, unclickable) moves to the current token, sized 1.5x its footprint. It follows the token's position, scale, visibility and deletion (attachment defaults; visibility unverified live). No marker on the GM row or between rounds. Select the current token on the GM's screen (setting, default on).
 
 ## Crawl and Combat
 
@@ -62,7 +63,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
   3. Map: HP, turn marker, select the current token.
   4. Crawl: Standard checks and the Crawling Clock with all options.
 - **v0.2:** encounter roller (book's distance d6 / activity 2d6 / reaction 2d6+CHA, plus GM-pasted custom tables) and a standalone morale roller (d20 + WIS mod vs DC 15; holds / flees).
-- **Later:** a setting to hide the GM / Monsters row once monsters are added one by one (the crawl prompt lives on that row's turn, so it needs another home first), death timer (GM marks a PC dying: 1d4 + CON mod rounds, min 1; d20 prompt on each of their turns, 20 = up with 1 HP; runs out = marked dead; a dying badge with the rounds left on the portrait, visible to everyone), Time Passes (advance N crawl rounds and run the encounter checks; no effect clearing), 3D-style d20 art for the clock, half-HP morale flag, Torchlight darkness link, Owlbear Dice as a roll source, table import/export, players editing notes.
+- **Later:** death timer (GM marks a PC dying: 1d4 + CON mod rounds, min 1; d20 prompt on each of their turns, 20 = up with 1 HP; runs out = marked dead; a dying badge with the rounds left on the portrait, visible to everyone), Time Passes (advance N crawl rounds and run the encounter checks; no effect clearing), 3D-style d20 art for the clock, half-HP morale flag, Torchlight darkness link, Owlbear Dice as a roll source, table import/export, players editing notes.
 - **Not doing:** Table Order (the book's clockwise-from-highest rule: a VTT has no seating, so it only added a hand-set order the screen didn't match; dropped 2026-10-16), player editing, real secrecy, shipping the book's text, light timers (Torchlight covers them), co-GM support.
 
 ## References (read-only, gitignored in `sources/`)

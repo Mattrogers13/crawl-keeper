@@ -1,9 +1,10 @@
 // Background page: runs in every client while the extension is enabled.
-// Registers the GM's right-click "Add / Remove Initiative" on tokens, and
+// Registers the GM's right-click "Add / Remove Initiative" and "Add / Remove
+// Monster" on tokens, and
 // shows everyone the combat alert (it runs with the panel closed too).
 import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 
-import { MENU_ID, TRACKER_KEY } from "./constants";
+import { MENU_ID, MONSTER_MENU_ID, TRACKER_KEY } from "./constants";
 import { readSettings, syncTurn } from "./marker";
 import { parseTracker, toggle, type Phase } from "./tracker";
 import { errorMessage, notify } from "./utils";
@@ -11,9 +12,9 @@ import { errorMessage, notify } from "./utils";
 // Read the doc fresh at click time, so a click never writes a stale copy.
 // The panel may also be writing; both are the GM's own clicks, so they don't
 // overlap in practice (docs/design.md: GM is the only writer).
-export const toggleInitiative = async (ids: string[]) => {
+export const toggleInitiative = async (ids: string[], monster = false) => {
   const tracker = parseTracker((await OBR.scene.getMetadata())[TRACKER_KEY]);
-  const updated = toggle(tracker, ids);
+  const updated = toggle(tracker, ids, monster);
   if (updated === tracker) return;
   await OBR.scene.setMetadata({ [TRACKER_KEY]: updated });
   // Removing the current token passed the turn on: move the marker with it.
@@ -25,13 +26,13 @@ export const toggleInitiative = async (ids: string[]) => {
   }
 };
 
-export const createMenu = () =>
+const menuItem = (id: string, icon: string, label: string, monster: boolean) =>
   OBR.contextMenu.create({
-    id: MENU_ID,
+    id,
     icons: [
       {
-        icon: "/img/initiative.svg",
-        label: "Add / Remove Initiative",
+        icon,
+        label,
         filter: {
           roles: ["GM"],
           every: [
@@ -43,11 +44,19 @@ export const createMenu = () =>
       },
     ],
     onClick: (context) => {
-      toggleInitiative(context.items.map((i) => i.id)).catch((err) =>
-        notify(`Couldn't update initiative: ${errorMessage(err)}`, "ERROR"),
-      );
+      toggleInitiative(
+        context.items.map((i) => i.id),
+        monster,
+      ).catch((err) => notify(`Couldn't update initiative: ${errorMessage(err)}`, "ERROR"));
     },
   });
+
+// Players' tokens get their own rolls; monsters act in the GM / Monsters turn.
+export const createMenu = () =>
+  Promise.all([
+    menuItem(MENU_ID, "/img/initiative.svg", "Add / Remove Initiative", false),
+    menuItem(MONSTER_MENU_ID, "/img/monster.svg", "Add / Remove Monster", true),
+  ]);
 
 export const COMBAT_ALERT = "ROLL FOR COMBAT INITIATIVE";
 

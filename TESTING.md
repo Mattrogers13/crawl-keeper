@@ -49,19 +49,23 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 | 14 | After removing and re-adding the Dev extension | One toolbar icon; one combat alert per client | Pass 2026-10-16 |
 | 15 | GM: Reset rounds → Cancel; then Reset rounds → Reset | Cancel changes nothing; Reset puts both counts to 0 and "Press ▶ to begin", rolls and order kept | Pass 2026-10-16 |
 
-## PR 3: HP, turn marker, select the current token (v0.1, 2026-10-16)
+## PR 3: monsters, HP, turn marker, select the current token (v0.1, 2026-10-16)
 
 | # | Steps | Expect | Result |
 |---|---|---|---|
-| 1 | GM: ▶ onto a token | Gold ring around that token on the map; the token is selected on the GM's screen | |
-| 2 | GM: ▶ onto GM / Monsters | Ring disappears; selection unchanged | |
-| 3 | GM: move, resize and rotate the current token | Ring follows position and size, stays upright | |
-| 4 | GM: a hidden monster's turn | GM sees the ring (faded like the token); player sees neither | |
-| 5 | GM: delete the current token from the map | Ring goes with it | |
-| 6 | GM: right-click → remove the current token from initiative | Turn and ring pass to the next token | |
-| 7 | Player | Ring visible on visible tokens; can't select or move it | |
-| 8 | GM: gear → turn marker off, then on | Ring disappears at once, comes back on the current token | |
-| 9 | GM: gear → Select the current token off; ▶ | Turn moves, selection doesn't | |
-| 10 | GM: HP max 20 on a monster; current "-7", then "+3", then "abc" | 13, then 16; "abc" puts 16 back. Player sees no HP | |
-| 11 | GM: HP to 0 | Shows red; nothing else happens | |
-| 12 | Size: the 40-token map; give 10 tokens HP; Combat | Saves without "Couldn't save" | |
+| 1 | GM: right-click two monster tokens → "Add / Remove Monster" (claw icon) | Listed indented under GM / Monsters, no roll box; player sees them (unless hidden) | |
+| 2 | GM: right-click one of them → "Add / Remove Initiative" | It switches to a player row with a roll box; HP gone | |
+| 3 | GM: drag monsters within the group; drag the GM row among players | Monsters reorder in the group only and travel with the GM row; Sort leaves the monsters' order alone | |
+| 4 | GM: ▶ through a round | GM / Monsters, then each living monster in order, then the next player; dead monsters skipped | |
+| 5 | GM: ▶ onto a token | Gold ring (a bit bigger than the token) around it; the token is selected on the GM's screen | |
+| 6 | GM: ▶ onto GM / Monsters | Ring disappears; selection unchanged | |
+| 7 | GM: move, resize and rotate the current token | Ring follows position and size, stays upright | |
+| 8 | GM: a hidden monster's turn | GM sees the ring (faded like the token); player sees neither the monster nor the ring, and the GM row shows as current | |
+| 9 | GM: delete the current token from the map | Ring goes with it | |
+| 10 | GM: right-click → remove the current token | Turn and ring pass on | |
+| 11 | Player | Ring visible on visible tokens; can't select or move it | |
+| 12 | GM: gear → turn marker off, then on | Ring disappears at once, comes back on the current token | |
+| 13 | GM: gear → Select the current token off; ▶ | Turn moves, selection doesn't | |
+| 14 | GM: monster HP max 20; current "-7", then "+3", then "abc" | 13, then 16; "abc" puts 16 back. Players' rows have no HP; player sees no HP anywhere | |
+| 15 | GM: monster HP to 0 | Shows red; nothing else happens | |
+| 16 | Size: the 40-token map; make most of them monsters with HP; Combat | Saves without "Couldn't save" | |

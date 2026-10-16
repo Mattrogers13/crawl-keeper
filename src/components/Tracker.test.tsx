@@ -9,9 +9,10 @@ import { obr, setItems, setSceneReady, token, writeSceneFromElsewhere } from "..
 
 const saved = () => parseTracker(obr.sceneMetadata[TRACKER_KEY]);
 const rows = () => screen.getAllByRole("listitem");
-const rowOf = (name: string) => rows().find((r) => within(r).queryByText(name))!;
+// The innermost row: the GM row's item also holds its monsters' rows.
+const rowOf = (name: string) => [...rows()].reverse().find((r) => within(r).queryByText(name))!;
 
-const scene = (entries: { id: string; roll?: number | null; note?: string; dead?: boolean; hp?: { cur: number; max: number } }[], current: string | null = null, round = 0) => {
+const scene = (entries: { id: string; roll?: number | null; note?: string; dead?: boolean; monster?: boolean; hp?: { cur: number; max: number } }[], current: string | null = null, round = 0) => {
   obr.sceneMetadata = {
     [TRACKER_KEY]: { entries: entries.map((e) => ({ roll: null, note: "", dead: false, ...e })), current, round },
   };
@@ -149,31 +150,46 @@ describe("Tracker (GM)", () => {
     expect(markers.map((m) => m.attachedTo)).toEqual(["b"]);
   });
 
-  it("tracks HP: set max, take damage, heal; the GM row has none", async () => {
-    obr.items = [token("a", { name: "Ogre" })];
-    scene([{ id: "a" }, { id: GM_ENTRY }]);
+  it("tracks monster HP: set max, take damage, heal; players and the GM row have none", async () => {
+    obr.items = [token("a", { name: "Ogre" }), token("p", { name: "Aria" })];
+    scene([{ id: "p" }, { id: GM_ENTRY }, { id: "a", monster: true }]);
     render(<App />);
     const max = await screen.findByLabelText("Max HP for Ogre");
     fireEvent.change(max, { target: { value: "20" } });
     fireEvent.blur(max);
-    await waitFor(() => expect(saved().entries[0].hp).toEqual({ cur: 20, max: 20 }));
+    await waitFor(() => expect(saved().entries[2].hp).toEqual({ cur: 20, max: 20 }));
     const cur = screen.getByLabelText("HP for Ogre");
     fireEvent.change(cur, { target: { value: "-7" } });
     fireEvent.blur(cur);
-    await waitFor(() => expect(saved().entries[0].hp).toEqual({ cur: 13, max: 20 }));
+    await waitFor(() => expect(saved().entries[2].hp).toEqual({ cur: 13, max: 20 }));
     expect(screen.getByLabelText("HP for Ogre")).toHaveValue("13");
     expect(screen.queryByLabelText("HP for GM / Monsters")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("HP for Aria")).not.toBeInTheDocument();
   });
 
   it("puts back HP it can't read", async () => {
     obr.items = [token("a", { name: "Ogre" })];
-    scene([{ id: "a", hp: { cur: 5, max: 9 } }, { id: GM_ENTRY }]);
+    scene([{ id: GM_ENTRY }, { id: "a", monster: true, hp: { cur: 5, max: 9 } }]);
     render(<App />);
     const cur = await screen.findByLabelText("HP for Ogre");
     fireEvent.change(cur, { target: { value: "lots" } });
     fireEvent.blur(cur);
     expect(cur).toHaveValue("5");
     expect(OBR.scene.setMetadata).not.toHaveBeenCalled();
+  });
+
+  it("lists monsters under the GM / Monsters row, with no roll box, each taking a turn", async () => {
+    obr.items = [token("p", { name: "Aria" }), token("m1", { name: "Goblin" }), token("m2", { name: "Ogre" })];
+    scene([{ id: "p", roll: 15 }, { id: GM_ENTRY, roll: 8 }, { id: "m1", monster: true }, { id: "m2", monster: true }]);
+    render(<App />);
+    const group = await screen.findByRole("list", { name: "Monsters" });
+    expect(within(group).getByText("Goblin")).toBeInTheDocument();
+    expect(within(rowOf("GM / Monsters")).getByText("Ogre")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Initiative for Goblin")).not.toBeInTheDocument();
+    for (const who of ["Aria", "GM / Monsters", "Goblin", "Ogre"]) {
+      fireEvent.click(screen.getByLabelText("Next turn"));
+      await waitFor(() => expect(rowOf(who)).toHaveAttribute("aria-current", "step"));
+    }
   });
 
   describe("drag to move", () => {
@@ -254,6 +270,17 @@ describe("Tracker (player)", () => {
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByText(/HP/)).not.toBeInTheDocument();
+  });
+
+  it("sees the monsters under the GM row, without HP", async () => {
+    obr.role = "PLAYER";
+    obr.items = [token("m1", { name: "Goblin" })];
+    scene([{ id: GM_ENTRY }, { id: "m1", monster: true, hp: { cur: 3, max: 7 } }], "m1", 1);
+    render(<App />);
+    expect(await screen.findByText("Goblin")).toBeInTheDocument();
+    expect(rowOf("Goblin")).toHaveAttribute("aria-current", "step");
+    expect(screen.queryByText(/HP/)).not.toBeInTheDocument();
+    expect(screen.queryByText("3")).not.toBeInTheDocument();
   });
 
   it("never shows hidden tokens; a hidden token's turn shows as the GM's", async () => {

@@ -36,13 +36,13 @@ describe("planMarker", () => {
 
 describe("buildMarker", () => {
   it("is a locked, unclickable WebP attachment sized past the token's footprint", () => {
-    // 2 cells wide (200 px at 100 dpi), scaled 1.5 = 3 cells; ring is 1.3x that.
+    // 2 cells wide (200 px at 100 dpi), scaled 1.5 = 3 cells; ring is 1.5x that.
     const t = token("a", { scale: { x: 1.5, y: 1.5 }, position: { x: 40, y: 60 } }) as Image;
     t.image = { ...t.image, width: 200, height: 200 };
     t.grid = { dpi: 100, offset: { x: 100, y: 100 } };
     const m = buildMarker(t, IMG) as Image & Record<string, unknown>;
     expect(m.image).toMatchObject({ url: IMG, mime: "image/webp", width: 256 });
-    expect(m.grid.dpi).toBeCloseTo(256 / (3 * 1.3));
+    expect(m.grid.dpi).toBeCloseTo(256 / (3 * 1.5));
     expect(m).toMatchObject({ attachedTo: "a", layer: "ATTACHMENT", locked: true, disableHit: true, position: { x: 40, y: 60 } });
     expect(m.disableAttachmentBehavior).toEqual(["ROTATION", "COPY"]);
     expect(m.metadata).toEqual({ [MARKER_KEY]: true });
@@ -51,7 +51,7 @@ describe("buildMarker", () => {
   it("a token with a broken size gets a one-cell ring", () => {
     const t = token("a") as Image;
     t.grid = { dpi: 0, offset: { x: 0, y: 0 } };
-    expect((buildMarker(t, IMG) as Image).grid.dpi).toBeCloseTo(256 / 1.3);
+    expect((buildMarker(t, IMG) as Image).grid.dpi).toBeCloseTo(256 / 1.5);
   });
 });
 

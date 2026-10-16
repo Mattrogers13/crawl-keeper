@@ -27,8 +27,12 @@ import {
 } from "./tracker";
 import { DEFAULT_SETTINGS, parseSettings } from "./settings";
 
+// Ids starting with "m" are monsters (they take no roll).
 const tracker = (rolls: Record<string, number | null>, current: string | null = null, round = 0, dead: string[] = []): Tracker => ({
-  entries: Object.entries(rolls).map(([id, roll]) => ({ id, roll, note: "", dead: dead.includes(id), hp: null })),
+  entries: Object.entries(rolls).map(([id, roll]) => {
+    const monster = id.startsWith("m");
+    return { id, roll: monster ? null : roll, note: "", dead: dead.includes(id), monster, hp: null };
+  }),
   phase: "crawl",
   current,
   round,
@@ -57,9 +61,9 @@ describe("parseTracker", () => {
       round: 2,
     });
     expect(t.entries).toEqual([
-      { id: "a", roll: 12, note: "hi", dead: false, hp: null },
-      { id: "b", roll: null, note: "", dead: false, hp: null },
-      { id: GM_ENTRY, roll: null, note: "", dead: false, hp: null },
+      { id: "a", roll: 12, note: "hi", dead: false, monster: false, hp: null },
+      { id: "b", roll: null, note: "", dead: false, monster: false, hp: null },
+      { id: GM_ENTRY, roll: null, note: "", dead: false, monster: false, hp: null },
     ]);
     expect(t.current).toBe("b");
     expect(t.round).toBe(2);
@@ -178,17 +182,25 @@ describe("crawl and combat", () => {
 });
 
 describe("hp", () => {
-  it("parses whole numbers in range, never on the GM row", () => {
+  it("parses whole numbers in range, on monsters only", () => {
     const t = parseTracker({
       entries: [
-        { id: "a", hp: { cur: 3, max: 10 } },
-        { id: "b", hp: { cur: -1, max: 10 } },
-        { id: "c", hp: { cur: 2, max: 0 } },
-        { id: "d", hp: "lots" },
-        { id: GM_ENTRY, hp: { cur: 5, max: 5 } },
+        { id: "a", monster: true, hp: { cur: 3, max: 10 } },
+        { id: "b", monster: true, hp: { cur: -1, max: 10 } },
+        { id: "c", monster: true, hp: { cur: 2, max: 0 } },
+        { id: "d", monster: true, hp: "lots" },
+        { id: "p", hp: { cur: 5, max: 5 } },
+        { id: GM_ENTRY, monster: true, hp: { cur: 5, max: 5 } },
       ],
     });
-    expect(t.entries.map((e) => e.hp)).toEqual([{ cur: 3, max: 10 }, null, null, null, null]);
+    expect(t.entries.map((e) => [e.id, e.hp])).toEqual([
+      ["p", null],
+      [GM_ENTRY, null],
+      ["a", { cur: 3, max: 10 }],
+      ["b", null],
+      ["c", null],
+      ["d", null],
+    ]);
   });
 
   it("reads the HP boxes: damage, healing, set, and starting from nothing", () => {
@@ -209,13 +221,73 @@ describe("hp", () => {
     expect(hpFromInput(null, "cur", "-3")).toBeUndefined();
   });
 
-  it("sets HP on token rows only; no-ops keep the object", () => {
-    const t = tracker({ a: 1, gm: 2 });
-    expect(setHp(t, "a", { cur: 4, max: 9 }).entries[0].hp).toEqual({ cur: 4, max: 9 });
+  it("sets HP on monsters only; no-ops keep the object", () => {
+    const t = tracker({ a: 1, gm: 2, m1: null });
+    expect(setHp(t, "m1", { cur: 4, max: 9 }).entries[2].hp).toEqual({ cur: 4, max: 9 });
+    expect(setHp(t, "a", { cur: 4, max: 9 })).toBe(t);
     expect(setHp(t, GM_ENTRY, { cur: 4, max: 9 })).toBe(t);
-    expect(setHp(t, "a", null)).toBe(t);
-    const withHp = setHp(t, "a", { cur: 4, max: 9 });
-    expect(setHp(withHp, "a", { cur: 4, max: 9 })).toBe(withHp);
+    expect(setHp(t, "m1", null)).toBe(t);
+    const withHp = setHp(t, "m1", { cur: 4, max: 9 });
+    expect(setHp(withHp, "m1", { cur: 4, max: 9 })).toBe(withHp);
+  });
+});
+
+describe("monsters", () => {
+  it("take their turns right after the GM row, in list order; dead ones skipped", () => {
+    const t = tracker({ a: 15, gm: 10, b: 4, m1: null, m2: null, m3: null }, null, 0, ["m2"]);
+    expect(ids(turnOrder(t))).toEqual(["a", "gm", "m1", "m3", "b"]);
+    let s = next(t);
+    const seen = [];
+    for (let i = 0; i < 6; i++) {
+      seen.push(s.current);
+      s = next(s);
+    }
+    expect(seen).toEqual(["a", "gm", "m1", "m3", "b", "a"]);
+  });
+
+  it("parse keeps monsters after everyone else, with no roll; the GM row is never one", () => {
+    const t = parseTracker({
+      entries: [{ id: "m1", monster: true, roll: 18 }, { id: "a", roll: 3 }, { id: GM_ENTRY, monster: true }],
+    });
+    expect(t.entries.map((e) => [e.id, e.monster, e.roll])).toEqual([
+      ["a", false, 3],
+      [GM_ENTRY, false, null],
+      ["m1", true, null],
+    ]);
+  });
+
+  it("sorting moves players and the GM row; monsters keep their order", () => {
+    const t = sortByRoll(tracker({ a: 3, gm: 12, b: 9, m2: null, m1: null }));
+    expect(ids(t.entries)).toEqual(["gm", "b", "a", "m2", "m1"]);
+  });
+
+  it("monsters take no roll", () => {
+    const t = tracker({ gm: 1, m1: null });
+    expect(setRoll(t, "m1", 12)).toBe(t);
+  });
+
+  it("right-click: Add / Remove Monster adds, removes, and switches a player over", () => {
+    let t = tracker({ a: 14, gm: 9 });
+    t = toggle(t, ["x", "y"], true);
+    expect(t.entries.map((e) => [e.id, e.monster])).toEqual([["a", false], [GM_ENTRY, false], ["x", true], ["y", true]]);
+    t = toggle(t, ["a"], true);
+    expect(t.entries.map((e) => [e.id, e.monster, e.roll])).toEqual([
+      [GM_ENTRY, false, 9],
+      ["x", true, null],
+      ["y", true, null],
+      ["a", true, null],
+    ]);
+    t = toggle(t, ["x", "y"], true);
+    expect(ids(t.entries)).toEqual([GM_ENTRY, "a"]);
+    // And back to a player: HP goes (players track their own).
+    t = toggle(setHp(t, "a", { cur: 3, max: 5 }), ["a"]);
+    expect(t.entries.map((e) => [e.id, e.monster, e.hp])).toEqual([[GM_ENTRY, false, null], ["a", false, null]]);
+  });
+
+  it("switching the current token's kind keeps its turn", () => {
+    const t = toggle(tracker({ a: 14, gm: 9, b: 3 }, "a", 1), ["a"], true);
+    expect(t.current).toBe("a");
+    expect(ids(turnOrder(t))).toEqual(["gm", "a", "b"]);
   });
 });
 
@@ -286,12 +358,15 @@ describe("editing", () => {
     expect(setNote(t, "missing", "x")).toBe(t);
   });
 
-  it("moves an entry to another place; bad targets change nothing", () => {
-    const t = tracker({ a: 1, b: 2, c: 3, d: 4 });
-    expect(ids(moveTo(t, "a", 2).entries)).toEqual(["b", "c", "a", "d"]);
-    expect(ids(moveTo(t, "d", 0).entries)).toEqual(["d", "a", "b", "c"]);
-    for (const to of [1, -1, 4, 1.5]) expect(moveTo(t, "b", to)).toBe(t);
-    expect(moveTo(t, "ghost", 0)).toBe(t);
+  it("moves an entry to another's place, within its own group only", () => {
+    const t = tracker({ a: 1, b: 2, c: 3, gm: 4, m1: null, m2: null });
+    expect(ids(moveTo(t, "a", "c").entries)).toEqual(["b", "c", "a", "gm", "m1", "m2"]);
+    expect(ids(moveTo(t, "gm", "a").entries)).toEqual(["gm", "a", "b", "c", "m1", "m2"]);
+    expect(ids(moveTo(t, "m2", "m1").entries)).toEqual(["a", "b", "c", "gm", "m2", "m1"]);
+    expect(moveTo(t, "m1", "a")).toBe(t);
+    expect(moveTo(t, "a", "m1")).toBe(t);
+    expect(moveTo(t, "b", "b")).toBe(t);
+    expect(moveTo(t, "ghost", "a")).toBe(t);
   });
 });
 
@@ -305,16 +380,17 @@ describe("toggle (right-click)", () => {
 });
 
 describe("size", () => {
-  // About 12 kB passed in a real room (PR 1); HP took the worst case just
-  // past that, so TESTING.md re-checks it (PR 3).
-  it("a full tracker in combat, every row with HP, stays under 12.5 kB", () => {
+  // About 12 kB passed in a real room (PR 1). Monsters with HP take the worst
+  // case to about 12.7 kB, so TESTING.md re-checks it (PR 3).
+  it("a full tracker in combat, every monster with HP, stays under 13 kB", () => {
     const id = (i: number) => `${"x".repeat(30)}-${i}`; // Owlbear ids are shorter
     const full = parseTracker({
       entries: Array.from({ length: MAX_ENTRIES }, (_, i) => ({
         id: id(i),
         roll: -99,
         note: "n".repeat(NOTE_MAX),
-        dead: i > 0,
+        dead: i > 1,
+        monster: i > 0,
         hp: { cur: 9999, max: 9999 },
       })),
       phase: "combat",
@@ -322,7 +398,8 @@ describe("size", () => {
       round: 9999,
       combatRound: 9999,
     });
-    expect(new Blob([JSON.stringify(full)]).size).toBeLessThan(12_500);
+    expect(full.entries.filter((e) => e.hp)).toHaveLength(MAX_ENTRIES - 2);
+    expect(new Blob([JSON.stringify(full)]).size).toBeLessThan(13_000);
   });
 });
 

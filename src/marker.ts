@@ -12,7 +12,7 @@ import { GM_ENTRY, parseTracker } from "./tracker";
 export const markerImage = (origin: string) => `${origin}/img/turn-marker.webp`;
 const MARKER_PX = 256;
 // The ring's diameter, in token widths.
-const RING = 1.3;
+const RING = 1.5;
 
 export type MarkerState = { id: string; attachedTo: string | undefined; image: string | undefined };
 

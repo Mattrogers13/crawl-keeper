@@ -98,13 +98,15 @@ const Tracker = ({ role }: { role: Role }) => {
     ? tracker.entries
     : tracker.entries.filter((e) => e.id === GM_ENTRY || tokenInfo(byId.get(e.id)).visible);
   const current = gm || shown.some((e) => e.id === tracker.current) ? tracker.current : tracker.current && GM_ENTRY;
+  const top = shown.filter((e) => !e.monster);
+  const monsters = shown.filter((e) => e.monster);
+  const tokenFor = (e: Entry) => (e.id === GM_ENTRY ? null : tokenInfo(byId.get(e.id)));
   const round = phaseRound(tracker);
   const roundLabel =
     round === 0 ? (gm ? "Press ▶ to begin" : "") : gm || !settings.value.hideRound ? `Round ${round}` : "";
   const combat = tracker.phase === "combat";
   const drop = ({ active, over }: DragEndEvent) => {
-    const to = tracker.entries.findIndex((e) => e.id === over?.id);
-    if (to >= 0) change((t) => moveTo(t, String(active.id), to));
+    if (over) change((t) => moveTo(t, String(active.id), String(over.id)));
   };
 
   return (
@@ -160,23 +162,29 @@ const Tracker = ({ role }: { role: Role }) => {
         modifiers={[restrictToVerticalAxis, restrictToParentElement]}
         onDragEnd={drop}
       >
-        <SortableContext items={shown.map((e) => e.id)} strategy={verticalListSortingStrategy}>
+        {/* Two drag groups: players and the GM row; monsters inside the GM row. */}
+        <SortableContext items={top.map((e) => e.id)} strategy={verticalListSortingStrategy}>
           <ol className="flex flex-col gap-1">
-            {shown.map((entry) => (
-              <Row
-                key={entry.id}
-                entry={entry}
-                token={entry.id === GM_ENTRY ? null : tokenInfo(byId.get(entry.id))}
-                current={entry.id === current}
-                gm={gm}
-                change={change}
-              />
+            {top.map((entry) => (
+              <Row key={entry.id} entry={entry} token={tokenFor(entry)} current={entry.id === current} gm={gm} change={change}>
+                {entry.id === GM_ENTRY && monsters.length > 0 && (
+                  <SortableContext items={monsters.map((e) => e.id)} strategy={verticalListSortingStrategy}>
+                    <ol aria-label="Monsters" className="mt-1 ml-6 flex flex-col gap-1">
+                      {monsters.map((m) => (
+                        <Row key={m.id} entry={m} token={tokenFor(m)} current={m.id === current} gm={gm} change={change} />
+                      ))}
+                    </ol>
+                  </SortableContext>
+                )}
+              </Row>
             ))}
           </ol>
         </SortableContext>
       </DndContext>
       {gm && tracker.entries.length === 1 && (
-        <p className="text-sm text-obr-text-secondary">Right-click a token and choose “Add / Remove Initiative”.</p>
+        <p className="text-sm text-obr-text-secondary">
+          Right-click a token: “Add / Remove Initiative” for players, “Add / Remove Monster” for monsters.
+        </p>
       )}
     </div>
   );
@@ -218,6 +226,8 @@ const Row = (props: {
   current: boolean;
   gm: boolean;
   change: (fn: (t: TrackerDoc) => TrackerDoc) => void;
+  // The GM row's monsters, listed under it.
+  children?: ReactNode;
 }) => {
   const { entry, token, gm, change } = props;
   const name = token ? token.name : "GM / Monsters";
@@ -228,65 +238,75 @@ const Row = (props: {
       ref={sortable.setNodeRef}
       style={{ transform: CSS.Translate.toString(sortable.transform), transition: sortable.transition }}
       aria-current={props.current ? "step" : undefined}
-      className={`flex items-start gap-2 rounded p-1.5 ${props.current ? "bg-obr-primary/20 ring-1 ring-obr-primary" : "bg-obr-bg"} ${
-        token && !token.visible ? "opacity-60" : ""
-      } ${sortable.isDragging ? "relative z-10 shadow-lg" : ""}`}
+      className={sortable.isDragging ? "relative z-10 shadow-lg" : ""}
     >
-      {gm && (
-        <button
-          type="button"
-          ref={sortable.setActivatorNodeRef}
-          {...sortable.attributes}
-          {...sortable.listeners}
-          aria-label={`Move ${name}`}
-          title="Drag to move"
-          className="flex h-9 w-4 shrink-0 cursor-grab touch-none items-center justify-center text-obr-text-secondary hover:text-obr-text active:cursor-grabbing"
-        >
-          <GripIcon />
-        </button>
-      )}
-      <Portrait token={token} dead={entry.dead} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className={`truncate font-medium ${entry.dead ? "text-obr-text-secondary line-through" : ""}`}>
-          {name}
-          {entry.dead && <span className="sr-only"> (dead)</span>}
-        </span>
+      <div
+        className={`flex items-start gap-2 rounded p-1.5 ${props.current ? "bg-obr-primary/20 ring-1 ring-obr-primary" : "bg-obr-bg"} ${
+          token && !token.visible ? "opacity-60" : ""
+        }`}
+      >
+        {gm && (
+          <button
+            type="button"
+            ref={sortable.setActivatorNodeRef}
+            {...sortable.attributes}
+            {...sortable.listeners}
+            aria-label={`Move ${name}`}
+            title="Drag to move"
+            className="flex h-9 w-4 shrink-0 cursor-grab touch-none items-center justify-center text-obr-text-secondary hover:text-obr-text active:cursor-grabbing"
+          >
+            <GripIcon />
+          </button>
+        )}
+        <Portrait token={token} dead={entry.dead} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className={`truncate font-medium ${entry.dead ? "text-obr-text-secondary line-through" : ""}`}>
+            {name}
+            {entry.dead && <span className="sr-only"> (dead)</span>}
+          </span>
+          {gm ? (
+            <div className="flex items-center gap-1">
+              <NoteInput key={entry.note} name={name} value={entry.note} save={(n) => change((t) => setNote(t, entry.id, n))} />
+              {entry.monster && <HpInputs name={name} hp={entry.hp} save={(hp) => change((t) => setHp(t, entry.id, hp))} />}
+            </div>
+          ) : (
+            entry.note && <span className="text-sm whitespace-pre-wrap text-obr-text-secondary">{entry.note}</span>
+          )}
+        </div>
         {gm ? (
-          <div className="flex items-center gap-1">
-            <NoteInput key={entry.note} name={name} value={entry.note} save={(n) => change((t) => setNote(t, entry.id, n))} />
-            {token && <HpInputs name={name} hp={entry.hp} save={(hp) => change((t) => setHp(t, entry.id, hp))} />}
-          </div>
+          <>
+            {/* Monsters act on the GM / Monsters roll: a gap keeps the columns lined up. */}
+            {entry.monster ? (
+              <span className={ROLL_SLOT} aria-hidden />
+            ) : (
+              <RollInput key={entry.roll ?? ""} name={name} value={entry.roll} save={(r) => change((t) => setRoll(t, entry.id, r))} />
+            )}
+            {/* The GM row has no dead or remove button: same-width gaps keep the roll boxes lined up. */}
+            {token ? (
+              <>
+                <RowAction
+                  label={`Dead: ${name}`}
+                  pressed={entry.dead}
+                  onClick={() => change((t) => setDead(t, entry.id, !entry.dead))}
+                >
+                  <SkullIcon className="h-5 w-5" />
+                </RowAction>
+                <RowAction label={`Remove ${name}`} onClick={() => change((t) => remove(t, [entry.id]))}>
+                  <CloseIcon />
+                </RowAction>
+              </>
+            ) : (
+              <>
+                <span className={ROW_ACTION} aria-hidden />
+                <span className={ROW_ACTION} aria-hidden />
+              </>
+            )}
+          </>
         ) : (
-          entry.note && <span className="text-sm whitespace-pre-wrap text-obr-text-secondary">{entry.note}</span>
+          <span className="w-10 text-right tabular-nums">{entry.monster ? "" : (entry.roll ?? "–")}</span>
         )}
       </div>
-      {gm ? (
-        <>
-          <RollInput key={entry.roll ?? ""} name={name} value={entry.roll} save={(r) => change((t) => setRoll(t, entry.id, r))} />
-          {/* The GM row has no dead or remove button: same-width gaps keep the roll boxes lined up. */}
-          {token ? (
-            <>
-              <RowAction
-                label={`Dead: ${name}`}
-                pressed={entry.dead}
-                onClick={() => change((t) => setDead(t, entry.id, !entry.dead))}
-              >
-                <SkullIcon className="h-5 w-5" />
-              </RowAction>
-              <RowAction label={`Remove ${name}`} onClick={() => change((t) => remove(t, [entry.id]))}>
-                <CloseIcon />
-              </RowAction>
-            </>
-          ) : (
-            <>
-              <span className={ROW_ACTION} aria-hidden />
-              <span className={ROW_ACTION} aria-hidden />
-            </>
-          )}
-        </>
-      ) : (
-        <span className="w-10 text-right tabular-nums">{entry.roll ?? "–"}</span>
-      )}
+      {props.children}
     </li>
   );
 };
@@ -308,6 +328,8 @@ const Portrait = ({ token, dead }: { token: Token | null; dead: boolean }) => (
   </div>
 );
 
+const ROLL_SLOT = "w-12 shrink-0";
+
 // Saves on Enter or when focus leaves. Empty = no roll.
 const RollInput = ({ name, value, save }: { name: string; value: number | null; save: (r: number | null) => void }) => {
   const [draft, setDraft] = useState(value === null ? "" : String(value));
@@ -320,7 +342,7 @@ const RollInput = ({ name, value, save }: { name: string; value: number | null; 
     <input
       aria-label={`Initiative for ${name}`}
       inputMode="numeric"
-      className="w-12 rounded border border-obr-text-disabled bg-obr-paper px-1 py-0.5 text-right tabular-nums focus:border-obr-primary focus:outline-none"
+      className={`${ROLL_SLOT} rounded border border-obr-text-disabled bg-obr-paper px-1 py-0.5 text-right tabular-nums focus:border-obr-primary focus:outline-none`}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
