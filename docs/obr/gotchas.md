@@ -65,3 +65,4 @@ Learned building Torchlight (github.com/Mattrogers13/obr-torchlight), 2026-10. E
 - `@owlbear-rodeo/sdk` 3.1.0 depends on `uuid@^9`, which has a moderate advisory; `package.json` overrides it to `^11.1.1` (the SDK only uses `v4`). Drop the override when the SDK updates. **verified**
 - `allowScripts` in `package.json` denies esbuild/workerd/fsevents install scripts; builds work without them. **Torchlight**
 - TypeScript stays on 5.x: TS 7 (native rewrite) was too new to trust with Vite tooling at setup time. Revisit. **decision**
+- `navigator.clipboard.writeText` inside Owlbear's iframe: **unverified** (may be blocked by the iframe's permissions). Crawl Keeper's Copy button falls back to selecting the text.

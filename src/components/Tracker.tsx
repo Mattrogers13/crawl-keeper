@@ -1,5 +1,17 @@
 import { useState, type ReactNode } from "react";
 import type { Item } from "@owlbear-rodeo/sdk";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 import Loading from "./Loading";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
@@ -12,7 +24,7 @@ import {
   NOTE_MAX,
   ROLL_MAX,
   ROLL_MIN,
-  move,
+  moveTo,
   next,
   parseTracker,
   phaseRound,
@@ -46,8 +58,12 @@ const Tracker = ({ role }: { role: Role }) => {
   const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   const doc = useSceneValue(TRACKER_KEY, parseTracker);
   const items = useSceneItems();
-  // The ▲▼ move buttons, off by default to keep rows quiet. Per GM, not saved.
-  const [reorder, setReorder] = useState(false);
+  // Drag rows by the grip (mouse, touch), or focus the grip and use Space +
+  // arrow keys.
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   if (!settings.loaded || !doc.loaded || items === null) return <Loading />;
 
@@ -72,6 +88,10 @@ const Tracker = ({ role }: { role: Role }) => {
   const roundLabel =
     round === 0 ? (gm ? "Press ▶ to begin" : "") : gm || !settings.value.hideRound ? `Round ${round}` : "";
   const combat = tracker.phase === "combat";
+  const drop = ({ active, over }: DragEndEvent) => {
+    const to = tracker.entries.findIndex((e) => e.id === over?.id);
+    if (to >= 0) change((t) => moveTo(t, String(active.id), to));
+  };
 
   return (
     <div className="flex flex-col gap-2">
@@ -116,27 +136,30 @@ const Tracker = ({ role }: { role: Role }) => {
           <Button label="Sort by roll" onClick={() => change(sortByRoll)}>
             <SortIcon />
           </Button>
-          <Button label="Reorder" pressed={reorder} onClick={() => setReorder(!reorder)}>
-            ↕
-          </Button>
         </div>
       )}
 
-      <ol className="flex flex-col gap-1">
-        {shown.map((entry, i) => (
-          <Row
-            key={entry.id}
-            entry={entry}
-            token={entry.id === GM_ENTRY ? null : tokenInfo(byId.get(entry.id))}
-            current={entry.id === current}
-            gm={gm}
-            isFirst={i === 0}
-            isLast={i === shown.length - 1}
-            change={change}
-            reorder={reorder}
-          />
-        ))}
-      </ol>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+        onDragEnd={drop}
+      >
+        <SortableContext items={shown.map((e) => e.id)} strategy={verticalListSortingStrategy}>
+          <ol className="flex flex-col gap-1">
+            {shown.map((entry) => (
+              <Row
+                key={entry.id}
+                entry={entry}
+                token={entry.id === GM_ENTRY ? null : tokenInfo(byId.get(entry.id))}
+                current={entry.id === current}
+                gm={gm}
+                change={change}
+              />
+            ))}
+          </ol>
+        </SortableContext>
+      </DndContext>
       {gm && tracker.entries.length === 1 && (
         <p className="text-sm text-obr-text-secondary">Right-click a token and choose “Add / Remove Initiative”.</p>
       )}
@@ -149,20 +172,34 @@ const Row = (props: {
   token: Token | null;
   current: boolean;
   gm: boolean;
-  isFirst: boolean;
-  isLast: boolean;
-  reorder: boolean;
   change: (fn: (t: TrackerDoc) => TrackerDoc) => void;
 }) => {
   const { entry, token, gm, change } = props;
   const name = token ? token.name : "GM / Monsters";
+  // Players can't drag: no grip, and the sortable is off.
+  const sortable = useSortable({ id: entry.id, disabled: !gm });
   return (
     <li
+      ref={sortable.setNodeRef}
+      style={{ transform: CSS.Translate.toString(sortable.transform), transition: sortable.transition }}
       aria-current={props.current ? "step" : undefined}
       className={`flex items-start gap-2 rounded p-1.5 ${props.current ? "bg-obr-primary/20 ring-1 ring-obr-primary" : "bg-obr-bg"} ${
         token && !token.visible ? "opacity-60" : ""
-      }`}
+      } ${sortable.isDragging ? "relative z-10 shadow-lg" : ""}`}
     >
+      {gm && (
+        <button
+          type="button"
+          ref={sortable.setActivatorNodeRef}
+          {...sortable.attributes}
+          {...sortable.listeners}
+          aria-label={`Move ${name}`}
+          title="Drag to move"
+          className="flex h-9 w-4 shrink-0 cursor-grab touch-none items-center justify-center text-obr-text-secondary hover:text-obr-text active:cursor-grabbing"
+        >
+          <GripIcon />
+        </button>
+      )}
       <Portrait token={token} dead={entry.dead} />
       <div className="flex min-w-0 flex-1 flex-col">
         <span className={`truncate font-medium ${entry.dead ? "text-obr-text-secondary line-through" : ""}`}>
@@ -178,16 +215,6 @@ const Row = (props: {
       {gm ? (
         <>
           <RollInput key={entry.roll ?? ""} name={name} value={entry.roll} save={(r) => change((t) => setRoll(t, entry.id, r))} />
-          {props.reorder && (
-            <div className="flex flex-col">
-              <IconButton label={`Move ${name} up`} disabled={props.isFirst} onClick={() => change((t) => move(t, entry.id, -1))}>
-                ▲
-              </IconButton>
-              <IconButton label={`Move ${name} down`} disabled={props.isLast} onClick={() => change((t) => move(t, entry.id, 1))}>
-                ▼
-              </IconButton>
-            </div>
-          )}
           {/* The GM row has no dead or remove button: same-width gaps keep the roll boxes lined up. */}
           {token ? (
             <>
@@ -288,8 +315,6 @@ const Button = ({ label, primary, pressed, disabled, onClick, children }: Button
   </button>
 );
 
-const ICON_SLOT = "w-5 shrink-0";
-
 // Dead and remove: full-size touch targets, the same width on every row (see Row).
 const ROW_ACTION = "h-7 w-7 shrink-0";
 
@@ -301,22 +326,6 @@ const RowAction = (props: ButtonProps) => (
     title={props.label}
     className={`${ROW_ACTION} flex items-center justify-center rounded hover:bg-obr-paper hover:text-obr-text ${
       props.pressed ? "bg-obr-primary text-obr-primary-contrast hover:bg-obr-primary hover:text-obr-primary-contrast" : "text-obr-text-secondary"
-    }`}
-    onClick={props.onClick}
-  >
-    {props.children}
-  </button>
-);
-
-const IconButton = (props: ButtonProps & { disabled?: boolean }) => (
-  <button
-    type="button"
-    aria-label={props.label}
-    aria-pressed={props.pressed}
-    title={props.label}
-    disabled={props.disabled}
-    className={`${ICON_SLOT} text-center text-xs leading-4 hover:text-obr-text disabled:opacity-30 ${
-      props.pressed ? "text-obr-text" : "text-obr-text-secondary"
     }`}
     onClick={props.onClick}
   >
@@ -337,6 +346,13 @@ const SkullIcon = ({ className }: { className: string }) => (
 const CloseIcon = () => (
   <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
     <path d="M4 4l8 8M12 4l-8 8" />
+  </svg>
+);
+
+// Three lines: the usual drag handle.
+const GripIcon = () => (
+  <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+    <path d="M3 4h10M3 8h10M3 12h10" />
   </svg>
 );
 

@@ -43,3 +43,7 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 | 8 | GM: gear → "Hide rounds from players" | Player sees Crawl / Combat but no round count | |
 | 9 | Player | No gear, no buttons | |
 | 10 | Size: the 40-token map from PR 1, Combat with clear rolls on | Saves without "Couldn't save" | |
+| 11 | GM: drag a row by its ≡ grip (mouse; and on the iPad, touch) | Row moves and stays; player follows. Player has no grip | |
+| 12 | GM: focus a grip, Space, ↓, Space | Row moves down one | |
+| 13 | GM: gear → Install link → Copy | "Copied" (or the text is selected with a Cmd+C hint); pasted URL is the Dev manifest | |
+| 14 | After removing and re-adding the Dev extension | One toolbar icon; one combat alert per client | |

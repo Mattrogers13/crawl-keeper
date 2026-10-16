@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, it, expect, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import OBR from "@owlbear-rodeo/sdk";
 
 import App from "./App";
@@ -92,6 +92,7 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toEqual({ hideRound: true, clearRollsOnCombat: true }));
     fireEvent.click(screen.getByLabelText("Clear initiative rolls on combat", { exact: false }));
     await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toEqual({ hideRound: true, clearRollsOnCombat: false }));
+    expect(screen.getByLabelText("Install link")).toHaveValue(`${window.location.origin}/manifest.json`);
     fireEvent.click(screen.getByLabelText("Back to tracker"));
     expect(await screen.findByText("GM / Monsters")).toBeInTheDocument();
   });
@@ -108,16 +109,49 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["b", GM_ENTRY]));
   });
 
-  it("shows move buttons only while Reorder is on", async () => {
-    obr.items = [token("a", { name: "Aria" })];
-    scene([{ id: "a" }, { id: GM_ENTRY }]);
+  it("copies the install link, or selects it when the clipboard is blocked", async () => {
+    const writeText = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("blocked"));
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     render(<App />);
-    await screen.findByText("Aria");
-    expect(screen.queryByLabelText("Move Aria down")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("Reorder"));
-    expect(screen.getByLabelText("Reorder")).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByLabelText("Move Aria down"));
-    await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual([GM_ENTRY, "a"]));
+    fireEvent.click(await screen.findByLabelText("Settings"));
+    fireEvent.click(await screen.findByText("Copy"));
+    expect(await screen.findByText("Copied")).toBeInTheDocument();
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/manifest.json`);
+    fireEvent.click(screen.getByText("Copy"));
+    expect(await screen.findByText(/Press Cmd\+C/)).toBeInTheDocument();
+  });
+
+  describe("drag to move", () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    // jsdom has no layout: give each row a 40px slot in list order so the
+    // keyboard drag can find its neighbours; anything else (the list itself,
+    // which drags are kept inside) gets a tall box.
+    const layOut = () =>
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+        const li = this.closest("li");
+        const top = li ? [...li.parentElement!.children].indexOf(li) * 40 : 0;
+        const height = li ? 36 : 400;
+        return { x: 0, y: top, top, left: 0, bottom: top + height, right: 300, width: 300, height, toJSON() {} } as DOMRect;
+      });
+
+    it("moves a row with the grip (Space, arrow down, Space)", async () => {
+      obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+      scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
+      render(<App />);
+      const grip = await screen.findByLabelText("Move Aria");
+      layOut();
+      grip.focus();
+      // dnd-kit measures between key presses (effects, animation frames).
+      const press = async (code: string) => {
+        fireEvent.keyDown(grip, { code });
+        await act(() => new Promise((r) => setTimeout(r, 50)));
+      };
+      await press("Space");
+      await press("ArrowDown");
+      await press("Space");
+      await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["b", "a", GM_ENTRY]));
+    });
   });
 
   it("marks a token dead: skipped on Next, and the turn passes if it was theirs", async () => {

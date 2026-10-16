@@ -213,13 +213,12 @@ export const setDead = (t: Tracker, id: string, dead: boolean): Tracker => {
   return entries ? withEntries(t, entries) : t;
 };
 
-// Move an entry one place up (-1) or down (+1) in the list.
-export const move = (t: Tracker, id: string, by: -1 | 1): Tracker => {
-  const i = t.entries.findIndex((e) => e.id === id);
-  const j = i + by;
-  if (i < 0 || j < 0 || j >= t.entries.length) return t;
+// Move an entry to another place in the list (the GM's drag and drop).
+export const moveTo = (t: Tracker, id: string, to: number): Tracker => {
+  const from = t.entries.findIndex((e) => e.id === id);
+  if (from < 0 || from === to || !Number.isInteger(to) || to < 0 || to >= t.entries.length) return t;
   const entries = [...t.entries];
-  [entries[i], entries[j]] = [entries[j], entries[i]];
+  entries.splice(to, 0, ...entries.splice(from, 1));
   return { ...t, entries };
 };
 

@@ -1,3 +1,5 @@
+import { useRef, useState } from "react";
+
 import Loading from "./Loading";
 import { SETTINGS_KEY } from "../constants";
 import { useRoomValue } from "../hooks/useRoomValue";
@@ -23,6 +25,46 @@ const Settings = () => {
         checked={settings.value.clearRollsOnCombat}
         onChange={(clearRollsOnCombat) => set({ clearRollsOnCombat })}
       />
+      <InstallLink />
+    </div>
+  );
+};
+
+// This build's manifest: live on the live install, Dev on the Dev one.
+const InstallLink = () => {
+  const url = `${window.location.origin}/manifest.json`;
+  const input = useRef<HTMLInputElement>(null);
+  const [status, setStatus] = useState("");
+  // The clipboard may be missing or blocked inside Owlbear's iframe: fall
+  // back to selecting the text for Cmd+C.
+  const copy = () =>
+    Promise.resolve()
+      .then(() => navigator.clipboard.writeText(url))
+      .then(() => setStatus("Copied"))
+      .catch(() => {
+        input.current?.select();
+        setStatus("Press Cmd+C (Ctrl+C) to copy");
+      });
+
+  return (
+    <div className="flex flex-col gap-1 border-t border-obr-text-disabled pt-3">
+      <label htmlFor="install-link">Install link</label>
+      <div className="flex gap-1">
+        <input
+          id="install-link"
+          ref={input}
+          readOnly
+          value={url}
+          onFocus={(e) => e.currentTarget.select()}
+          className="min-w-0 flex-1 rounded border border-obr-text-disabled bg-obr-bg px-1 py-0.5 text-xs"
+        />
+        <button type="button" className="rounded border border-obr-text-disabled px-2 py-0.5 text-xs font-medium" onClick={copy}>
+          Copy
+        </button>
+      </div>
+      <span className="text-xs text-obr-text-secondary" role="status">
+        {status || "In Owlbear: Extensions → Add Custom Extension, then paste."}
+      </span>
     </div>
   );
 };

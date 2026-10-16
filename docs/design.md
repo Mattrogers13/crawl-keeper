@@ -26,7 +26,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 
 - Entries: tokens added via right-click "Add to Initiative" (background page context menu), plus the built-in **GM / Monsters** row (can't be removed). Monsters roll once as a group: the GM rolls d20 + the highest monster DEX mod (core pp. 82, 88). Individual monster tokens may still be added (for HP, turn marker).
 - **Order:** the list is the turn order. Sort puts the highest roll first (unrolled last); ties: GM moves rows.
-- Moving rows: ▲▼ per row, shown only while the GM's Reorder toggle is on (not saved, per GM).
+- Moving rows: the GM drags a row by its grip (≡; mouse, touch, or keyboard: focus the grip, Space, arrows, Space). Players can't.
 - **Dead:** GM toggles ☠ on a token row (not the GM row). Dead rows keep their seat, show a skull badge on the portrait for everyone, and get no turns; killing the current entry passes the turn on.
 - ◀ / ▶ turns. Round increments when the turn wraps.
 - Note under each name: GM edits, everyone sees.
@@ -44,7 +44,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 
 ## Settings (GM only, gear in the panel header)
 
-- Hide rounds from players. Clear initiative rolls on combat. Later PRs add theirs here (encounter mode, danger level, select on turn, hide clock).
+- Hide rounds from players. Clear initiative rolls on combat. The install link (this build's manifest URL, with Copy). Later PRs add theirs here (encounter mode, danger level, select on turn, hide clock).
 
 ## Crawl prompt (GM panel, Tracker tab, card under the GM / Monsters row on its turn)
 
@@ -61,7 +61,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
   3. Map: monster HP, turn marker, selection toggle.
   4. Crawl: Standard checks and the Crawling Clock with all options.
 - **v0.2:** encounter roller (book's distance d6 / activity 2d6 / reaction 2d6+CHA, plus GM-pasted custom tables) and a standalone morale roller (d20 + WIS mod vs DC 15; holds / flees).
-- **Later:** death timer (GM marks a PC dying: 1d4 + CON mod rounds, min 1; d20 prompt on each of their turns, 20 = up with 1 HP; runs out = marked dead; a dying badge with the rounds left on the portrait, visible to everyone), Time Passes (advance N crawl rounds and run the encounter checks; no effect clearing), 3D-style d20 art for the clock, half-HP morale flag, Torchlight darkness link, Owlbear Dice as a roll source, table import/export, players editing notes.
+- **Later:** a setting to hide the GM / Monsters row once monsters are added one by one (the crawl prompt lives on that row's turn, so it needs another home first), death timer (GM marks a PC dying: 1d4 + CON mod rounds, min 1; d20 prompt on each of their turns, 20 = up with 1 HP; runs out = marked dead; a dying badge with the rounds left on the portrait, visible to everyone), Time Passes (advance N crawl rounds and run the encounter checks; no effect clearing), 3D-style d20 art for the clock, half-HP morale flag, Torchlight darkness link, Owlbear Dice as a roll source, table import/export, players editing notes.
 - **Not doing:** Table Order (the book's clockwise-from-highest rule: a VTT has no seating, so it only added a hand-set order the screen didn't match; dropped 2026-10-16), player editing, real secrecy, shipping the book's text, light timers (Torchlight covers them), co-GM support.
 
 ## References (read-only, gitignored in `sources/`)

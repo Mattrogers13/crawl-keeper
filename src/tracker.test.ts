@@ -6,7 +6,7 @@ import {
   NOTE_MAX,
   add,
   emptyTracker,
-  move,
+  moveTo,
   next,
   parseTracker,
   previous,
@@ -235,11 +235,12 @@ describe("editing", () => {
     expect(setNote(t, "missing", "x")).toBe(t);
   });
 
-  it("moves an entry up or down, not past the ends", () => {
-    const t = tracker({ a: 1, b: 2, c: 3 });
-    expect(ids(move(t, "b", -1).entries)).toEqual(["b", "a", "c"]);
-    expect(move(t, "a", -1)).toBe(t);
-    expect(move(t, "c", 1)).toBe(t);
+  it("moves an entry to another place; bad targets change nothing", () => {
+    const t = tracker({ a: 1, b: 2, c: 3, d: 4 });
+    expect(ids(moveTo(t, "a", 2).entries)).toEqual(["b", "c", "a", "d"]);
+    expect(ids(moveTo(t, "d", 0).entries)).toEqual(["d", "a", "b", "c"]);
+    for (const to of [1, -1, 4, 1.5]) expect(moveTo(t, "b", to)).toBe(t);
+    expect(moveTo(t, "ghost", 0)).toBe(t);
   });
 });
 
