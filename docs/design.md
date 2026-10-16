@@ -53,7 +53,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
   2. Map and combat: monster HP, turn marker, selection toggle, Crawling/Combat states.
   3. Crawl: Standard checks and the Crawling Clock with all options.
 - **v0.2:** encounter roller (book's distance d6 / activity 2d6 / reaction 2d6+CHA, plus GM-pasted custom tables) and a standalone morale roller (d20 + WIS mod vs DC 15; holds / flees).
-- **Later:** 3D-style d20 art for the clock, half-HP morale flag, Torchlight darkness link, Owlbear Dice as a roll source, table import/export, players editing notes.
+- **Later:** death timer (GM marks a PC dying: 1d4 + CON mod rounds, min 1; d20 prompt on each of their turns, 20 = up with 1 HP; runs out = marked dead), Time Passes (advance N crawl rounds and run the encounter checks; no effect clearing), 3D-style d20 art for the clock, half-HP morale flag, Torchlight darkness link, Owlbear Dice as a roll source, table import/export, players editing notes.
 - **Not doing:** player editing, real secrecy, shipping the book's text, light timers (Torchlight covers them), co-GM support.
 
 ## References (read-only, gitignored in `sources/`)
