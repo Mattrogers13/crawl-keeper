@@ -22,6 +22,7 @@ import {
   type EncounterMode,
   type Rand,
 } from "./crawl";
+import { intIn, isObject } from "./parse";
 
 // Shadowdark is always in turn order (core p. 82). The tracker is in one of
 // two phases: crawl or combat. A round is a round (p. 82: "a round completes
@@ -71,12 +72,6 @@ export const emptyTracker = (): Tracker => ({
   crawl: emptyCrawl(),
 });
 
-const isObject = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
-
-// A whole number in [min, max] from untrusted data, else null.
-const intIn = (v: unknown, min: number, max: number): number | null =>
-  typeof v === "number" && Number.isInteger(v) && v >= min && v <= max ? v : null;
 
 export const parseRoll = (raw: unknown): number | null => intIn(raw, ROLL_MIN, ROLL_MAX);
 
@@ -114,8 +109,9 @@ export const parseTracker = (raw: unknown): Tracker => {
     round: parseCount(raw.round),
     crawl: parseCrawl(raw.crawl),
   };
-  // A turn only exists inside a round, and only for a living entry.
-  const current = typeof raw.current === "string" && entries.some((e) => e.id === raw.current && !e.dead) ? raw.current : null;
+  // A turn only exists inside a round, and only for an entry that takes
+  // turns now (living; monsters only in combat).
+  const current = typeof raw.current === "string" && turnOrder(t).some((e) => e.id === raw.current) ? raw.current : null;
   return current && t.round > 0 ? { ...t, current } : t;
 };
 

@@ -93,21 +93,25 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
 
   // A tracked token deleted from the map: the GM's panel saves the tracker
   // without it, and if it was that token's turn, the turn and the marker
-  // pass on (deleting the token is the GM's own act). Idempotent, so a second
-  // GM panel writing the same thing is harmless.
+  // pass on (deleting the token is the GM's own act, so this is the one
+  // marker move made from a data change). One GM is assumed (docs/design.md:
+  // no co-GM): the same GM with the panel open twice could end up with two
+  // rings until the next turn tidies them.
   const gmReady = role === "GM" && settings.loaded && doc.loaded && items !== null;
   // The last pruned tracker written: a failed write isn't retried in a loop.
   const lastPrune = useRef("");
+  const { value: docValue, write: writeDoc } = doc;
   useEffect(() => {
     if (!gmReady) return;
     const present = new Set(items.map((i) => i.id));
-    const pruned = prune(doc.value, (id) => present.has(id));
+    const pruned = prune(docValue, (id) => present.has(id));
+    if (pruned === docValue) return;
     const json = JSON.stringify(pruned);
-    if (pruned === doc.value || json === lastPrune.current) return;
+    if (json === lastPrune.current) return;
     lastPrune.current = json;
-    void doc.write(pruned);
-    void afterTurnChange(doc.value, pruned, settings.value);
-  }, [gmReady, items, doc, settings.value]);
+    void writeDoc(pruned);
+    void afterTurnChange(docValue, pruned, settings.value);
+  }, [gmReady, items, docValue, writeDoc, settings.value]);
 
   if (!settings.loaded || !doc.loaded || items === null) return <Loading />;
 

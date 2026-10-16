@@ -87,13 +87,13 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
           </BarButton>
         )}
         <span className="text-xs text-obr-text-secondary" role="status">
-          {mode === "clock"
-            ? isDue
-              ? "Due this round"
-              : "Rolled this round"
+          {crawl.crawlRounds === 0
+            ? "Starts with the first crawl round"
             : isDue
               ? "Due this round"
-              : `Next in ${toNext} crawl round${toNext === 1 ? "" : "s"}`}
+              : mode === "clock"
+                ? "Rolled this round"
+                : `Next in ${toNext} crawl round${toNext === 1 ? "" : "s"}`}
         </span>
         <div className="ml-auto flex items-center gap-2 text-xs">
           {crawl.undo && (

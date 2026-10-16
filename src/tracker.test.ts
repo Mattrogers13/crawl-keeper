@@ -94,6 +94,12 @@ describe("parseTracker", () => {
     expect(parseTracker({ entries: [], phase: "nope" }).phase).toBe("crawl");
   });
 
+  it("a saved monster turn is dropped while crawling (monsters take no crawl turns)", () => {
+    const raw = { entries: [{ id: GM_ENTRY }, { id: "m", monster: true }], current: "m", round: 2 };
+    expect(parseTracker(raw).current).toBeNull();
+    expect(parseTracker({ ...raw, phase: "combat" }).current).toBe("m");
+  });
+
   it("a turn needs a round", () => {
     expect(parseTracker({ entries: [{ id: "a" }], phase: "combat", current: "a", round: 0 }).current).toBeNull();
   });
