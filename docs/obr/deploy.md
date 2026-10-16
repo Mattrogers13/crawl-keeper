@@ -6,13 +6,11 @@ The same setup Torchlight uses. Workers Builds builds on every push: `main` depl
 
 1. Set `name` in `wrangler.jsonc` (the worker name, e.g. `my-extension`).
 2. Push the repo to GitHub.
-3. Cloudflare dashboard → Workers & Pages → Create → Import a repository → pick the repo.
-   - Build command: `npm run build`
-   - Deploy command: `npx wrangler deploy`
-   - Non-production branch builds: enable them so branches get preview URLs.
-   - (These are from memory, not copied from Torchlight's dashboard: check them against the dashboard's defaults and fix this doc.)
-4. Production URL: `https://<name>.<subdomain>.workers.dev`. PR/branch previews: `https://<branch>-<name>.<subdomain>.workers.dev` (posted as a PR comment).
-5. Update `homepage_url` in `public/manifest.json`.
+3. Cloudflare GitHub app access first: GitHub → Settings → Applications → Installed GitHub Apps → Cloudflare Workers and Pages → Configure → add the new repo (it's usually "selected repositories only"). Otherwise the Worker shows "This project is disconnected from your Git account" and builds don't trigger. **verified** (Crawl Keeper, 2026-10-15)
+4. Cloudflare dashboard → Workers & Pages → Create → Import a repository → pick the repo. Name = `wrangler.jsonc` `name`. Build command `npm run build`, deploy command `npx wrangler deploy`, production branch `main`.
+5. Worker → Settings → Builds → **Previews Base** tab (next to "Production"): turn on **Builds for Preview branches**, then click **Enable Preview URLs** in the orange box (branch builds run without URLs until you do). Preview command is `npx wrangler preview` (needs `"previews": {}` in `wrangler.jsonc`). **verified** (dashboard as of 2026-10-15)
+6. Production URL: `https://<name>.<subdomain>.workers.dev`. Branch builds: `https://<branch>-<name>.<subdomain>.workers.dev`. Matt's subdomain: `editbag`.
+7. Update `homepage_url` in `public/manifest.json`.
 
 Check before pushing: `npx wrangler deploy --dry-run` (validates config), `npx wrangler dev --port 8799` (serves `dist/` like production).
 
