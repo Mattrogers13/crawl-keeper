@@ -2,13 +2,14 @@
 
 Owlbear Rodeo extension built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript 5 + Tailwind 4, hosted on Cloudflare Workers static assets.
 
-## First run after creating a repo from the template
+## First run (this folder was duplicated from the starter for a new extension)
 
-1. `scripts/fetch-sources.sh` (clones the SDK and tutorials into gitignored `sources/`).
-2. Search for `TODO` and placeholders: `ID` in `src/constants.ts`, `name`/`description`/`homepage_url` in `public/manifest.json`, `name` in `package.json` and `wrangler.jsonc`, `<title>` in `index.html`, the art in `art/` + `public/img/`.
-3. Replace the example note (`src/note.ts`, `Panel.tsx`, `NOTE_KEY`) with the real feature.
-4. Cloudflare setup: `docs/obr/deploy.md`.
-5. Rewrite this section as the project's overview.
+1. **Brief.** `BRIEF.md` is the user's questionnaire. A SessionStart hook (`scripts/open-brief.sh`) opens it in their editor while it says `Status: DRAFT`. Don't build features until it says `Status: DONE`. Then read it, follow `docs/obr/capabilities.md` (follow-ups one at a time, then a component/data/scope proposal), and wait for approval.
+2. If `sources/sdk` is missing: `scripts/fetch-sources.sh`.
+3. Replace placeholders: `ID` in `src/constants.ts`, `name`/`description`/`homepage_url` in `public/manifest.json`, `name` in `package.json` and `wrangler.jsonc`, `<title>` in `index.html`, the art in `art/` + `public/img/`.
+4. Replace the example note (`src/note.ts`, `Panel.tsx`, `NOTE_KEY`) with the real feature.
+5. Cloudflare setup when ready to deploy: `docs/obr/deploy.md`.
+6. Rewrite this section as the project's overview (keep `BRIEF.md` as the record of the original ask; set its hook aside by leaving it DONE).
 
 ## Commands
 
@@ -47,6 +48,7 @@ Node 24 (`.node-version`; fnm auto-switches). Non-interactive shells: `eval "$(f
 
 ## Reference
 
+- `docs/obr/capabilities.md`: brief answers → SDK APIs, starter patterns, what's unverified.
 - `docs/obr/gotchas.md`: everything learned the hard way, marked verified/unverified.
 - `docs/obr/patterns.md`: background page, context menu, attachments, broadcast, per-player data, What's New.
 - `docs/obr/room-sync.md`: multi-writer sync lessons.
