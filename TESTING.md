@@ -79,3 +79,25 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 | 24 | GM: gold dots | A small gold dot on the portraits of tokens that get the turn marker; it moves when you turn the marker on/off in the row menu; players see no dots | Pass 2026-10-16 |
 | 25 | GM: gear | Each setting has a one-line plain description | Pass 2026-10-16 |
 | 26 | GM: select rows, then click anywhere in the panel outside the token rows | The dashed outlines clear | |
+
+## PR 4: encounter checks and the Crawling Clock (v0.1, 2026-10-16)
+
+Reload the room after a Dev rebuild (the background page loads once per room).
+
+| # | Steps | Expect | Result |
+|---|---|---|---|
+| 1 | GM, Crawl: look under GM / Monsters | "Encounter checks" card with Unsafe / Risky / Deadly and "In darkness"; "Next check in 3 crawl rounds." Players see no card | |
+| 2 | GM: ▶ through 3 crawl rounds (Unsafe) | On the GM turn of round 3 the card lights up: "A check is due"; "Roll check (d6)" | |
+| 3 | GM: Roll check; then Undo | Result line ("Rolled 4: no encounter." / "Rolled 1: encounter!" in red); Undo puts it back | |
+| 4 | GM: Risky, then Deadly, then In darkness | Checks every 2 crawl rounds, every round, every round | |
+| 5 | GM: Combat for a few rounds, then Crawl | Card hidden in combat; combat rounds don't count toward the next check | |
+| 6 | GM: "Check now (loud noise)" when no check is due | An extra check rolls | |
+| 7 | GM: gear → Crawling Clock | Card shows "Crawling Clock 20 / 20"; players see "Clock 20" in their header | |
+| 8 | GM: ▶ to the GM turn; Roll d6 | The clock drops; a 6 rolls again and adds (e.g. "6 + 2 = 8"); "Roll d6 again (loud noise)" after | |
+| 9 | GM: In darkness; roll | The die is a d8 | |
+| 10 | GM: get the clock to 5 or lower | Amber omen line; "Roll the encounter now" starts a fresh clock at 20 | |
+| 11 | GM: roll past 0 (e.g. clock 3, roll 5) | "the clock hits 0. Encounter! Next clock: 18." | |
+| 12 | GM: New clock | Back to 20 | |
+| 13 | GM: gear → Hide the clock from players | Player's "Clock" disappears | |
+| 14 | Switch to another map and back | Each map keeps its own clock, danger level and darkness | |
+| 15 | Reset rounds | The crawl round count starts over too (next check in 3 again when Unsafe) | |

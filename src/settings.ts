@@ -1,7 +1,13 @@
 // GM settings, one room metadata key (they follow the party across maps).
 // Later PRs add fields; parse keeps unknown or malformed fields at defaults.
 
+import type { EncounterMode } from "./crawl";
+
 export type Settings = {
+  // Standard 1-in-6 checks, or the Crawling Clock instead.
+  encounterMode: EncounterMode;
+  // Players don't see the Crawling Clock.
+  hideClock: boolean;
   // Hide the round counts from players.
   hideRound: boolean;
   // Switching to combat clears the rolls for the combat roll.
@@ -14,6 +20,8 @@ export type Settings = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
+  encounterMode: "standard",
+  hideClock: false,
   hideRound: false,
   clearRollsOnCombat: true,
   showMarker: true,
@@ -23,6 +31,8 @@ export const DEFAULT_SETTINGS: Settings = {
 export const parseSettings = (raw: unknown): Settings => {
   const r = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
   return {
+    encounterMode: r.encounterMode === "clock" ? "clock" : "standard",
+    hideClock: r.hideClock === true,
     hideRound: r.hideRound === true,
     clearRollsOnCombat: r.clearRollsOnCombat !== false,
     showMarker: r.showMarker !== false,

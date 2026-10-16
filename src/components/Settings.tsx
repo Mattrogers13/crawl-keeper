@@ -16,6 +16,37 @@ const Settings = () => {
 
   return (
     <div className="flex flex-col gap-3 text-sm">
+      <fieldset className="flex flex-col gap-1">
+        <legend>Encounter checks</legend>
+        {(
+          [
+            ["standard", "Standard", "A d6 every few crawl rounds by danger level; an encounter on a 1 (core p. 112)."],
+            ["clock", "Crawling Clock", "A clock from 20 that the crawling die wears down each crawl round; an encounter at 0."],
+          ] as const
+        ).map(([mode, label, hint]) => (
+          <label key={mode} className="flex items-start gap-2">
+            <input
+              type="radio"
+              name="encounter-mode"
+              className="mt-0.5"
+              checked={settings.value.encounterMode === mode}
+              onChange={() => set({ encounterMode: mode })}
+            />
+            <span className="flex flex-col">
+              {label}
+              <span className="text-xs text-obr-text-secondary">{hint}</span>
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      {settings.value.encounterMode === "clock" && (
+        <Check
+          label="Hide the clock from players"
+          hint="Players don't see the Crawling Clock, so they can't play around it."
+          checked={settings.value.hideClock}
+          onChange={(hideClock) => set({ hideClock })}
+        />
+      )}
       <Check
         label="Hide rounds from players"
         hint="Players see Crawl or Combat but not the round number."

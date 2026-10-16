@@ -28,6 +28,7 @@ import {
   type Tracker,
 } from "./tracker";
 import { DEFAULT_SETTINGS, parseSettings } from "./settings";
+import { emptyCrawl } from "./crawl";
 
 // Ids starting with "m" are monsters (they take no roll).
 const tracker = (rolls: Record<string, number | null>, current: string | null = null, round = 0, dead: string[] = []): Tracker => ({
@@ -38,6 +39,7 @@ const tracker = (rolls: Record<string, number | null>, current: string | null = 
   phase: "crawl",
   current,
   round,
+  crawl: emptyCrawl(),
 });
 const ids = (t: { id: string }[]) => t.map((e) => e.id);
 
@@ -148,6 +150,18 @@ describe("crawl and combat", () => {
     t = toCrawl(t);
     expect(t).toMatchObject({ phase: "crawl", current: null, round: 4 });
     expect(next(t)).toMatchObject({ current: "a", round: 5 });
+  });
+
+  it("crawl rounds count toward encounter checks; combat rounds don't", () => {
+    let t = next(next(next(tracker({ a: 1, gm: 2 }))));
+    expect([t.round, t.crawl.crawlRounds]).toEqual([2, 2]);
+    t = next(next(toCombat(t, false)));
+    expect([t.round, t.crawl.crawlRounds]).toEqual([3, 2]);
+    t = next(toCrawl(t));
+    expect([t.round, t.crawl.crawlRounds]).toEqual([4, 3]);
+    expect(previous(next(t))).toMatchObject({ round: 4 });
+    expect(previous(t).crawl.crawlRounds).toBe(2);
+    expect(resetRounds(t).crawl.crawlRounds).toBe(0);
   });
 
   it("keeps the rolls unless told to clear them", () => {
@@ -395,7 +409,8 @@ describe("toggle (right-click)", () => {
 });
 
 describe("size", () => {
-  // About 12 kB passed in a real room (PR 1).
+  // About 12 kB passed in a real room (PR 1); this worst case, with a full
+  // crawl (10 exploded dice and an undo), is about 12.4 kB.
   it("a full tracker in combat stays under 12.5 kB", () => {
     const id = (i: number) => `${"x".repeat(30)}-${i}`; // Owlbear ids are shorter
     const full = parseTracker({
@@ -409,7 +424,17 @@ describe("size", () => {
       phase: "combat",
       current: id(0),
       round: 9999,
+      crawl: {
+        danger: "deadly",
+        dark: true,
+        clock: 20,
+        crawlRounds: 9999,
+        lastCheck: 9999,
+        last: { kind: "clock", dice: Array(10).fill(8), sides: 8, before: 20, after: 20, encounter: true },
+        undo: { danger: "deadly", dark: true, clock: 20, crawlRounds: 9999, lastCheck: 9999 },
+      },
     });
+    expect(full.crawl.last?.dice).toHaveLength(10);
     expect(new Blob([JSON.stringify(full)]).size).toBeLessThan(12_500);
   });
 });
@@ -417,8 +442,15 @@ describe("size", () => {
 describe("parseSettings", () => {
   it("defaults anything malformed", () => {
     expect(parseSettings(undefined)).toEqual(DEFAULT_SETTINGS);
-    expect(DEFAULT_SETTINGS).toEqual({ hideRound: false, clearRollsOnCombat: true, showMarker: true, selectOnTurn: true });
-    const off = { hideRound: true, clearRollsOnCombat: false, showMarker: false, selectOnTurn: false };
+    expect(DEFAULT_SETTINGS).toEqual({
+      encounterMode: "standard",
+      hideClock: false,
+      hideRound: false,
+      clearRollsOnCombat: true,
+      showMarker: true,
+      selectOnTurn: true,
+    });
+    const off = { encounterMode: "clock", hideClock: true, hideRound: true, clearRollsOnCombat: false, showMarker: false, selectOnTurn: false };
     expect(parseSettings(off)).toEqual(off);
     // Rooms saved while Table order existed keep working.
     expect(parseSettings({ orderMode: "table", hideRound: "yes", clearRollsOnCombat: "no", showMarker: 0 })).toEqual(DEFAULT_SETTINGS);

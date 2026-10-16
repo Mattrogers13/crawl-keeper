@@ -22,6 +22,7 @@ import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifi
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+import CrawlCard from "./CrawlCard";
 import Loading from "./Loading";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
@@ -52,6 +53,7 @@ import {
   sortByRoll,
   toCombat,
   toCrawl,
+  updateCrawl,
   type Entry,
   type Tracker as TrackerDoc,
 } from "../tracker";
@@ -142,6 +144,8 @@ const Tracker = ({ role }: { role: Role }) => {
   const roundLabel =
     round === 0 ? (gm ? "Press ▶ to begin" : "") : gm || !settings.value.hideRound ? `Round ${round}` : "";
   const combat = tracker.phase === "combat";
+  // Players see the Crawling Clock unless the GM hides it; the GM sees it on the card.
+  const showClock = !gm && settings.value.encounterMode === "clock" && !settings.value.hideClock;
   const drop = ({ active, over }: DragEndEvent) => {
     if (over) change((t) => moveTo(t, String(active.id), String(over.id)));
   };
@@ -180,6 +184,11 @@ const Tracker = ({ role }: { role: Role }) => {
           <h2 className={`font-semibold ${combat ? "text-red-500" : ""}`}>{combat ? "Combat" : "Crawl"}</h2>
         )}
         {roundLabel && <span className="text-sm text-obr-text-secondary">{roundLabel}</span>}
+        {showClock && (
+          <span className="text-sm text-obr-text-secondary" title="Crawling Clock">
+            Clock <span className="font-semibold text-obr-text tabular-nums">{tracker.crawl.clock}</span>
+          </span>
+        )}
         {gm && (
           <div className="ml-auto flex gap-1">
             <Button label="Previous turn" disabled={tracker.current === null} onClick={() => change(previous)}>
@@ -225,7 +234,23 @@ const Tracker = ({ role }: { role: Role }) => {
           <SortableContext items={top.map((e) => e.id)} strategy={verticalListSortingStrategy}>
             <ol className="flex flex-col gap-1">
               {top.map((entry) => (
-                <Row key={entry.id} entry={entry} token={tokenFor(entry)} current={entry.id === current} selected={selection.ids.includes(entry.id)} {...rowProps}>
+                <Row
+                  key={entry.id}
+                  entry={entry}
+                  token={tokenFor(entry)}
+                  current={entry.id === current}
+                  selected={selection.ids.includes(entry.id)}
+                  bracket={entry.id === GM_ENTRY && monsters.length > 0}
+                  {...rowProps}
+                >
+                  {entry.id === GM_ENTRY && gm && !combat && (
+                    <CrawlCard
+                      crawl={tracker.crawl}
+                      mode={settings.value.encounterMode}
+                      gmTurn={tracker.current === GM_ENTRY}
+                      change={(fn) => change((t) => updateCrawl(t, fn))}
+                    />
+                  )}
                   {entry.id === GM_ENTRY && monsters.length > 0 && (
                     <SortableContext items={monsters.map((e) => e.id)} strategy={verticalListSortingStrategy}>
                       <ol aria-label="Monsters" className="mt-1 flex flex-col gap-1">
@@ -393,8 +418,10 @@ const Row = (props: {
   openMenu: (id: string, x: number, y: number) => void;
   select: (id: string, mods: { shift: boolean; toggle: boolean }) => void;
   selected: boolean;
-  // The GM row's monsters, listed under it.
+  // The GM row's crawl card and monsters, listed under it.
   children?: ReactNode;
+  // The GM row with monsters: a red edge marks the group.
+  bracket?: boolean;
 }) => {
   const { entry, token, gm, change } = props;
   const name = token ? token.name : "GM / Monsters";
@@ -407,7 +434,7 @@ const Row = (props: {
       aria-current={props.current ? "step" : undefined}
       // The GM row and its monsters share a red edge instead of an indent
       // (an indent squeezes the monsters' notes).
-      className={`${sortable.isDragging ? "relative z-10 shadow-lg" : ""} ${props.children ? "rounded border-l-4 border-red-700/70" : ""}`}
+      className={`${sortable.isDragging ? "relative z-10 shadow-lg" : ""} ${props.bracket ? "rounded border-l-4 border-red-700/70" : ""}`}
     >
       <div
         className={`flex items-start gap-2 rounded p-1.5 ${props.current ? "bg-obr-primary/20 ring-1 ring-obr-primary" : "bg-obr-bg"} ${

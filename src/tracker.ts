@@ -8,6 +8,8 @@
 // row, one each, in their list order; while crawling the GM turn covers them.
 // Dead entries stay listed but get no turns.
 //
+import { crawlRoundStarted, crawlRoundUndone, emptyCrawl, parseCrawl, resetCrawlRounds, type Crawl } from "./crawl";
+
 // Shadowdark is always in turn order (core p. 82). The tracker is in one of
 // two phases: crawl or combat. A round is a round (p. 82: "a round completes
 // when each person has taken one turn"), so one count runs through both;
@@ -44,6 +46,8 @@ export type Tracker = {
   current: string | null;
   // Rounds so far, crawl and combat alike (0 before the first).
   round: number;
+  // This map's encounter checks / Crawling Clock (crawl.ts).
+  crawl: Crawl;
 };
 
 export const emptyTracker = (): Tracker => ({
@@ -51,6 +55,7 @@ export const emptyTracker = (): Tracker => ({
   phase: "crawl",
   current: null,
   round: 0,
+  crawl: emptyCrawl(),
 });
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
@@ -94,6 +99,7 @@ export const parseTracker = (raw: unknown): Tracker => {
     phase,
     current: null,
     round: parseCount(raw.round),
+    crawl: parseCrawl(raw.crawl),
   };
   // A turn only exists inside a round, and only for a living entry.
   const current = typeof raw.current === "string" && entries.some((e) => e.id === raw.current && !e.dead) ? raw.current : null;
@@ -141,21 +147,30 @@ export const turnOrder = (t: Tracker): Entry[] => {
 
 // ▶: the next living entry's turn. Between rounds, or after the last turn,
 // a new round of the current phase starts at the top.
+// A new crawl round counts toward encounter checks; a combat round doesn't.
 export const next = (t: Tracker): Tracker => {
   const order = turnOrder(t);
   const i = t.current === null ? -1 : order.findIndex((e) => e.id === t.current);
-  if (i === -1 || i === order.length - 1) return { ...t, round: t.round + 1, current: order[0].id };
-  return { ...t, current: order[i + 1].id };
+  if (i !== -1 && i !== order.length - 1) return { ...t, current: order[i + 1].id };
+  const crawl = t.phase === "crawl" ? crawlRoundStarted(t.crawl) : t.crawl;
+  return { ...t, round: t.round + 1, current: order[0].id, crawl };
 };
 
-// ◀: back one turn, across rounds, but not before this phase's first turn.
+// ◀: back one turn, across rounds, but not before round 1.
 export const previous = (t: Tracker): Tracker => {
   if (t.current === null) return t;
   const order = turnOrder(t);
   const i = order.findIndex((e) => e.id === t.current);
   if (i > 0) return { ...t, current: order[i - 1].id };
   if (t.round <= 1) return t;
-  return { ...t, round: t.round - 1, current: order[order.length - 1].id };
+  const crawl = t.phase === "crawl" ? crawlRoundUndone(t.crawl) : t.crawl;
+  return { ...t, round: t.round - 1, current: order[order.length - 1].id, crawl };
+};
+
+// A change to this map's crawl (crawl.ts); the same object when nothing changed.
+export const updateCrawl = (t: Tracker, fn: (c: Crawl) => Crawl): Tracker => {
+  const crawl = fn(t.crawl);
+  return crawl === t.crawl ? t : { ...t, crawl };
 };
 
 // Combat starts with the next round (the count carries on).
@@ -173,8 +188,10 @@ export const toCombat = (t: Tracker, clearRolls: boolean): Tracker => {
 };
 
 // The round count back to 0 and no one's turn; order, rolls and phase stay.
-export const resetRounds = (t: Tracker): Tracker =>
-  t.round === 0 && t.current === null ? t : { ...t, current: null, round: 0 };
+export const resetRounds = (t: Tracker): Tracker => {
+  const crawl = resetCrawlRounds(t.crawl);
+  return t.round === 0 && t.current === null && crawl === t.crawl ? t : { ...t, current: null, round: 0, crawl };
+};
 
 // What a player sees: hidden tokens drop out, and on a hidden token's turn
 // the GM row shows as current.
