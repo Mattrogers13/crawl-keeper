@@ -4,28 +4,28 @@ Fill this in before building. Tick boxes with `[x]`, write short answers after t
 
 When you're done, change the next line to `Status: DONE` and tell Claude to read the brief.
 
-Status: DRAFT
+Status: DONE
 
 ---
 
 ## 1. The pitch
 
 - Name → 
-- One sentence: what does it do? → 
-- What problem at the table does it solve? → 
+- One sentence: what does it do? → It is a shadowdark crawling companion. It will contain an initiative tracker, rules for a crawling clock, and a cralwer round tracker, as. well as a randme encouter roller. examples of these will be supplied before buildig anything. 
+- What problem at the table does it solve? → assists the GM in running roounds in Shadowdark by keeping track of certian elements.
 - Game system (or "any") → 
 - Who uses it?
   - [ ] GM only
   - [ ] Players only
   - [ ] Both, same view
-  - [ ] Both, different views
+  - [x] Both, different views
 
 ## 2. Where it shows up in Owlbear (tick all that apply)
 
 - [ ] A toolbar button that opens a panel
 - [ ] A number or badge on that toolbar button (e.g. "3 active") → what would it show? 
 - [ ] Right-click on tokens or other things on the map → which things? 
-- [ ] A new tool on the left toolbar, with its own modes (like drawing or measuring) → what does clicking/dragging on the map do? 
+- [x] A new tool on the left toolbar, with its own modes (like drawing or measuring) → what does clicking/dragging on the map do? 
 - [ ] A large window over the map
 - [ ] Things drawn on the map itself (see section 3)
 - [ ] Nothing visible: it just runs in the background
@@ -33,7 +33,7 @@ Status: DRAFT
 
 ## 3. What it does to the map (tick all that apply)
 
-- [ ] Reads tokens (names, positions, who owns them)
+- [x] Reads tokens (names, positions, who owns them)
 - [ ] Changes tokens → what? (name, size, image, position, visibility, other) 
 - [ ] Uses whatever is currently selected
 - [ ] Adds things to the map:
@@ -49,16 +49,16 @@ Status: DRAFT
 
 ## 4. Who sees and changes what
 
-- [ ] GM-only information
-- [ ] Players can see it
+- [x] GM-only information
+- [x] Players can see it
 - [ ] Players can change it → what exactly? 
 - [ ] Each player has their own private-ish data
-- [ ] Some of it must stay hidden from players → what? 
+- [x] Some of it must stay hidden from players → what? 
   - ⚠️ Anything shared through Owlbear is readable by every player's browser. Real secrets need a server. Describe it anyway; Claude will suggest options.
 - [ ] Players can only affect their own tokens
 
 ## 5. Where the data lives (tick all that apply)
-
+not sure on this. Will need to discuss with claude.
 - [ ] Belongs to the room (everyone in the room shares it)
 - [ ] Belongs to the current map/scene (switching maps switches the data)
 - [ ] Belongs to individual tokens (travels with the token)
@@ -70,7 +70,7 @@ Status: DRAFT
 
 ## 6. Timing
 
-- [ ] Everyone should see changes instantly
+- [x] Everyone should see changes instantly
 - [ ] One-off alerts or pings (e.g. "the torch went out!")
 - [ ] Timers or countdowns
 - [ ] Must keep working when the panel is closed
@@ -78,7 +78,7 @@ Status: DRAFT
 
 ## 7. Outside connections
 
-- [ ] Works with another Owlbear extension → which? 
+- [ ] Works with another Owlbear extension → which?
 - [ ] Import or export (files, copy/paste) → what format? 
 - [ ] Lets people pick images from their Owlbear uploads
 - [ ] Calls an outside website or API → which? 
@@ -86,7 +86,7 @@ Status: DRAFT
 
 ## 8. Look and feel
 
-- [ ] Match Owlbear's own look (default)
+- [x] Match Owlbear's own look (default)
 - [ ] Custom look → describe or point to references: 
 - Icon idea → 
 - Reference art, screenshots or similar extensions (drop files in `sources/`) → 
@@ -99,5 +99,6 @@ Status: DRAFT
   3. 
 - Nice later → 
 - Deliberately NOT doing → 
-- Rules or reference material (put PDFs/notes in `sources/`, never committed) → 
+- Rules or reference material (put PDFs/notes in `sources/`, never committed) → I have examples and infomration that I will need to submit. 
+
 - Anything else Claude should know → 

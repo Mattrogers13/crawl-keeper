@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   // TODO: set to the extension's worker name (becomes <name>.<subdomain>.workers.dev).
-  "name": "my-obr-extension",
+  "name": "crawl-keeper",
   "compatibility_date": "2026-10-15",
   // Explicit so we don't depend on defaults: workers.dev serves production,
   // preview URLs serve PR builds.

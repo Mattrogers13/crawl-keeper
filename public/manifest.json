@@ -1,13 +1,13 @@
 {
-  "name": "My OBR Extension",
+  "name": "Crawl Keeper",
   "version": "0.1.0",
   "manifest_version": 1,
   "icon": "/img/logo.png",
   "author": "Matthew Rogers",
-  "homepage_url": "https://github.com/Mattrogers13/my-obr-extension",
-  "description": "TODO: one line, 128 characters max.",
+  "homepage_url": "https://github.com/Mattrogers13/crawl-keeper",
+  "description": "Initiative, crawl rounds and the crawling clock for old-school dungeon crawls. GM runs it; players follow along.",
   "action": {
-    "title": "My OBR Extension",
+    "title": "Crawl Keeper",
     "icon": "/img/action.svg",
     "popover": "/",
     "height": 500,

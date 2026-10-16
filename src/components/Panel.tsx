@@ -14,7 +14,7 @@ const Panel = ({ role }: { role: Role }) => {
 
   return (
     <div className="flex min-h-screen flex-col gap-3 p-4">
-      <h1 className="text-lg font-semibold">My OBR Extension</h1>
+      <h1 className="text-lg font-semibold">Crawl Keeper</h1>
       {!note.loaded ? (
         <Loading />
       ) : role === "GM" ? (
