@@ -1,6 +1,6 @@
 # Real-room testing
 
-Automated tests run against an in-memory SDK; these checks need real Owlbear. One room, GM in one browser, player in a private window. Until Cloudflare is set up, test locally: `npm run dev`, then in Owlbear add `http://localhost:5173/manifest.json` (Extensions → Add custom extension).
+Automated tests run against an in-memory SDK; these checks need real Owlbear. One room, GM in one browser, player in a private window. Install the dev build: `https://dev-crawl-keeper.editbag.workers.dev/manifest.json` (or locally: `npm run dev`, then `http://localhost:5173/manifest.json`).
 
 ## PR 1: tracker core (v0.1, 2026-10-15)
 
