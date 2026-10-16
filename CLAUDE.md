@@ -68,10 +68,14 @@ Node 24 (`.node-version`; fnm auto-switches). Non-interactive shells: `eval "$(f
 ## Workflow
 
 - Branch + PR per change; squash-merge after CI and Workers Builds pass. Features needing an Owlbear test stay open until a manual pass (GM + player in a private window).
+- Merge only on Matt's explicit "merge"; a passed room test alone isn't the go-ahead.
 - Before asking Matt to test: confirm the Dev bundle has the commit (command above), and remind him to reload the Owlbear room (the background page loads once per room).
 - No prettier/formatter in this repo: don't run one (it rewrites whole files); match the surrounding style by hand.
 - Rules questions: quote the book. `pdftotext -layout "sources/Shadowdark RPG - V4-8.pdf" <scratch>/sd.txt` then grep; the clock rules are `sources/CrawlingClock_Rules.jpeg`. Cite page numbers.
 - Review in Owlbear via the `dev` branch install, not per-PR previews (`docs/obr/deploy.md`).
+- Updating `dev` without force-push (blocked in auto mode): `git checkout dev && git merge --no-edit <branch>`; on conflicts, check `git diff --quiet HEAD origin/main` (dev's files = main's), then `git checkout <branch> -- . && git commit --no-edit`.
+- See a panel component without Owlbear: render it in a throwaway vitest file, write `container.innerHTML` to scratch, wrap it with `dist/assets/*.css` (after `npm run build`), screenshot with headless Chrome (dark: `class="dark"`; light: override the `--obr-*` vars). The homepage: `npx vite preview` + screenshot.
+- Rules text shown in the app (book or Crawling Clock sheet): our own words plus credit (`src/components/ClockRules.tsx`), never the source text.
 - Versions: semver, same value in `package.json` and `public/manifest.json` (a test enforces it).
 - A regression test must fail on the old code (`docs/obr/testing.md`).
 - No analytics or third-party requests without asking.
