@@ -53,8 +53,8 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 
 | # | Steps | Expect | Result |
 |---|---|---|---|
-| 1 | GM: right-click two tokens → "Add / Remove Initiative" (the only item); press the claw button on each row | They move under GM / Monsters with a red edge, not indented, no roll box; notes full width; player sees them (unless hidden) | |
-| 2 | GM: press the claw on one of them again | It goes back to a player row with a roll box | |
+| 1 | GM: right-click two tokens on the map → "Add / Remove Initiative" (the only item); in the tracker right-click each row → Mark as monster | They move under GM / Monsters with a red edge, not indented, no roll box; notes full width; player sees them (unless hidden) | |
+| 2 | GM: row menu on one of them → Mark as player or ally; then the ⋯ button on a row (and on the iPad) | It goes back to a player row with a roll box; ⋯ opens the same menu (Mark dead / alive, Show on map, Remove too); Escape or a click elsewhere closes it | |
 | 3 | GM: drag monsters within the group; drag the GM row among players | Monsters reorder in the group only and travel with the GM row; Sort leaves the monsters' order alone | |
 | 4 | GM: Crawl, ▶ through a round | GM / Monsters, then the next player: monsters get no turns of their own | |
 | 5 | GM: Combat, ▶ through a round | GM / Monsters, then each living monster in order, then the next player; dead monsters skipped | |
@@ -72,6 +72,6 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 | 17 | Drag the grip at the bottom down, close and reopen the panel | Panel grows and keeps its height (player: same, their own) | |
 | 18 | GM: gear → Saved data | Shows tracker, whole map and room sizes | |
 | 19 | GM: in Combat, look for "Remove monsters"; switch to Crawl; Remove monsters → Cancel; then → Remove | Not offered in Combat; Cancel keeps them; Remove clears every monster, players and GM row stay | |
-| 20 | GM: right-click a token's row in the tracker; then tap a portrait | A cyan dashed ring flashes on that token for a few seconds and it's selected. Player sees no ring | |
+| 20 | GM: row menu → Show on map; then tap a portrait | The token is selected on the GM's screen (no extra ring); players see nothing | |
 | 21 | GM: ▶ through a crawl round into Combat and on, then back to Crawl | The round count keeps going (no restart in combat) | |
-| 22 | GM: ring on a player's turn; gear → turn marker off | Ring disappears at once. If not: any "Couldn't move the turn marker" warning? Record it here | |
+| 22 | GM: ring on a player's turn; gear → turn marker off | Ring disappears at once. If not: any "Couldn't move the turn marker" warning? Record it here | Pass 2026-10-16 |

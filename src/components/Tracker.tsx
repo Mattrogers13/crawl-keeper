@@ -1,5 +1,14 @@
-import { useState, type ChangeEvent, type KeyboardEvent, type ReactNode } from "react";
-import type { Item } from "@owlbear-rodeo/sdk";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
+import OBR, { type Item } from "@owlbear-rodeo/sdk";
 import {
   DndContext,
   KeyboardSensor,
@@ -18,7 +27,7 @@ import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
-import { afterTurnChange, locate } from "../marker";
+import { afterTurnChange } from "../marker";
 import { parseSettings } from "../settings";
 import { errorMessage, notify } from "../utils";
 import {
@@ -68,6 +77,8 @@ const Tracker = ({ role }: { role: Role }) => {
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+  // The GM's row menu (right-click or ⋯): which row, and where.
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
 
   if (!settings.loaded || !doc.loaded || items === null) return <Loading />;
 
@@ -92,12 +103,12 @@ const Tracker = ({ role }: { role: Role }) => {
   const top = shown.filter((e) => !e.monster);
   const monsters = shown.filter((e) => e.monster);
   const tokenFor = (e: Entry) => (e.id === GM_ENTRY ? null : tokenInfo(byId.get(e.id)));
-  // GM only: flash a ring only the GM sees on the token and select it.
-  const show = (id: string) => {
-    const item = byId.get(id);
-    if (item) locate(item).catch((err) => notify(`Couldn't show the token: ${errorMessage(err)}`, "WARNING"));
-  };
-  const rowProps = { gm, change, show };
+  // GM only: select the token on the map (Owlbear's own highlight).
+  const show = (id: string) =>
+    OBR.player.select([id], true).catch((err) => notify(`Couldn't select the token: ${errorMessage(err)}`, "WARNING"));
+  const openMenu = (id: string, x: number, y: number) => setMenu({ id, x, y });
+  const rowProps = { gm, change, show, openMenu };
+  const menuEntry = menu && tracker.entries.find((e) => e.id === menu.id);
   const round = tracker.round;
   const roundLabel =
     round === 0 ? (gm ? "Press ▶ to begin" : "") : gm || !settings.value.hideRound ? `Round ${round}` : "";
@@ -194,10 +205,96 @@ const Tracker = ({ role }: { role: Role }) => {
         </DndContext>
         {gm && tracker.entries.length === 1 && (
           <p className="text-sm text-obr-text-secondary">
-            Right-click a token: “Add / Remove Initiative” for players, “Add / Remove Monster” for monsters.
+            Right-click a token on the map: “Add / Remove Initiative”. Right-click a row here to mark monsters.
           </p>
         )}
       </div>
+      {menu && menuEntry && (
+        <RowMenu
+          entry={menuEntry}
+          name={tokenInfo(byId.get(menuEntry.id)).name}
+          x={menu.x}
+          y={menu.y}
+          close={() => setMenu(null)}
+          change={change}
+          show={show}
+        />
+      )}
+    </div>
+  );
+};
+
+// The GM's actions for one token row. Opened by right-clicking the row or
+// its ⋯ button (touch has no right-click). Closes on a choice, Escape, or a
+// click elsewhere.
+const RowMenu = (props: {
+  entry: Entry;
+  name: string;
+  x: number;
+  y: number;
+  close: () => void;
+  change: (fn: (t: TrackerDoc) => TrackerDoc) => void;
+  show: (id: string) => void;
+}) => {
+  const { entry, close, change } = props;
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ left: props.x, top: props.y });
+
+  // Keep it inside the panel; focus the first item.
+  useLayoutEffect(() => {
+    const box = ref.current!.getBoundingClientRect();
+    setPos({
+      left: Math.max(4, Math.min(props.x, window.innerWidth - box.width - 4)),
+      top: Math.max(4, Math.min(props.y, window.innerHeight - box.height - 4)),
+    });
+    ref.current!.querySelector<HTMLElement>("[role=menuitem]")?.focus();
+  }, [props.x, props.y]);
+
+  useEffect(() => {
+    const outside = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && close();
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [close]);
+
+  const items: [string, () => void][] = [
+    [entry.monster ? "Mark as player or ally" : "Mark as monster", () => change((t) => setMonster(t, entry.id, !entry.monster))],
+    [entry.dead ? "Mark alive" : "Mark dead", () => change((t) => setDead(t, entry.id, !entry.dead))],
+    ["Show on map", () => props.show(entry.id)],
+    ["Remove from initiative", () => change((t) => remove(t, [entry.id]))],
+  ];
+  // Up / Down move between items.
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape") return close();
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const all = [...ref.current!.querySelectorAll<HTMLElement>("[role=menuitem]")];
+    const i = all.indexOf(document.activeElement as HTMLElement);
+    all[(i + (e.key === "ArrowDown" ? 1 : all.length - 1)) % all.length]?.focus();
+  };
+
+  return (
+    <div
+      ref={ref}
+      role="menu"
+      aria-label={props.name}
+      style={pos}
+      className="fixed z-50 flex min-w-44 flex-col rounded border border-obr-text-disabled bg-obr-paper py-1 text-sm shadow-lg"
+      onKeyDown={onKeyDown}
+    >
+      {items.map(([label, run]) => (
+        <button
+          key={label}
+          type="button"
+          role="menuitem"
+          className="px-3 py-1 text-left hover:bg-obr-bg focus:bg-obr-bg focus:outline-none"
+          onClick={() => {
+            run();
+            close();
+          }}
+        >
+          {label}
+        </button>
+      ))}
     </div>
   );
 };
@@ -238,6 +335,7 @@ const Row = (props: {
   gm: boolean;
   change: (fn: (t: TrackerDoc) => TrackerDoc) => void;
   show: (id: string) => void;
+  openMenu: (id: string, x: number, y: number) => void;
   // The GM row's monsters, listed under it.
   children?: ReactNode;
 }) => {
@@ -258,12 +356,12 @@ const Row = (props: {
         className={`flex items-start gap-2 rounded p-1.5 ${props.current ? "bg-obr-primary/20 ring-1 ring-obr-primary" : "bg-obr-bg"} ${
           token && !token.visible ? "opacity-60" : ""
         }`}
-        // GM: right-click a token's row to find it on the map.
+        // GM: right-click a token's row for its menu.
         onContextMenu={
           gm && token
             ? (e) => {
                 e.preventDefault();
-                props.show(entry.id);
+                props.openMenu(entry.id, e.clientX, e.clientY);
               }
             : undefined
         }
@@ -282,7 +380,6 @@ const Row = (props: {
           </button>
         )}
         {gm && token ? (
-          // Touch has no right-click: tapping the portrait does the same.
           <button type="button" aria-label={`Show ${name} on the map`} title="Show on the map" onClick={() => props.show(entry.id)}>
             <Portrait token={token} dead={entry.dead} />
           </button>
@@ -308,33 +405,19 @@ const Row = (props: {
             ) : (
               <RollInput key={entry.roll ?? ""} name={name} value={entry.roll} save={(r) => change((t) => setRoll(t, entry.id, r))} />
             )}
-            {/* The GM row has none of these buttons: same-width gaps keep the roll boxes lined up. */}
+            {/* The row menu (also on right-click). The GM row has none: a gap keeps the roll boxes lined up. */}
             {token ? (
-              <>
-                <RowAction
-                  label={`Monster: ${name}`}
-                  pressed={entry.monster}
-                  onClick={() => change((t) => setMonster(t, entry.id, !entry.monster))}
-                >
-                  <ClawIcon />
-                </RowAction>
-                <RowAction
-                  label={`Dead: ${name}`}
-                  pressed={entry.dead}
-                  onClick={() => change((t) => setDead(t, entry.id, !entry.dead))}
-                >
-                  <SkullIcon className="h-5 w-5" />
-                </RowAction>
-                <RowAction label={`Remove ${name}`} onClick={() => change((t) => remove(t, [entry.id]))}>
-                  <CloseIcon />
-                </RowAction>
-              </>
+              <RowAction
+                label={`Actions for ${name}`}
+                onClick={(e) => {
+                  const box = e.currentTarget.getBoundingClientRect();
+                  props.openMenu(entry.id, box.left, box.bottom);
+                }}
+              >
+                <MoreIcon />
+              </RowAction>
             ) : (
-              <>
-                <span className={ROW_ACTION} aria-hidden />
-                <span className={ROW_ACTION} aria-hidden />
-                <span className={ROW_ACTION} aria-hidden />
-              </>
+              <span className={ROW_ACTION} aria-hidden />
             )}
           </>
         ) : (
@@ -409,7 +492,7 @@ const NoteInput = ({ name, value, save }: { name: string; value: string; save: (
   />
 );
 
-type ButtonProps = { label: string; pressed?: boolean; onClick: () => void; children: ReactNode };
+type ButtonProps = { label: string; pressed?: boolean; onClick: (e: MouseEvent<HTMLButtonElement>) => void; children: ReactNode };
 
 const Button = ({ label, primary, pressed, disabled, onClick, children }: ButtonProps & { primary?: boolean; disabled?: boolean }) => (
   <button
@@ -455,16 +538,12 @@ const SkullIcon = ({ className }: { className: string }) => (
   </svg>
 );
 
-// Three claw marks: a monster (acts in the GM / Monsters turn).
-const ClawIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-    <path d="M6 4c1 5 1 10-1 16M12 3c1 6 1 12-1 18M18 4c1 5 1 10-1 16" />
-  </svg>
-);
-
-const CloseIcon = () => (
-  <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-    <path d="M4 4l8 8M12 4l-8 8" />
+// Three dots: more actions.
+const MoreIcon = () => (
+  <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-hidden>
+    <circle cx="3" cy="8" r="1.5" />
+    <circle cx="8" cy="8" r="1.5" />
+    <circle cx="13" cy="8" r="1.5" />
   </svg>
 );
 

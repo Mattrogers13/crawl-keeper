@@ -9,6 +9,11 @@ import { obr, setItems, setSceneReady, token, writeSceneFromElsewhere } from "..
 
 const saved = () => parseTracker(obr.sceneMetadata[TRACKER_KEY]);
 const rows = () => screen.getAllByRole("listitem");
+// The GM's row menu: right-click the row, then pick an item.
+const pick = async (name: string, item: string) => {
+  fireEvent.contextMenu(await screen.findByText(name));
+  fireEvent.click(within(await screen.findByRole("menu", { name })).getByRole("menuitem", { name: item }));
+};
 // The innermost row: the GM row's item also holds its monsters' rows.
 const rowOf = (name: string) => [...rows()].reverse().find((r) => within(r).queryByText(name))!;
 
@@ -171,39 +176,56 @@ describe("Tracker (GM)", () => {
     }
   });
 
-  it("marks a token as a monster from its row, and back", async () => {
+  it("marks a token as a monster from its row menu, and back", async () => {
     obr.items = [token("a", { name: "Aria" }), token("o", { name: "Ogre" })];
     scene([{ id: "a", roll: 12 }, { id: "o", roll: 7 }, { id: GM_ENTRY }]);
     render(<App />);
-    fireEvent.click(await screen.findByLabelText("Monster: Ogre"));
+    await pick("Ogre", "Mark as monster");
     await waitFor(() => expect(saved().entries.map((e) => [e.id, e.monster, e.roll])).toEqual([
       ["a", false, 12],
       [GM_ENTRY, false, null],
       ["o", true, null],
     ]));
     expect(within(screen.getByRole("list", { name: "Monsters" })).getByText("Ogre")).toBeInTheDocument();
-    expect(screen.getByLabelText("Monster: Ogre")).toHaveAttribute("aria-pressed", "true");
-    expect(screen.queryByLabelText("Monster: GM / Monsters")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("Monster: Ogre"));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    await pick("Ogre", "Mark as player or ally");
     await waitFor(() => expect(saved().entries.find((e) => e.id === "o")?.monster).toBe(false));
   });
 
-  it("shows a token on the map for the GM only: right-click the row or tap the portrait", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+  it("shows a token on the map by selecting it: from the menu or the portrait", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
+    render(<App />);
+    await pick("Aria", "Show on map");
+    await waitFor(() => expect(obr.selection).toEqual(["a"]));
+    fireEvent.click(screen.getByLabelText("Show Borin on the map"));
+    await waitFor(() => expect(obr.selection).toEqual(["b"]));
+  });
+
+  it("the ⋯ button opens the same menu; Escape and clicking away close it; none for the GM row", async () => {
     obr.items = [token("a", { name: "Aria" })];
     scene([{ id: "a" }, { id: GM_ENTRY }]);
     render(<App />);
-    fireEvent.contextMenu(await screen.findByText("Aria"));
-    await waitFor(() => expect(obr.localItems).toHaveLength(1));
-    expect(obr.selection).toEqual(["a"]);
-    expect(obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefined)).toEqual([]);
-    await act(async () => {
-      vi.advanceTimersByTime(3000);
-    });
-    await waitFor(() => expect(obr.localItems).toHaveLength(0));
-    fireEvent.click(screen.getByLabelText("Show Aria on the map"));
-    await waitFor(() => expect(obr.localItems).toHaveLength(1));
-    vi.useRealTimers();
+    fireEvent.click(await screen.findByLabelText("Actions for Aria"));
+    const menu = await screen.findByRole("menu", { name: "Aria" });
+    expect(within(menu).getAllByRole("menuitem").map((b) => b.textContent)).toEqual([
+      "Mark as monster",
+      "Mark dead",
+      "Show on map",
+      "Remove from initiative",
+    ]);
+    expect(within(menu).getByRole("menuitem", { name: "Mark as monster" })).toHaveFocus();
+    fireEvent.keyDown(menu, { key: "ArrowDown" });
+    expect(within(menu).getByRole("menuitem", { name: "Mark dead" })).toHaveFocus();
+    fireEvent.keyDown(menu, { key: "Escape" });
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    fireEvent.contextMenu(screen.getByText("Aria"));
+    await screen.findByRole("menu");
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    fireEvent.contextMenu(screen.getByText("GM / Monsters"));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Actions for GM / Monsters")).not.toBeInTheDocument();
   });
 
   it("removes the monsters after a fight, only when asked and only while crawling", async () => {
@@ -300,23 +322,22 @@ describe("Tracker (GM)", () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }], "a", 1);
     render(<App />);
-    fireEvent.click(await screen.findByLabelText("Dead: Aria"));
+    await pick("Aria", "Mark dead");
     await waitFor(() => expect(saved()).toMatchObject({ current: "b", round: 1 }));
     expect(saved().entries[0].dead).toBe(true);
-    expect(screen.getByLabelText("Dead: Aria")).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByLabelText("Next turn"));
     fireEvent.click(screen.getByLabelText("Next turn"));
     await waitFor(() => expect(saved()).toMatchObject({ current: "b", round: 2 }));
-    expect(screen.queryByLabelText("Dead: GM / Monsters")).not.toBeInTheDocument();
+    await pick("Aria", "Mark alive");
+    await waitFor(() => expect(saved().entries[0].dead).toBe(false));
   });
 
   it("removes a token but never the GM row", async () => {
     obr.items = [token("a", { name: "Aria" })];
     scene([{ id: "a" }, { id: GM_ENTRY }]);
     render(<App />);
-    fireEvent.click(await screen.findByLabelText("Remove Aria"));
+    await pick("Aria", "Remove from initiative");
     await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual([GM_ENTRY]));
-    expect(screen.queryByLabelText("Remove GM / Monsters")).not.toBeInTheDocument();
   });
 
   it("puts the scene's value back and tells the GM when a save fails", async () => {

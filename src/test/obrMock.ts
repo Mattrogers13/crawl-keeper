@@ -64,7 +64,6 @@ const fresh = () => ({
   selection: [] as string[],
   // Ids handed out by buildImage.
   built: 0,
-  localItems: [] as Item[],
 });
 
 export const obr = fresh();
@@ -282,15 +281,6 @@ export const OBR = {
       applySceneWrite(update);
     }),
     onMetadataChange: vi.fn((cb: Listener<Metadata>) => subscribe(obr.sceneMetadataListeners, cb)),
-    // This client's own items (other clients never see them).
-    local: {
-      addItems: vi.fn(async (items: Item[]) => {
-        obr.localItems = [...obr.localItems, ...items];
-      }),
-      deleteItems: vi.fn(async (ids: string[]) => {
-        obr.localItems = obr.localItems.filter((i) => !ids.includes(i.id));
-      }),
-    },
     items: {
       getItems: vi.fn(async (filter?: string[] | ((item: Item) => boolean)) => {
         needScene();

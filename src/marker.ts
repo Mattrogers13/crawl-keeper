@@ -34,9 +34,9 @@ export const planMarker = (markers: MarkerState[], tokenId: string | null, image
 
 const isImage = (item: Item | undefined): item is Image => item?.type === "IMAGE";
 
-// A ring image sized from the token's footprint in grid cells, centred on
-// its position.
-const ring = (token: Image, image: string) => {
+// Sized from the token's footprint in grid cells, centred on its position.
+// It follows the token (attachment): moves, scales, hides and is deleted with it.
+export const buildMarker = (token: Image, image: string) => {
   // Item shapes come from Owlbear and other extensions: a broken size falls
   // back to one cell.
   const raw = (token.image?.width / token.grid?.dpi) * Math.max(Math.abs(token.scale?.x), Math.abs(token.scale?.y));
@@ -45,33 +45,15 @@ const ring = (token: Image, image: string) => {
     { width: MARKER_PX, height: MARKER_PX, mime: "image/webp", url: image },
     { dpi: MARKER_PX / (cells * RING), offset: { x: MARKER_PX / 2, y: MARKER_PX / 2 } },
   )
+    .name("Turn marker (Crawl Keeper)")
     .position(token.position)
+    .attachedTo(token.id)
     .layer("ATTACHMENT")
     .locked(true)
-    .disableHit(true);
-};
-
-// It follows the token (attachment): moves, scales, hides and is deleted with it.
-export const buildMarker = (token: Image, image: string) =>
-  ring(token, image)
-    .name("Turn marker (Crawl Keeper)")
-    .attachedTo(token.id)
+    .disableHit(true)
     .disableAttachmentBehavior(["ROTATION", "COPY"])
     .metadata({ [MARKER_KEY]: true })
     .build();
-
-// "Show on map" (the GM right-clicks a row): a cyan ring only this client
-// sees (a local item), flashed for a moment, and the token selected.
-export const LOCATE_MS = 2500;
-export const locateImage = () => `${window.location.origin}/img/locate-marker.webp`;
-
-export const locate = async (token: Item) => {
-  if (!isImage(token)) return;
-  const flash = ring(token, locateImage()).name("Show on map (Crawl Keeper)").build();
-  await Promise.all([OBR.scene.local.addItems([flash]), OBR.player.select([token.id], true)]);
-  setTimeout(() => {
-    OBR.scene.local.deleteItems([flash.id]).catch((err) => console.warn(`Couldn't clear the highlight: ${errorMessage(err)}`));
-  }, LOCATE_MS);
 };
 
 // Pure: the token whose turn it is, if it gets the marker and selection.

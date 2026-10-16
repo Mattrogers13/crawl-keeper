@@ -23,13 +23,13 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 
 ## Tracker
 
-- Entries: tokens added via one right-click item, "Add / Remove Initiative" (background page context menu), as players and allies; the GM marks a row as a monster with its claw button (and back). Plus the built-in **GM / Monsters** row (can't be removed). Monsters roll once as a group: the GM rolls d20 + the highest monster DEX mod into the GM / Monsters row (core pp. 82, 88).
+- Entries: tokens added via one right-click item, "Add / Remove Initiative" (background page context menu), as players and allies; the GM marks a row as a monster from its row menu (and back). Plus the built-in **GM / Monsters** row (can't be removed). Monsters roll once as a group: the GM rolls d20 + the highest monster DEX mod into the GM / Monsters row (core pp. 82, 88).
 - **Monsters** are listed under the GM / Monsters row (a red edge marks the group; no indent, so their notes keep their width) and have no roll box. In combat each living monster takes a turn right after that row, in list order (the GM drags to set it). While crawling the GM turn covers them: no turns of their own. Players see the visible ones. Replaces the earlier idea of hiding the GM row (decided 2026-10-16).
 - **Order:** the list is the turn order. Sort puts the highest roll first (unrolled last); ties: GM moves rows.
 - Moving rows: the GM drags a row by its grip (≡; mouse, touch, or keyboard: focus the grip, Space, arrows, Space). Players can't.
-- **Dead:** GM toggles ☠ on a token row (not the GM row). Dead rows keep their seat, show a skull badge on the portrait for everyone, and get no turns; killing the current entry passes the turn on.
+- **Dead:** GM marks a token row dead from its row menu (not the GM row). Dead rows keep their seat, show a skull badge on the portrait for everyone, and get no turns; killing the current entry passes the turn on.
 - ◀ / ▶ turns. Round increments when the turn wraps.
-- Show on map (GM only): right-click a token's row, or tap its portrait, to flash a cyan ring only the GM sees (a local item, 2.5 s) and select the token.
+- **Row menu (GM only):** right-click a token's row, or its ⋯ button (touch), for: Mark as monster / player or ally, Mark dead / alive, Show on map (selects the token; Owlbear's own selection highlight is enough, so no extra ring), Remove from initiative. Tapping the portrait also selects it. Dead rows show a skull on the portrait.
 - Remove monsters (GM, Crawl only, asks to confirm): clears every monster after a fight. Kept until then, so a fight that resumes keeps them (decided 2026-10-16).
 - Reset rounds (GM, asks to confirm): the round count to 0, no one's turn; order, rolls and phase stay.
 - Note under each name: GM edits, everyone sees.
