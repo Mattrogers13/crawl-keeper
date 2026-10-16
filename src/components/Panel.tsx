@@ -16,6 +16,8 @@ const Panel = ({ role }: { role: Role }) => {
   // Under the title, part of the top bar: the tracker puts the crawl
   // controls here (a portal), so they sit with the title.
   const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
+  // Beside the title: the tracker puts the round count here.
+  const [titleSlot, setTitleSlot] = useState<HTMLSpanElement | null>(null);
 
   return (
     // Fills the popover: header and footer stay put, the content scrolls.
@@ -27,14 +29,15 @@ const Panel = ({ role }: { role: Role }) => {
               type="button"
               aria-label="Back to tracker"
               title="Back to tracker"
-              className="rounded px-1 text-lg leading-none hover:bg-obr-bg"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-obr-text-secondary hover:bg-obr-bg hover:text-obr-text"
               onClick={() => setSettingsOpen(false)}
             >
-              ←
+              <BackIcon />
             </button>
           )}
           {!showSettings && <KeyIcon />}
           <h1 className="text-[17px] font-medium tracking-[0.01em]">{showSettings ? "Settings" : "Crawl Keeper"}</h1>
+          {!showSettings && <span ref={setTitleSlot} className="min-w-0 truncate text-xs text-obr-text-secondary empty:hidden" />}
           {role === "GM" && !showSettings && (
             <button
               type="button"
@@ -58,7 +61,7 @@ const Panel = ({ role }: { role: Role }) => {
           <Loading />
         ) : scene.ready ? (
           // A new key per opened scene: switching maps reads the new map fresh.
-          <Tracker key={scene.opened} role={role} headerSlot={headerSlot} />
+          <Tracker key={scene.opened} role={role} headerSlot={headerSlot} titleSlot={titleSlot} />
         ) : (
           <p className="text-sm text-obr-text-secondary">Open a scene to use the tracker.</p>
         )}
@@ -84,6 +87,13 @@ const KeyIcon = () => (
   >
     <path d="M8 3.5c1.8 1.7 3 3.3 3 5.2a3 3 0 0 1-6 0c0-1.2.6-2 1.3-2.7.3 1 .9 1.5 1.5 1.5C8 6.3 7.8 4.9 8 3.5z" />
     <path d="M8 12v9M8 16.5h3M8 19h2.5M14 8h7M14 12h7M14 16h5" />
+  </svg>
+);
+
+// An arrow pointing left: back.
+const BackIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M19 12H5M11 6l-6 6 6 6" />
   </svg>
 );
 

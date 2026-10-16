@@ -15,16 +15,16 @@ const Confirm = (props: {
   const setAsking = props.setAsking ?? setOwnAsking;
   if (!asking)
     return (
-      <button type="button" className="text-xs text-obr-text-secondary underline hover:text-obr-text" onClick={() => setAsking(true)}>
+      <button type="button" className="py-1.5 text-xs text-obr-text-secondary underline hover:text-obr-text" onClick={() => setAsking(true)}>
         {props.label}
       </button>
     );
   return (
-    <div role="alertdialog" aria-label={props.question} className="flex items-center gap-1 text-xs">
+    <div role="alertdialog" aria-label={props.question} className="flex flex-wrap items-center gap-1.5 text-xs">
       <span>{props.question}</span>
       <button
         type="button"
-        className="rounded bg-red-700 px-2 py-0.5 font-medium text-white"
+        className="h-8 rounded-full bg-red-700 px-3 font-medium text-white"
         onClick={() => {
           props.onConfirm();
           setAsking(false);
@@ -32,7 +32,7 @@ const Confirm = (props: {
       >
         {props.action}
       </button>
-      <button type="button" className="rounded border border-obr-text-disabled px-2 py-0.5" onClick={() => setAsking(false)}>
+      <button type="button" className="h-8 rounded-full bg-obr-bg px-3 font-medium hover:bg-obr-text/10" onClick={() => setAsking(false)}>
         Cancel
       </button>
     </div>

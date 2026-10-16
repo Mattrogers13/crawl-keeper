@@ -24,8 +24,8 @@ import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalList
 import { CSS } from "@dnd-kit/utilities";
 
 import Confirm from "./Confirm";
-import CrawlBar, { ClockDial } from "./CrawlBar";
-import { cryptoRand, rollCheck, rollClock } from "../crawl";
+import CrawlBar, { ClockDial, FOCUS } from "./CrawlBar";
+import { cryptoRand, due, rollFor } from "../crawl";
 import Loading from "./Loading";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
@@ -79,8 +79,10 @@ const tokenInfo = (item: Item | undefined): Token => {
   };
 };
 
-// headerSlot: where the crawl controls go (the panel's top bar).
-const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLElement | null }) => {
+// headerSlot: where the crawl controls go (the panel's top bar); titleSlot:
+// beside the title, for the round count.
+const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot?: HTMLElement | null }) => {
+  const { role, headerSlot = null, titleSlot = null } = props;
   const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   const doc = useSceneValue(TRACKER_KEY, parseTracker);
   const items = useSceneItems();
@@ -122,15 +124,18 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
   }, [gmReady, items, docValue, writeDoc, settings.value]);
 
   // The GM's hotkeys while the panel has focus (Owlbear keeps keys typed on
-  // the map): N next turn, B back, R the encounter roll. Not while
-  // typing, and not with Cmd / Ctrl / Alt (the browser's own shortcuts).
+  // the map): N next turn, B back, R the encounter roll when one is due (a
+  // stray R can't replace a roll already made). Not while typing, dragging
+  // a row or with the row menu open, and not with Cmd / Ctrl / Alt (the
+  // browser's own shortcuts).
   const hotkeys = useRef<Record<string, () => void>>({});
+  const dragging = useRef(false);
   useEffect(() => {
     if (role !== "GM") return;
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat || dragging.current) return;
       const target = e.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, [role=menu], [role=alertdialog]")) return;
+      if (target?.closest("input, textarea, select, [role=alertdialog]") || document.querySelector("[role=menu]")) return;
       const run = hotkeys.current[e.key.toLowerCase()];
       if (!run) return;
       e.preventDefault();
@@ -180,7 +185,7 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
   const round = tracker.round;
   const roundLabel =
-    round === 0 ? (gm ? "Press ▶ to begin" : "") : gm || !settings.value.hideRound ? `Round ${round}` : "";
+    round === 0 ? (gm ? "Not started" : "") : gm || !settings.value.hideRound ? `Round ${round}` : "";
   const combat = tracker.phase === "combat";
   // Players see the Crawling Clock unless the GM hides it; the GM sees it on the card.
   const showClock = !gm && settings.value.encounterMode === "clock" && !settings.value.hideClock;
@@ -191,9 +196,8 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
   hotkeys.current = {
     n: goNext,
     b: () => change(previous),
-    // The card's roll button (always there while crawling).
     r: () => {
-      if (!combat) change((t) => updateCrawl(t, (c) => (mode === "clock" ? rollClock(c, cryptoRand) : rollCheck(c, cryptoRand))));
+      if (!combat && due(tracker.crawl, mode)) change((t) => updateCrawl(t, (c) => rollFor(mode)(c, cryptoRand)));
     },
   };
   const drop = ({ active, over }: DragEndEvent) => {
@@ -242,7 +246,7 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
             <SortIcon />
           </RoundButton>
         )}
-        {roundLabel && <span className="text-sm text-obr-text-secondary">{roundLabel}</span>}
+        {roundLabel && (titleSlot ? createPortal(roundLabel, titleSlot) : <span className="text-sm text-obr-text-secondary">{roundLabel}</span>)}
         {showDanger && (
           <span className="ml-auto flex h-8 items-center rounded-full bg-obr-bg px-3 text-xs font-medium capitalize" title="Danger level">
             {tracker.crawl.danger}
@@ -250,7 +254,7 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
         )}
         {showClock && (
           <span className="ml-auto flex items-center gap-2 text-sm text-obr-text-secondary" title="Crawling Clock">
-            Clock <ClockDial value={tracker.crawl.clock} size={44} />
+            Clock <ClockDial value={tracker.crawl.clock} size={44} on="paper" />
           </span>
         )}
         {gm && (
@@ -284,7 +288,12 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
           sensors={sensors}
           collisionDetection={closestCenter}
           modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-          onDragEnd={drop}
+          onDragStart={() => (dragging.current = true)}
+          onDragEnd={(e) => {
+            dragging.current = false;
+            drop(e);
+          }}
+          onDragCancel={() => (dragging.current = false)}
         >
           {/* Two drag groups: players and the GM row; monsters inside the GM row. */}
           <SortableContext items={top.map((e) => e.id)} strategy={verticalListSortingStrategy}>
@@ -306,7 +315,7 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
                       </span>
                       <ol aria-label="Monsters" className="flex flex-col gap-0.5">
                         {monsters.map((m) => (
-                          <Row key={m.id} entry={m} token={tokenFor(m)} current={m.id === current} selected={selection.ids.includes(m.id)} {...rowProps} />
+                          <Row key={m.id} entry={m} token={tokenFor(m)} current={m.id === current} selected={selection.ids.includes(m.id)} small {...rowProps} />
                         ))}
                       </ol>
                     </SortableContext>
@@ -318,7 +327,8 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
         </DndContext>
         {gm && tracker.entries.length === 1 && (
           <p className="text-sm text-obr-text-secondary">
-            Right-click a token on the map: “Add / Remove Initiative”. Right-click a row here to mark monsters.
+            Right-click a token on the map: “Add / Remove Initiative”. Right-click a row here (or hover it for ⋯) to mark
+            monsters; drag its grip to move it. Click a roll to edit it.
           </p>
         )}
       </div>
@@ -326,7 +336,12 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
       {gm && (
         <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
           {/* A stray click would lose the crawl round count the encounter checks run on. */}
-          <Confirm label="Reset rounds" question="Reset the round count to 0?" action="Reset" onConfirm={() => change(resetRounds)} />
+          <Confirm
+            label="Reset rounds"
+            question="Reset the round count to 0? Encounter checks start over too."
+            action="Reset"
+            onConfirm={() => change(resetRounds)}
+          />
           {/* After a fight: clear the monsters out (kept until then, so a fight can resume). */}
           {!combat && tracker.entries.some((e) => e.monster) && (
             <Confirm
@@ -336,6 +351,9 @@ const Tracker = ({ role, headerSlot = null }: { role: Role; headerSlot?: HTMLEle
               onConfirm={() => change(removeMonsters)}
             />
           )}
+          <span className="ml-auto text-xs text-obr-text-secondary" title="Click in the panel first: Owlbear keeps keys typed on the map.">
+            Keys: N next · B back · R roll
+          </span>
         </div>
       )}
       {menu && targets.length > 0 && (
@@ -423,7 +441,7 @@ const RowMenu = (props: {
       role="menu"
       aria-label={props.name}
       style={pos}
-      className="fixed z-50 flex min-w-44 flex-col rounded border border-obr-text-disabled bg-obr-paper py-1 text-sm shadow-lg"
+      className="fixed z-50 flex min-w-44 flex-col rounded-lg bg-obr-paper py-1 text-sm shadow-xl ring-1 ring-obr-text/10"
       onKeyDown={onKeyDown}
     >
       {items
@@ -433,7 +451,7 @@ const RowMenu = (props: {
           key={label}
           type="button"
           role="menuitem"
-          className="px-3 py-1 text-left hover:bg-obr-bg focus:bg-obr-bg focus:outline-none"
+          className="px-3 py-2 text-left hover:bg-obr-text/5 focus:bg-obr-text/10 focus:outline-none"
           onClick={() => {
             run();
             close();
@@ -462,6 +480,8 @@ const Row = (props: {
   children?: ReactNode;
   // The GM row with monsters: one card holds the group.
   bracket?: boolean;
+  // A monster inside that card: a smaller portrait.
+  small?: boolean;
 }) => {
   const { entry, token, gm, change } = props;
   const name = token ? token.name : "GM / Monsters";
@@ -513,17 +533,17 @@ const Row = (props: {
             {...sortable.listeners}
             aria-label={`Move ${name}`}
             title="Drag to move"
-            className={`flex h-9 w-4 shrink-0 cursor-grab touch-none items-center justify-center text-obr-text-secondary hover:text-obr-text active:cursor-grabbing ${HOVER_ONLY}`}
+            className={`flex h-9 w-6 shrink-0 cursor-grab touch-none items-center justify-center text-obr-text-secondary hover:text-obr-text active:cursor-grabbing ${HOVER_ONLY}`}
           >
             <GripIcon />
           </button>
         )}
         {gm && token ? (
           <button type="button" aria-label={`Show ${name} on the map`} title="Show on the map" onClick={() => props.show(entry.id)}>
-            <Portrait token={token} dead={entry.dead} marker={entry.marker} />
+            <Portrait token={token} dead={entry.dead} marker={entry.marker} small={props.small} />
           </button>
         ) : (
-          <Portrait token={token} dead={entry.dead} />
+          <Portrait token={token} dead={entry.dead} small={props.small} />
         )}
         <div className="flex min-w-0 flex-1 flex-col">
           <span className={`truncate font-medium ${entry.dead ? "line-through" : ""}`}>
@@ -576,30 +596,34 @@ const Row = (props: {
 };
 
 // `marker`: a gold dot (GM view) when this token gets the turn marker.
-const Portrait = ({ token, dead, marker = false }: { token: Token | null; dead: boolean; marker?: boolean }) => (
-  <div className="relative h-9 w-9 shrink-0">
-    {token?.image ? (
-      <img src={token.image} alt="" className={`h-9 w-9 rounded-full object-cover ${dead ? "grayscale" : ""}`} />
-    ) : (
-      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-obr-text/10 text-xs font-bold" aria-hidden>
-        {token ? "?" : "GM"}
-      </div>
-    )}
-    {dead && (
-      <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 text-white" aria-hidden>
-        <SkullIcon className="h-6 w-6" />
-      </span>
-    )}
-    {marker && (
-      <span
-        className="absolute -right-px -bottom-px h-[11px] w-[11px] rounded-full border-2 border-obr-paper bg-[#f5c542]"
-        title="Gets the turn marker"
-        aria-label="Turn marker on"
-        role="img"
-      />
-    )}
-  </div>
-);
+const Portrait = (props: { token: Token | null; dead: boolean; marker?: boolean; small?: boolean }) => {
+  const { token, dead, marker = false } = props;
+  const size = props.small ? "h-[30px] w-[30px]" : "h-9 w-9";
+  return (
+    <div className={`relative shrink-0 ${size}`}>
+      {token?.image ? (
+        <img src={token.image} alt="" className={`${size} rounded-full object-cover ${dead ? "grayscale" : ""}`} />
+      ) : (
+        <div className={`flex ${size} items-center justify-center rounded-full bg-obr-text/10 text-xs font-bold`} aria-hidden>
+          {token ? "?" : "GM"}
+        </div>
+      )}
+      {dead && (
+        <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 text-white" aria-hidden>
+          <SkullIcon className="h-6 w-6" />
+        </span>
+      )}
+      {marker && (
+        <span
+          className="absolute -right-px -bottom-px h-[11px] w-[11px] rounded-full border-2 border-obr-paper bg-[#c99700] dark:bg-[#f5c542]"
+          title="Gets the turn marker"
+          aria-label="Turn marker on"
+          role="img"
+        />
+      )}
+    </div>
+  );
+};
 
 const ROLL_SLOT = "w-12 shrink-0";
 
@@ -614,8 +638,10 @@ const useDraft = <T,>(shown: string, read: (text: string) => T | undefined, save
     onBlur: () => {
       if (draft === shown) return;
       const value = read(draft);
-      if (value === undefined) setDraft(shown);
-      else save(value);
+      // Saved or not, show it the way it's stored ("3" → "+3"); a change
+      // remounts the box with the new value anyway (keyed by it).
+      if (value !== undefined) save(value);
+      setDraft(shown);
     },
     onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && e.currentTarget.blur(),
   };
@@ -633,7 +659,7 @@ const RollInput = ({ name, value, save }: { name: string; value: number | null; 
     aria-label={`Initiative for ${name}`}
     inputMode="numeric"
     placeholder="–"
-    className={`${ROLL_SLOT} px-1 py-0.5 text-right text-lg font-bold tabular-nums placeholder:font-normal placeholder:text-obr-text-disabled ${GHOST_INPUT}`}
+    className={`${ROLL_SLOT} px-1 py-0.5 text-right text-lg font-bold tabular-nums placeholder:font-normal placeholder:text-obr-text-secondary ${GHOST_INPUT}`}
     {...useDraft(value === null ? "" : String(value), readRoll, save)}
   />
 );
@@ -650,14 +676,17 @@ const showMod = (n: number) => (n === 0 ? "" : n > 0 ? `+${n}` : String(n));
 
 // The monsters' DEX modifier, added to the GM's d20.
 const ModInput = ({ value, save }: { value: number; save: (m: number) => void }) => (
-  <input
-    aria-label="Monster DEX modifier"
-    title="Monster DEX modifier: the highest among them (added to the GM's d20)"
-    inputMode="numeric"
-    placeholder="+0"
-    className={`w-9 shrink-0 px-1 py-0.5 text-center text-xs tabular-nums text-obr-text-secondary placeholder:text-obr-text-disabled ${GHOST_INPUT}`}
-    {...useDraft(showMod(value), readMod, save)}
-  />
+  <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-obr-text-secondary uppercase">
+    Dex
+    <input
+      aria-label="Monster DEX modifier"
+      title="The highest DEX modifier among the monsters, added to the GM's d20 (p. 83)"
+      inputMode="numeric"
+      placeholder="+0"
+      className="h-7 w-9 rounded-full bg-transparent px-1 text-center text-xs tabular-nums ring-1 ring-obr-text/15 placeholder:text-obr-text-secondary hover:ring-obr-text/30 focus:ring-2 focus:ring-obr-primary focus:outline-none"
+      {...useDraft(showMod(value), readMod, save)}
+    />
+  </label>
 );
 
 const NoteInput = ({ name, value, save }: { name: string; value: string; save: (n: string) => void }) => (
@@ -665,7 +694,8 @@ const NoteInput = ({ name, value, save }: { name: string; value: string; save: (
     aria-label={`Note for ${name}`}
     placeholder="Add a note"
     maxLength={NOTE_MAX}
-    className={`-ml-1 w-full min-w-0 px-1 text-xs text-obr-text-secondary ${GHOST_INPUT}`}
+    // The placeholder shows on hover or focus only: a column of "Add a note" crowds the list.
+    className={`-ml-1 w-full min-w-0 px-1 text-xs text-obr-text-secondary placeholder:text-obr-text-secondary [@media(hover:hover)]:placeholder:opacity-0 group-hover:placeholder:opacity-100 focus:placeholder:opacity-100 ${GHOST_INPUT}`}
     {...useDraft(value, (text) => text, save)}
   />
 );
@@ -683,7 +713,7 @@ const RoundButton = (
     aria-keyshortcuts={props.hint}
     title={props.hint ? `${props.label} (${props.hint})` : props.label}
     disabled={props.disabled}
-    className={`flex h-9 shrink-0 items-center justify-center rounded-full disabled:opacity-40 ${
+    className={`flex h-9 shrink-0 items-center justify-center rounded-full disabled:opacity-40 ${FOCUS} ${
       props.wide ? (props.primary ? "w-14" : "w-11") : "w-9"
     } ${props.primary ? "bg-obr-primary text-obr-primary-contrast" : "bg-obr-bg hover:enabled:bg-obr-text/10"}`}
     onClick={props.onClick}
@@ -697,7 +727,7 @@ const RoundButton = (
 const HOVER_ONLY = "[@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-visible:opacity-100";
 
 // Dead and remove: full-size touch targets, the same width on every row (see Row).
-const ROW_ACTION = "h-7 w-7 shrink-0";
+const ROW_ACTION = "h-9 w-9 shrink-0";
 
 // `always`: shown without hovering (the GM row's roll).
 const RowAction = (props: ButtonProps & { always?: boolean }) => (

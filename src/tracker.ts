@@ -367,8 +367,10 @@ export const moveTo = (t: Tracker, id: string, overId: string): Tracker => {
 };
 
 // After a fight: every monster out (the GM row stays).
+// After a fight: the monsters go, and so does their initiative modifier (the
+// next fight's monsters bring their own).
 export const removeMonsters = (t: Tracker): Tracker =>
-  remove(t, t.entries.filter((e) => e.monster).map((e) => e.id));
+  setGmMod(remove(t, t.entries.filter((e) => e.monster).map((e) => e.id)), 0);
 
 // The right-click "Add / Remove Initiative": if every clicked token is
 // already tracked, remove them; otherwise add the ones that aren't.

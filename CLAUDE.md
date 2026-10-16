@@ -8,8 +8,8 @@ Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript
 
 - If `sources/sdk` is missing: `scripts/fetch-sources.sh`. Original ask: `BRIEF.md` (DONE).
 - Installs: live `https://crawl-keeper.editbag.workers.dev/manifest.json`, Dev `https://dev-crawl-keeper.editbag.workers.dev/manifest.json` (`docs/obr/deploy.md`). After a Dev rebuild, reload the Owlbear room: the background page loads once per room.
-- Open: the art in `art/` + `public/img/` (`logo.png`, `action.svg`) is still the starter's placeholder. Tracked tasks: `docs/design.md` "Later".
-- Status (2026-10-16): v0.1 PRs 1–4 merged and room-tested; PR #7 (roll button only when due + code-review fixes) awaits a quick room check, then merge and tag v0.1.0. A design pass is in progress on a Claude Design canvas (two directions, A Owlbear-native and B Shadowdark-flavored, panels + icons); waiting on Matt's pick before building it and the real icon art.
+- Tracked tasks and undecided review candidates: `docs/design.md` "Releases".
+- Status (2026-10-16): v0.1 built, room-tested, with the Owlbear-native look and Keeper's key icon (#8). Branch `fix/review-before-v0.1.0` (code, design and functionality review fixes) awaits a room check, then merge and tag v0.1.0.
 
 ## Commands
 

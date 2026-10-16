@@ -524,6 +524,11 @@ describe("GM / Monsters initiative", () => {
     expect(rollGmInitiative(setGmMod(t, -3), d20(1)).entries.find((e) => e.id === GM_ENTRY)?.roll).toBe(-2);
   });
 
+  it("Remove monsters clears their modifier too", () => {
+    const t = setGmMod(tracker({ [GM_ENTRY]: null, m1: null }), 2);
+    expect(removeMonsters(t)).toMatchObject({ gmMod: 0 });
+  });
+
   it("the modifier stays in range and saves with the map", () => {
     const t = tracker({ [GM_ENTRY]: null });
     expect(setGmMod(t, 0)).toBe(t);
