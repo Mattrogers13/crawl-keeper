@@ -6,7 +6,7 @@ import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
-import { parseSettings, type Settings } from "../settings";
+import { parseSettings } from "../settings";
 import {
   GM_ENTRY,
   NOTE_MAX,
@@ -15,6 +15,7 @@ import {
   move,
   next,
   parseTracker,
+  phaseRound,
   previous,
   prune,
   remove,
@@ -22,7 +23,8 @@ import {
   setNote,
   setRoll,
   sortByRoll,
-  stop,
+  toCombat,
+  toCrawl,
   type Entry,
   type Tracker as TrackerDoc,
 } from "../tracker";
@@ -59,7 +61,6 @@ const Tracker = ({ role }: { role: Role }) => {
     const updated = fn(tracker);
     if (updated !== doc.value) void doc.write(updated);
   };
-  const changeSettings = (s: Partial<Settings>) => void settings.write({ ...settings.value, ...s });
 
   // Players never see hidden tokens. If it's a hidden token's turn, players
   // see the GM row as current instead.
@@ -67,50 +68,57 @@ const Tracker = ({ role }: { role: Role }) => {
     ? tracker.entries
     : tracker.entries.filter((e) => e.id === GM_ENTRY || tokenInfo(byId.get(e.id)).visible);
   const current = gm || shown.some((e) => e.id === tracker.current) ? tracker.current : tracker.current && GM_ENTRY;
-  const roundShown = gm || !settings.value.hideRound;
+  const round = phaseRound(tracker);
+  const roundLabel =
+    round === 0 ? (gm ? "Press ▶ to begin" : "") : gm || !settings.value.hideRound ? `Round ${round}` : "";
+  const combat = tracker.phase === "combat";
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <h2 className="font-semibold">
-          {tracker.round === 0 ? "Not started" : roundShown ? `Round ${tracker.round}` : "In progress"}
-        </h2>
-        {gm && settings.value.hideRound && <span className="text-xs text-obr-text-secondary">(hidden from players)</span>}
+        {gm ? (
+          <div role="group" aria-label="Phase" className="flex overflow-hidden rounded border border-obr-text-disabled text-sm font-medium">
+            <button
+              type="button"
+              aria-pressed={!combat}
+              className={`px-2 py-0.5 ${combat ? "" : "bg-obr-primary text-obr-primary-contrast"}`}
+              onClick={() => change(toCrawl)}
+            >
+              Crawl
+            </button>
+            <button
+              type="button"
+              aria-pressed={combat}
+              className={`px-2 py-0.5 ${combat ? "bg-red-700 text-white" : ""}`}
+              onClick={() => change((t) => toCombat(t, settings.value.clearRollsOnCombat))}
+            >
+              Combat
+            </button>
+          </div>
+        ) : (
+          <h2 className={`font-semibold ${combat ? "text-red-500" : ""}`}>{combat ? "Combat" : "Crawl"}</h2>
+        )}
+        {roundLabel && <span className="text-sm text-obr-text-secondary">{roundLabel}</span>}
         {gm && (
           <div className="ml-auto flex gap-1">
-            {tracker.round > 0 && (
-              <>
-                <Button label="Previous turn" onClick={() => change((t) => previous(t))}>
-                  ◀
-                </Button>
-                <Button label="End" onClick={() => change(stop)}>
-                  End
-                </Button>
-              </>
-            )}
-            <Button label={tracker.round === 0 ? "Start" : "Next turn"} primary onClick={() => change((t) => next(t))}>
-              {tracker.round === 0 ? "Start" : "▶"}
+            <Button label="Previous turn" disabled={tracker.current === null} onClick={() => change(previous)}>
+              ◀
+            </Button>
+            <Button label="Next turn" primary onClick={() => change(next)}>
+              ▶
             </Button>
           </div>
         )}
       </div>
 
       {gm && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-sm">
           <Button label="Sort by roll" onClick={() => change(sortByRoll)}>
             <SortIcon />
           </Button>
           <Button label="Reorder" pressed={reorder} onClick={() => setReorder(!reorder)}>
             ↕
           </Button>
-          <label className="ml-auto flex items-center gap-1">
-            <input
-              type="checkbox"
-              checked={settings.value.hideRound}
-              onChange={(e) => changeSettings({ hideRound: e.target.checked })}
-            />
-            Hide round
-          </label>
         </div>
       )}
 
@@ -264,13 +272,14 @@ const NoteInput = ({ name, value, save }: { name: string; value: string; save: (
 
 type ButtonProps = { label: string; pressed?: boolean; onClick: () => void; children: ReactNode };
 
-const Button = ({ label, primary, pressed, onClick, children }: ButtonProps & { primary?: boolean }) => (
+const Button = ({ label, primary, pressed, disabled, onClick, children }: ButtonProps & { primary?: boolean; disabled?: boolean }) => (
   <button
     type="button"
     aria-label={label}
     aria-pressed={pressed}
     title={label}
-    className={`flex min-h-6 items-center rounded px-2 py-0.5 text-sm font-medium ${
+    disabled={disabled}
+    className={`flex min-h-6 items-center rounded px-2 py-0.5 text-sm font-medium disabled:opacity-40 ${
       primary || pressed ? "bg-obr-primary text-obr-primary-contrast" : "border border-obr-text-disabled"
     }`}
     onClick={onClick}

@@ -18,11 +18,13 @@ const scene = (entries: { id: string; roll?: number | null; note?: string; dead?
 };
 
 describe("Tracker (GM)", () => {
-  it("starts, advances and wraps the round, saving to the scene", async () => {
+  it("begins on the first ▶, advances and wraps the round, saving to the scene", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
     render(<App />);
-    fireEvent.click(await screen.findByText("Start"));
+    expect(await screen.findByText("Press ▶ to begin")).toBeInTheDocument();
+    expect(screen.getByLabelText("Previous turn")).toBeDisabled();
+    fireEvent.click(screen.getByLabelText("Next turn"));
     await waitFor(() => expect(saved()).toMatchObject({ current: "a", round: 1 }));
     expect(rowOf("Aria")).toHaveAttribute("aria-current", "step");
     for (let i = 0; i < 3; i++) fireEvent.click(screen.getByLabelText("Next turn"));
@@ -58,10 +60,40 @@ describe("Tracker (GM)", () => {
   });
 
 
-  it("hides the round in room settings", async () => {
+  it("switches to combat: own round count, rolls cleared, crawl order back after", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a", roll: 15 }, { id: "b", roll: 4 }, { id: GM_ENTRY, roll: 9 }], "b", 3);
     render(<App />);
-    fireEvent.click(await screen.findByLabelText("Hide round"));
-    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toEqual({ hideRound: true }));
+    fireEvent.click(await screen.findByText("Combat"));
+    await waitFor(() => expect(saved()).toMatchObject({ phase: "combat", current: null, round: 3, combatRound: 0 }));
+    expect(saved().entries.map((e) => e.roll)).toEqual([null, null, null]);
+    expect(screen.getByText("Combat")).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByLabelText("Next turn"));
+    await waitFor(() => expect(screen.getByText("Round 1")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Crawl"));
+    await waitFor(() => expect(saved()).toMatchObject({ phase: "crawl", round: 3, combatRound: 0 }));
+    expect(saved().entries.map((e) => e.roll)).toEqual([15, 4, 9]);
+  });
+
+  it("keeps the rolls on combat when the setting is off", async () => {
+    obr.metadata = { [SETTINGS_KEY]: { clearRollsOnCombat: false } };
+    obr.items = [token("a", { name: "Aria" })];
+    scene([{ id: "a", roll: 15 }, { id: GM_ENTRY }]);
+    render(<App />);
+    fireEvent.click(await screen.findByText("Combat"));
+    await waitFor(() => expect(saved().phase).toBe("combat"));
+    expect(saved().entries[0].roll).toBe(15);
+  });
+
+  it("settings: the gear opens them, both checkboxes save to the room, back returns", async () => {
+    render(<App />);
+    fireEvent.click(await screen.findByLabelText("Settings"));
+    fireEvent.click(await screen.findByLabelText("Hide rounds from players", { exact: false }));
+    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toEqual({ hideRound: true, clearRollsOnCombat: true }));
+    fireEvent.click(screen.getByLabelText("Clear initiative rolls on combat", { exact: false }));
+    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toEqual({ hideRound: true, clearRollsOnCombat: false }));
+    fireEvent.click(screen.getByLabelText("Back to tracker"));
+    expect(await screen.findByText("GM / Monsters")).toBeInTheDocument();
   });
 
   it("drops a token deleted from the map and saves without it on the next edit", async () => {
@@ -116,9 +148,9 @@ describe("Tracker (GM)", () => {
     scene([{ id: "a" }, { id: GM_ENTRY }]);
     render(<App />);
     obr.failWrites = true;
-    fireEvent.click(await screen.findByText("Start"));
+    fireEvent.click(await screen.findByLabelText("Next turn"));
     await waitFor(() => expect(OBR.notification.show).toHaveBeenCalledWith(expect.stringContaining("Couldn't save"), "ERROR"));
-    expect(screen.getByText("Start")).toBeInTheDocument();
+    expect(screen.getByText("Press ▶ to begin")).toBeInTheDocument();
   });
 });
 
@@ -157,7 +189,7 @@ describe("Tracker (player)", () => {
     obr.metadata = { [SETTINGS_KEY]: { hideRound: true } };
     scene([{ id: GM_ENTRY }], GM_ENTRY, 4);
     render(<App />);
-    expect(await screen.findByText("In progress")).toBeInTheDocument();
+    expect(await screen.findByText("Crawl")).toBeInTheDocument();
     expect(screen.queryByText("Round 4")).not.toBeInTheDocument();
   });
 
@@ -165,9 +197,12 @@ describe("Tracker (player)", () => {
     obr.role = "PLAYER";
     scene([{ id: GM_ENTRY }]);
     render(<App />);
-    await screen.findByText("Not started");
+    await screen.findByText("Crawl");
     await writeSceneFromElsewhere({ [TRACKER_KEY]: { entries: [{ id: GM_ENTRY }], current: GM_ENTRY, round: 1 } });
     expect(screen.getByText("Round 1")).toBeInTheDocument();
+    await writeSceneFromElsewhere({ [TRACKER_KEY]: { entries: [{ id: GM_ENTRY }], phase: "combat", current: GM_ENTRY, round: 1, combatRound: 2 } });
+    expect(screen.getByText("Combat")).toBeInTheDocument();
+    expect(screen.getByText("Round 2")).toBeInTheDocument();
   });
 });
 

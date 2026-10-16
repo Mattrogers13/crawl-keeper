@@ -34,9 +34,11 @@ describe("App", () => {
     obr.role = "PLAYER";
     render(<App />);
     expect(await screen.findByText("GM / Monsters")).toBeInTheDocument();
-    expect(screen.queryByText("Start")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Next turn")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Settings")).not.toBeInTheDocument();
     await changePlayer({ role: "GM" });
-    expect(screen.getByText("Start")).toBeInTheDocument();
+    expect(screen.getByLabelText("Next turn")).toBeInTheDocument();
+    expect(screen.getByLabelText("Settings")).toBeInTheDocument();
   });
 
   it("follows Owlbear's theme", async () => {
