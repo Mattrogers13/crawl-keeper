@@ -442,7 +442,7 @@ describe("Tracker (GM)", () => {
       const card = await screen.findByRole("region", { name: "Encounter checks" });
       fireEvent.click(within(card).getByText("deadly"));
       await waitFor(() => expect(saved().crawl.danger).toBe("deadly"));
-      fireEvent.click(within(card).getByLabelText(/In darkness/));
+      fireEvent.click(within(card).getByLabelText(/Darkness/));
       await waitFor(() => expect(saved().crawl.dark).toBe(true));
     });
 
