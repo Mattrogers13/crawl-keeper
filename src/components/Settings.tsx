@@ -18,19 +18,19 @@ const Settings = () => {
     <div className="flex flex-col gap-3 text-sm">
       <Check
         label="Hide rounds from players"
-        hint="Players see Crawl or Combat, not the round count."
+        hint="Players see Crawl or Combat but not the round number."
         checked={settings.value.hideRound}
         onChange={(hideRound) => set({ hideRound })}
       />
       <Check
         label="Clear initiative rolls on combat"
-        hint="Everyone rolls fresh for combat (core p. 88). The combat order carries on when you switch back to Crawl."
+        hint="Switching to Combat empties every roll so everyone rolls fresh (core p. 88)."
         checked={settings.value.clearRollsOnCombat}
         onChange={(clearRollsOnCombat) => set({ clearRollsOnCombat })}
       />
       <Check
         label="Show the turn marker on the map"
-        hint="A gold ring on the current token. Per token in its row menu: on for players and allies, off for monsters to start. Hidden tokens' rings stay hidden."
+        hint="A gold ring around whoever's turn it is. Turn it on or off per token from the row menu (a gold dot shows which have it)."
         checked={settings.value.showMarker}
         onChange={(showMarker) => {
           set({ showMarker });
@@ -41,7 +41,7 @@ const Settings = () => {
 
       <Check
         label="Select the current token"
-        hint="On your screen only, each turn."
+        hint="Each turn, Owlbear selects that token on your screen so you can move it right away. Players' screens don't change."
         checked={settings.value.selectOnTurn}
         onChange={(selectOnTurn) => set({ selectOnTurn })}
       />

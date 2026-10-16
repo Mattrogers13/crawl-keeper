@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import OBR, { type Image } from "@owlbear-rodeo/sdk";
 
 import { MARKER_KEY, TRACKER_KEY } from "./constants";
-import { buildMarker, markedToken, markerImage, planMarker, syncTurn, syncTurnFromScene } from "./marker";
+import { buildMarker, markedToken, markerImage, markerVisibilityFixes, planMarker, syncTurn, syncTurnFromScene } from "./marker";
 import { GM_ENTRY, parseTracker } from "./tracker";
 import { obr, token } from "./test/obrMock";
 
@@ -11,26 +11,37 @@ const markers = () => obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefin
 const ON = { showMarker: true, selectOnTurn: true };
 
 describe("planMarker", () => {
+  const A = { id: "a", visible: true };
+  const ring = (id: string, attachedTo: string, image = IMG, visible = true) => ({ id, attachedTo, image, visible });
+
   it("adds a marker to the token when it has none", () => {
-    expect(planMarker([], "a", IMG)).toEqual({ remove: [], addTo: "a" });
+    expect(planMarker([], A, IMG)).toEqual({ remove: [], addTo: "a" });
   });
 
   it("keeps one current marker; strays, duplicates and old art go", () => {
-    const plan = planMarker(
-      [
-        { id: "m1", attachedTo: "b", image: IMG },
-        { id: "m2", attachedTo: "a", image: "old.webp" },
-        { id: "m3", attachedTo: "a", image: IMG },
-        { id: "m4", attachedTo: "a", image: IMG },
-      ],
-      "a",
-      IMG,
-    );
+    const plan = planMarker([ring("m1", "b"), ring("m2", "a", "old.webp"), ring("m3", "a"), ring("m4", "a")], A, IMG);
     expect(plan).toEqual({ remove: ["m1", "m2", "m4"], addTo: null });
   });
 
+  it("a ring whose visibility differs from its token's is replaced", () => {
+    expect(planMarker([ring("m1", "a", IMG, true)], { id: "a", visible: false }, IMG)).toEqual({ remove: ["m1"], addTo: "a" });
+  });
+
   it("no token: every marker goes", () => {
-    expect(planMarker([{ id: "m1", attachedTo: "a", image: IMG }], null, IMG)).toEqual({ remove: ["m1"], addTo: null });
+    expect(planMarker([ring("m1", "a")], null, IMG)).toEqual({ remove: ["m1"], addTo: null });
+  });
+});
+
+describe("markerVisibilityFixes", () => {
+  it("rings follow their token's visibility; other items are left alone", () => {
+    const hidden = token("h", { visible: false });
+    const shown = token("s");
+    const rings = [
+      { ...token("r1"), attachedTo: "h", visible: true, metadata: { [MARKER_KEY]: true } },
+      { ...token("r2"), attachedTo: "s", visible: true, metadata: { [MARKER_KEY]: true } },
+      { ...token("x"), attachedTo: "h", visible: true },
+    ];
+    expect(markerVisibilityFixes([hidden, shown, ...rings])).toEqual([{ id: "r1", visible: false }]);
   });
 });
 
@@ -46,6 +57,8 @@ describe("buildMarker", () => {
     expect(m).toMatchObject({ attachedTo: "a", layer: "ATTACHMENT", locked: true, disableHit: true, position: { x: 40, y: 60 } });
     expect(m.disableAttachmentBehavior).toEqual(["ROTATION", "COPY"]);
     expect(m.metadata).toEqual({ [MARKER_KEY]: true });
+    expect(m.visible).toBe(true);
+    expect((buildMarker({ ...t, visible: false }, IMG) as Image).visible).toBe(false);
   });
 
   it("a token with a broken size gets a one-cell ring", () => {

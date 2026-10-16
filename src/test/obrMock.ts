@@ -216,7 +216,7 @@ export const buildImage = (image: Record<string, unknown>, grid: Record<string, 
   const builder = {
     build: () => item as unknown as Item,
   } as Record<string, unknown>;
-  for (const key of ["name", "position", "attachedTo", "layer", "locked", "disableHit", "disableAttachmentBehavior", "metadata"]) {
+  for (const key of ["name", "position", "attachedTo", "visible", "layer", "locked", "disableHit", "disableAttachmentBehavior", "metadata"]) {
     builder[key] = (value: unknown) => {
       item[key] = value;
       return builder;
@@ -291,6 +291,14 @@ export const OBR = {
       addItems: vi.fn(async (items: Item[]) => {
         needScene();
         applyItems([...obr.items, ...items]);
+      }),
+      // Like Owlbear's (an immer draft): the updater edits copies of the items.
+      updateItems: vi.fn(async (ids: string[], update: (drafts: Item[]) => void) => {
+        needScene();
+        const drafts = obr.items.filter((i) => ids.includes(i.id)).map((i) => structuredClone(i));
+        update(drafts);
+        const byId = new Map(drafts.map((d) => [d.id, d]));
+        applyItems(obr.items.map((i) => byId.get(i.id) ?? i));
       }),
       deleteItems: vi.fn(async (ids: string[]) => {
         needScene();

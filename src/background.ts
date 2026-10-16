@@ -4,7 +4,7 @@
 import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 
 import { MENU_ID, TRACKER_KEY } from "./constants";
-import { afterTurnChange, readSettings } from "./marker";
+import { afterTurnChange, fixMarkerVisibility, readSettings } from "./marker";
 import { parseTracker, toggle, type Phase } from "./tracker";
 import { errorMessage, notify } from "./utils";
 
@@ -83,7 +83,28 @@ export const watchCombat = () => {
   };
 };
 
+// The GM hid or showed a token with the turn marker: the ring follows
+// (Owlbear doesn't hide an attachment with its token). The GM's client only,
+// so there's one writer; panel open or not.
+export const watchMarkerVisibility = () => {
+  let gm = false;
+  const role = (r: string) => (gm = r === "GM");
+  OBR.player
+    .getRole()
+    .then(role)
+    .catch((err) => console.warn(`Couldn't read the role: ${errorMessage(err)}`));
+  const offPlayer = OBR.player.onChange((p) => role(p.role));
+  const offItems = OBR.scene.items.onChange((items) => {
+    if (gm) void fixMarkerVisibility(items);
+  });
+  return () => {
+    offPlayer();
+    offItems();
+  };
+};
+
 OBR.onReady(() => {
   createMenu().catch((err) => console.error(`Couldn't add the initiative menu: ${errorMessage(err)}`));
   watchCombat();
+  watchMarkerVisibility();
 });

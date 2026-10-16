@@ -84,6 +84,24 @@ const Tracker = ({ role }: { role: Role }) => {
   const [picked, setPicked] = useState<Selection>(NO_SELECTION);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 
+  // A tracked token deleted from the map: the GM's panel saves the tracker
+  // without it, and if it was that token's turn, the turn and the marker
+  // pass on (deleting the token is the GM's own act). Idempotent, so a second
+  // GM panel writing the same thing is harmless.
+  const gmReady = role === "GM" && settings.loaded && doc.loaded && items !== null;
+  // The last pruned tracker written: a failed write isn't retried in a loop.
+  const lastPrune = useRef("");
+  useEffect(() => {
+    if (!gmReady) return;
+    const present = new Set(items.map((i) => i.id));
+    const pruned = prune(doc.value, (id) => present.has(id));
+    const json = JSON.stringify(pruned);
+    if (pruned === doc.value || json === lastPrune.current) return;
+    lastPrune.current = json;
+    void doc.write(pruned);
+    void afterTurnChange(doc.value, pruned, settings.value, items);
+  }, [gmReady, items, doc, settings.value]);
+
   if (!settings.loaded || !doc.loaded || items === null) return <Loading />;
 
   const byId = new Map(items.map((i) => [i.id, i]));
@@ -427,7 +445,7 @@ const Row = (props: {
         )}
         {gm && token ? (
           <button type="button" aria-label={`Show ${name} on the map`} title="Show on the map" onClick={() => props.show(entry.id)}>
-            <Portrait token={token} dead={entry.dead} />
+            <Portrait token={token} dead={entry.dead} marker={entry.marker} />
           </button>
         ) : (
           <Portrait token={token} dead={entry.dead} />
@@ -475,7 +493,8 @@ const Row = (props: {
   );
 };
 
-const Portrait = ({ token, dead }: { token: Token | null; dead: boolean }) => (
+// `marker`: a gold dot (GM view) when this token gets the turn marker.
+const Portrait = ({ token, dead, marker = false }: { token: Token | null; dead: boolean; marker?: boolean }) => (
   <div className="relative h-9 w-9 shrink-0">
     {token?.image ? (
       <img src={token.image} alt="" className={`h-9 w-9 rounded-full object-cover ${dead ? "grayscale" : ""}`} />
@@ -488,6 +507,14 @@ const Portrait = ({ token, dead }: { token: Token | null; dead: boolean }) => (
       <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 text-white" aria-hidden>
         <SkullIcon className="h-6 w-6" />
       </span>
+    )}
+    {marker && (
+      <span
+        className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-obr-bg bg-[#f5c542]"
+        title="Gets the turn marker"
+        aria-label="Turn marker on"
+        role="img"
+      />
     )}
   </div>
 );

@@ -17,25 +17,51 @@ const MARKER_PX = 256;
 // The ring's diameter, in token widths.
 const RING = 1.5;
 
-export type MarkerState = { id: string; attachedTo: string | undefined; image: string | undefined };
+const report = (err: unknown) => notify(`Couldn't move the turn marker: ${errorMessage(err)}`, "WARNING");
+
+export type MarkerState = { id: string; attachedTo: string | undefined; image: string | undefined; visible: boolean };
 
 // Pure: which markers to delete, and which token (if any) needs a new one.
-// Keeps one up-to-date marker on the token; anything else goes (strays,
-// duplicates, old art).
-export const planMarker = (markers: MarkerState[], tokenId: string | null, image: string) => {
+// Keeps one up-to-date marker on the token (current art, same visibility as
+// the token); anything else goes (strays, duplicates, old art).
+export const planMarker = (markers: MarkerState[], token: { id: string; visible: boolean } | null, image: string) => {
   let kept: string | null = null;
   const remove: string[] = [];
   for (const m of markers) {
-    if (tokenId !== null && kept === null && m.attachedTo === tokenId && m.image === image) kept = m.id;
+    const good = token !== null && m.attachedTo === token.id && m.image === image && m.visible === token.visible;
+    if (good && kept === null) kept = m.id;
     else remove.push(m.id);
   }
-  return { remove, addTo: tokenId !== null && kept === null ? tokenId : null };
+  return { remove, addTo: token !== null && kept === null ? token.id : null };
+};
+
+// Pure: rings whose visibility differs from their token's (Owlbear doesn't
+// hide an attachment with its token, verified 2026-10-16).
+export const markerVisibilityFixes = (items: Item[]) => {
+  const visible = new Map(items.map((i) => [i.id, i.visible]));
+  return items
+    .filter((i) => i.metadata[MARKER_KEY] !== undefined && i.attachedTo && visible.has(i.attachedTo))
+    .filter((m) => m.visible !== visible.get(m.attachedTo!))
+    .map((m) => ({ id: m.id, visible: visible.get(m.attachedTo!)! }));
+};
+
+// The GM's panel calls this when the scene's items change.
+export const fixMarkerVisibility = async (items: Item[]) => {
+  const fixes = markerVisibilityFixes(items);
+  if (fixes.length === 0) return;
+  const want = new Map(fixes.map((f) => [f.id, f.visible]));
+  await OBR.scene.items
+    .updateItems([...want.keys()], (drafts) => {
+      for (const d of drafts) d.visible = want.get(d.id)!;
+    })
+    .catch(report);
 };
 
 const isImage = (item: Item | undefined): item is Image => item?.type === "IMAGE";
 
 // Sized from the token's footprint in grid cells, centred on its position.
-// It follows the token (attachment): moves, scales, hides and is deleted with it.
+// It follows the token (attachment): moves, scales and is deleted with it.
+// It starts with the token's visibility; fixMarkerVisibility keeps it there.
 export const buildMarker = (token: Image, image: string) => {
   // Item shapes come from Owlbear and other extensions: a broken size falls
   // back to one cell.
@@ -48,6 +74,7 @@ export const buildMarker = (token: Image, image: string) => {
     .name("Turn marker (Crawl Keeper)")
     .position(token.position)
     .attachedTo(token.id)
+    .visible(token.visible)
     .layer("ATTACHMENT")
     .locked(true)
     .disableHit(true)
@@ -75,8 +102,8 @@ export const syncTurn = async (tokenId: string | null, settings: TurnSettings, i
   const plan = planMarker(
     all
       .filter((i) => i.metadata[MARKER_KEY] !== undefined)
-      .map((m) => ({ id: m.id, attachedTo: m.attachedTo, image: isImage(m) ? m.image.url : undefined })),
-    target?.id ?? null,
+      .map((m) => ({ id: m.id, attachedTo: m.attachedTo, image: isImage(m) ? m.image.url : undefined, visible: m.visible })),
+    target,
     image,
   );
   // Independent: old markers out, the new one in, the selection. A partial
@@ -87,8 +114,6 @@ export const syncTurn = async (tokenId: string | null, settings: TurnSettings, i
     settings.selectOnTurn && token && OBR.player.select([token.id], true),
   ]);
 };
-
-const report = (err: unknown) => notify(`Couldn't move the turn marker: ${errorMessage(err)}`, "WARNING");
 
 // Every write that may change whose turn it is calls this (panel and
 // right-click). The tracker change is saved either way; a marker failure

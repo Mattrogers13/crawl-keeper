@@ -261,6 +261,59 @@ describe("Tracker (GM)", () => {
     expect(ringed()).toEqual([]);
   });
 
+  it("deleting the current token from the map saves the turn passing on and moves the ring", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }], "a", 1);
+    render(<App />);
+    await screen.findByText("Aria");
+    await setItems([token("b", { name: "Borin" })]);
+    await waitFor(() => expect(saved()).toMatchObject({ current: "b" }));
+    expect(saved().entries.map((e) => e.id)).toEqual(["b", GM_ENTRY]);
+    await waitFor(() =>
+      expect(obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefined).map((m) => m.attachedTo)).toEqual(["b"]),
+    );
+  });
+
+  it("a failed save of a deleted token isn't retried in a loop", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
+    render(<App />);
+    await screen.findByText("Aria");
+    obr.failWrites = true;
+    await setItems([token("b", { name: "Borin" })]);
+    await waitFor(() => expect(OBR.scene.setMetadata).toHaveBeenCalledTimes(1));
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+    expect(OBR.scene.setMetadata).toHaveBeenCalledTimes(1);
+  });
+
+  it("a gold dot shows which tokens get the turn marker (GM only)", async () => {
+    obr.items = [token("p", { name: "Aria" }), token("m", { name: "Goblin" })];
+    scene([{ id: "p" }, { id: GM_ENTRY }, { id: "m", monster: true }]);
+    render(<App />);
+    await screen.findByText("Aria");
+    expect(within(rowOf("Aria")).getByRole("img", { name: "Turn marker on" })).toBeInTheDocument();
+    expect(within(rowOf("Goblin")).queryByRole("img", { name: "Turn marker on" })).not.toBeInTheDocument();
+  });
+
+  // Showing or hiding it later: the background page (background.test.ts).
+  it("a hidden token's ring starts hidden", async () => {
+    obr.items = [token("a", { name: "Aria", visible: false })];
+    scene([{ id: "a" }, { id: GM_ENTRY }]);
+    render(<App />);
+    fireEvent.click(await screen.findByLabelText("Next turn"));
+    await waitFor(() => expect(obr.items.find((i) => i.metadata[MARKER_KEY] !== undefined)?.visible).toBe(false));
+  });
+
+  it("removing the current token from the row menu passes the turn and the ring on", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }], "a", 1);
+    render(<App />);
+    await pick("Aria", "Remove from initiative");
+    await waitFor(() => expect(saved().current).toBe("b"));
+    const ringed = () => obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefined).map((m) => m.attachedTo);
+    await waitFor(() => expect(ringed()).toEqual(["b"]));
+  });
+
   it("rings and selects players only, unless monsters are marked too", async () => {
     obr.items = [token("p", { name: "Aria" }), token("m1", { name: "Goblin" })];
     scene([{ id: "p" }, { id: GM_ENTRY }, { id: "m1", monster: true }], GM_ENTRY, 1, COMBAT);
@@ -401,6 +454,15 @@ describe("Tracker (player)", () => {
     expect(screen.getByText("Round 3")).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("sees no turn-marker dots", async () => {
+    obr.role = "PLAYER";
+    obr.items = [token("p", { name: "Aria" })];
+    scene([{ id: "p" }, { id: GM_ENTRY }]);
+    render(<App />);
+    await screen.findByText("Aria");
+    expect(screen.queryByRole("img", { name: "Turn marker on" })).not.toBeInTheDocument();
   });
 
   it("sees the monsters under the GM row and whose turn it is", async () => {
