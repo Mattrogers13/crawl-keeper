@@ -39,6 +39,14 @@ const Settings = () => {
           </label>
         ))}
       </fieldset>
+      {settings.value.encounterMode === "standard" && (
+        <Check
+          label="Show the danger level to players"
+          hint="Players see Unsafe, Risky or Deadly while crawling. The book leaves it to the GM."
+          checked={settings.value.showDanger}
+          onChange={(showDanger) => set({ showDanger })}
+        />
+      )}
       {settings.value.encounterMode === "clock" && (
         <Check
           label="Hide the clock from players"

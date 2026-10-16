@@ -399,12 +399,12 @@ describe("Tracker (GM)", () => {
       scene([{ id: "a" }, { id: GM_ENTRY }], GM_ENTRY, 3, { crawl: { crawlRounds: 3 } });
       render(<App />);
       const card = await screen.findByRole("region", { name: "Encounter checks" });
-      expect(within(card).getByText("A check is due on the GM turn.")).toBeInTheDocument();
+      expect(within(card).getByText("Due this round")).toBeInTheDocument();
       fireEvent.click(within(card).getByText("Roll check (d6)"));
       await waitFor(() => expect(saved().crawl.last?.kind).toBe("check"));
       expect(saved().crawl.lastCheck).toBe(3);
-      expect(within(card).getByText(/^Rolled \d: /)).toBeInTheDocument();
-      expect(within(card).getByText("Next check in 3 crawl rounds.")).toBeInTheDocument();
+      expect(within(card).getByLabelText("Last roll")).toHaveTextContent(/^\d(No encounter|Encounter!)$/);
+      expect(within(card).getByText("Next in 3 crawl rounds")).toBeInTheDocument();
       fireEvent.click(within(card).getByText("Undo"));
       await waitFor(() => expect(saved().crawl).toMatchObject({ lastCheck: 0, last: null }));
     });
@@ -415,7 +415,7 @@ describe("Tracker (GM)", () => {
       const card = await screen.findByRole("region", { name: "Encounter checks" });
       fireEvent.click(within(card).getByText("deadly"));
       await waitFor(() => expect(saved().crawl.danger).toBe("deadly"));
-      fireEvent.click(within(card).getByLabelText("In darkness"));
+      fireEvent.click(within(card).getByLabelText(/In darkness/));
       await waitFor(() => expect(saved().crawl.dark).toBe(true));
     });
 
@@ -427,7 +427,28 @@ describe("Tracker (GM)", () => {
       fireEvent.click(within(card).getByText("Roll d6"));
       await waitFor(() => expect(saved().crawl.last?.kind).toBe("clock"));
       expect(saved().crawl.clock).toBeLessThan(20);
-      expect(within(card).getByText("Roll d6 again (loud noise)")).toBeInTheDocument();
+      expect(within(card).getByText("Roll d6 (loud noise)")).toBeInTheDocument();
+      expect(within(card).getByLabelText("Last roll")).toHaveTextContent(/Clock 20 → \d+|Encounter!/);
+    });
+
+    it("clock: Reset clock asks first; right-clicking the clock asks too", async () => {
+      obr.metadata = { [SETTINGS_KEY]: { encounterMode: "clock" } };
+      scene([{ id: GM_ENTRY }], null, 0, { crawl: { clock: 7 } });
+      render(<App />);
+      const card = await screen.findByRole("region", { name: "Crawling Clock" });
+      fireEvent.click(within(card).getByText("Reset clock"));
+      fireEvent.click(within(card).getByText("Cancel"));
+      expect(saved().crawl.clock).toBe(7);
+      fireEvent.contextMenu(within(card).getByTitle("Right-click to reset the clock"));
+      fireEvent.click(within(card).getByText("Reset"));
+      await waitFor(() => expect(saved().crawl.clock).toBe(20));
+    });
+
+    it("sits in the top bar, outside the scrolling list", async () => {
+      scene([{ id: GM_ENTRY }]);
+      render(<App />);
+      const card = await screen.findByRole("region", { name: "Encounter checks" });
+      expect(card.closest("li")).toBeNull();
     });
 
     it("no card in combat, and none for players", async () => {
@@ -525,6 +546,16 @@ describe("Tracker (player)", () => {
     expect(screen.queryByRole("region", { name: "Crawling Clock" })).not.toBeInTheDocument();
     await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "clock", hideClock: true } });
     expect(screen.queryByTitle("Crawling Clock")).not.toBeInTheDocument();
+  });
+
+  it("sees the danger level only when the GM shows it", async () => {
+    obr.role = "PLAYER";
+    scene([{ id: GM_ENTRY }], null, 0, { crawl: { danger: "risky" } });
+    render(<App />);
+    await screen.findByText("Crawl");
+    expect(screen.queryByTitle("Danger level")).not.toBeInTheDocument();
+    await writeFromElsewhere({ [SETTINGS_KEY]: { showDanger: true } });
+    expect(screen.getByTitle("Danger level")).toHaveTextContent("risky");
   });
 
   it("sees no turn-marker dots", async () => {

@@ -22,7 +22,8 @@ import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifi
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-import CrawlCard from "./CrawlCard";
+import Confirm from "./Confirm";
+import CrawlBar from "./CrawlBar";
 import Loading from "./Loading";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
@@ -146,6 +147,7 @@ const Tracker = ({ role }: { role: Role }) => {
   const combat = tracker.phase === "combat";
   // Players see the Crawling Clock unless the GM hides it; the GM sees it on the card.
   const showClock = !gm && settings.value.encounterMode === "clock" && !settings.value.hideClock;
+  const showDanger = !gm && !combat && settings.value.encounterMode === "standard" && settings.value.showDanger;
   const drop = ({ active, over }: DragEndEvent) => {
     if (over) change((t) => moveTo(t, String(active.id), String(over.id)));
   };
@@ -184,6 +186,11 @@ const Tracker = ({ role }: { role: Role }) => {
           <h2 className={`font-semibold ${combat ? "text-red-500" : ""}`}>{combat ? "Combat" : "Crawl"}</h2>
         )}
         {roundLabel && <span className="text-sm text-obr-text-secondary">{roundLabel}</span>}
+        {showDanger && (
+          <span className="rounded bg-obr-bg px-1.5 text-xs font-medium capitalize" title="Danger level">
+            {tracker.crawl.danger}
+          </span>
+        )}
         {showClock && (
           <span className="text-sm text-obr-text-secondary" title="Crawling Clock">
             Clock <span className="font-semibold text-obr-text tabular-nums">{tracker.crawl.clock}</span>
@@ -221,6 +228,14 @@ const Tracker = ({ role }: { role: Role }) => {
           </div>
         </div>
       )}
+      {gm && !combat && (
+        <CrawlBar
+          crawl={tracker.crawl}
+          mode={settings.value.encounterMode}
+          gmTurn={tracker.current === GM_ENTRY}
+          change={(fn) => change((t) => updateCrawl(t, fn))}
+        />
+      )}
 
       {/* Only the list scrolls: the controls above stay in view. */}
       <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pt-px">
@@ -243,14 +258,6 @@ const Tracker = ({ role }: { role: Role }) => {
                   bracket={entry.id === GM_ENTRY && monsters.length > 0}
                   {...rowProps}
                 >
-                  {entry.id === GM_ENTRY && gm && !combat && (
-                    <CrawlCard
-                      crawl={tracker.crawl}
-                      mode={settings.value.encounterMode}
-                      gmTurn={tracker.current === GM_ENTRY}
-                      change={(fn) => change((t) => updateCrawl(t, fn))}
-                    />
-                  )}
                   {entry.id === GM_ENTRY && monsters.length > 0 && (
                     <SortableContext items={monsters.map((e) => e.id)} strategy={verticalListSortingStrategy}>
                       <ol aria-label="Monsters" className="mt-1 flex flex-col gap-1">
@@ -375,35 +382,6 @@ const RowMenu = (props: {
           {label}
         </button>
         ))}
-    </div>
-  );
-};
-
-// A link that asks before doing something hard to undo.
-const Confirm = (props: { label: string; question: string; action: string; onConfirm: () => void }) => {
-  const [asking, setAsking] = useState(false);
-  if (!asking)
-    return (
-      <button type="button" className="text-xs text-obr-text-secondary underline hover:text-obr-text" onClick={() => setAsking(true)}>
-        {props.label}
-      </button>
-    );
-  return (
-    <div role="alertdialog" aria-label={props.question} className="flex items-center gap-1 text-xs">
-      <span>{props.question}</span>
-      <button
-        type="button"
-        className="rounded bg-red-700 px-2 py-0.5 font-medium text-white"
-        onClick={() => {
-          props.onConfirm();
-          setAsking(false);
-        }}
-      >
-        {props.action}
-      </button>
-      <button type="button" className="rounded border border-obr-text-disabled px-2 py-0.5" onClick={() => setAsking(false)}>
-        Cancel
-      </button>
     </div>
   );
 };

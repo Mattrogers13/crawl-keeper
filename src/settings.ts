@@ -8,6 +8,8 @@ export type Settings = {
   encounterMode: EncounterMode;
   // Players don't see the Crawling Clock.
   hideClock: boolean;
+  // Players see the map's danger level (the book treats it as GM-only).
+  showDanger: boolean;
   // Hide the round counts from players.
   hideRound: boolean;
   // Switching to combat clears the rolls for the combat roll.
@@ -22,6 +24,7 @@ export type Settings = {
 export const DEFAULT_SETTINGS: Settings = {
   encounterMode: "standard",
   hideClock: false,
+  showDanger: false,
   hideRound: false,
   clearRollsOnCombat: true,
   showMarker: true,
@@ -33,6 +36,7 @@ export const parseSettings = (raw: unknown): Settings => {
   return {
     encounterMode: r.encounterMode === "clock" ? "clock" : "standard",
     hideClock: r.hideClock === true,
+    showDanger: r.showDanger === true,
     hideRound: r.hideRound === true,
     clearRollsOnCombat: r.clearRollsOnCombat !== false,
     showMarker: r.showMarker !== false,

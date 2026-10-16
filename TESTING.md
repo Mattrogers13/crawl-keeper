@@ -86,18 +86,19 @@ Reload the room after a Dev rebuild (the background page loads once per room).
 
 | # | Steps | Expect | Result |
 |---|---|---|---|
-| 1 | GM, Crawl: look under GM / Monsters | "Encounter checks" card with Unsafe / Risky / Deadly and "In darkness"; "Next check in 3 crawl rounds." Players see no card | |
+| 1 | GM, Crawl: look at the top bar | "Checks" strip with Unsafe / Risky / Deadly and "In darkness (every round)"; "Next in 3 crawl rounds"; it stays put when the list scrolls. Players see no strip | |
 | 2 | GM: ▶ through 3 crawl rounds (Unsafe) | On the GM turn of round 3 the card lights up: "A check is due"; "Roll check (d6)" | |
-| 3 | GM: Roll check; then Undo | Result line ("Rolled 4: no encounter." / "Rolled 1: encounter!" in red); Undo puts it back | |
+| 3 | GM: Roll check; then Undo | Big result: the die, then "No encounter" or a red "ENCOUNTER!" block; Undo puts it back | |
 | 4 | GM: Risky, then Deadly, then In darkness | Checks every 2 crawl rounds, every round, every round | |
 | 5 | GM: Combat for a few rounds, then Crawl | Card hidden in combat; combat rounds don't count toward the next check | |
 | 6 | GM: "Check now (loud noise)" when no check is due | An extra check rolls | |
-| 7 | GM: gear → Crawling Clock | Card shows "Crawling Clock 20 / 20"; players see "Clock 20" in their header | |
-| 8 | GM: ▶ to the GM turn; Roll d6 | The clock drops; a 6 rolls again and adds (e.g. "6 + 2 = 8"); "Roll d6 again (loud noise)" after | |
+| 7 | GM: gear → Crawling Clock | Strip shows "Clock 20 / 20"; players see "Clock 20" in their header | |
+| 8 | GM: ▶ to the GM turn; Roll d6 | Big result: dice, "= total", "Clock 20 → 12"; a 6 rolls again and adds; "Roll d6 (loud noise)" after | |
 | 9 | GM: In darkness; roll | The die is a d8 | |
 | 10 | GM: get the clock to 5 or lower | Amber omen line; "Roll the encounter now" starts a fresh clock at 20 | |
 | 11 | GM: roll past 0 (e.g. clock 3, roll 5) | "the clock hits 0. Encounter! Next clock: 18." | |
-| 12 | GM: New clock | Back to 20 | |
+| 12 | GM: Reset clock → Cancel; Reset clock → Reset; right-click the clock number → Reset | Cancel keeps it; Reset puts it back to 20 | |
 | 13 | GM: gear → Hide the clock from players | Player's "Clock" disappears | |
 | 14 | Switch to another map and back | Each map keeps its own clock, danger level and darkness | |
 | 15 | Reset rounds | The crawl round count starts over too (next check in 3 again when Unsafe) | |
+| 16 | GM: gear (Standard) → Show the danger level to players | Player sees "Unsafe" / "Risky" / "Deadly" in their header while crawling | |
