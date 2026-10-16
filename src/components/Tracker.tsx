@@ -23,7 +23,6 @@ import { parseSettings } from "../settings";
 import {
   GM_ENTRY,
   NOTE_MAX,
-  hpFromInput,
   moveTo,
   next,
   parseRoll,
@@ -35,14 +34,12 @@ import {
   resetRounds,
   remove,
   setDead,
-  setHp,
   setNote,
   setRoll,
   sortByRoll,
   toCombat,
   toCrawl,
   type Entry,
-  type Hp,
   type Tracker as TrackerDoc,
 } from "../tracker";
 
@@ -102,7 +99,7 @@ const Tracker = ({ role }: { role: Role }) => {
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex items-center gap-2">
         {gm ? (
           <div role="group" aria-label="Phase" className="flex overflow-hidden rounded border border-obr-text-disabled text-sm font-medium">
@@ -148,36 +145,39 @@ const Tracker = ({ role }: { role: Role }) => {
         </div>
       )}
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-        onDragEnd={drop}
-      >
-        {/* Two drag groups: players and the GM row; monsters inside the GM row. */}
-        <SortableContext items={top.map((e) => e.id)} strategy={verticalListSortingStrategy}>
-          <ol className="flex flex-col gap-1">
-            {top.map((entry) => (
-              <Row key={entry.id} entry={entry} token={tokenFor(entry)} current={entry.id === current} gm={gm} change={change}>
-                {entry.id === GM_ENTRY && monsters.length > 0 && (
-                  <SortableContext items={monsters.map((e) => e.id)} strategy={verticalListSortingStrategy}>
-                    <ol aria-label="Monsters" className="mt-1 ml-6 flex flex-col gap-1">
-                      {monsters.map((m) => (
-                        <Row key={m.id} entry={m} token={tokenFor(m)} current={m.id === current} gm={gm} change={change} />
-                      ))}
-                    </ol>
-                  </SortableContext>
-                )}
-              </Row>
-            ))}
-          </ol>
-        </SortableContext>
-      </DndContext>
-      {gm && tracker.entries.length === 1 && (
-        <p className="text-sm text-obr-text-secondary">
-          Right-click a token: “Add / Remove Initiative” for players, “Add / Remove Monster” for monsters.
-        </p>
-      )}
+      {/* Only the list scrolls: the controls above stay in view. */}
+      <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pt-px">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+          onDragEnd={drop}
+        >
+          {/* Two drag groups: players and the GM row; monsters inside the GM row. */}
+          <SortableContext items={top.map((e) => e.id)} strategy={verticalListSortingStrategy}>
+            <ol className="flex flex-col gap-1">
+              {top.map((entry) => (
+                <Row key={entry.id} entry={entry} token={tokenFor(entry)} current={entry.id === current} gm={gm} change={change}>
+                  {entry.id === GM_ENTRY && monsters.length > 0 && (
+                    <SortableContext items={monsters.map((e) => e.id)} strategy={verticalListSortingStrategy}>
+                      <ol aria-label="Monsters" className="mt-1 flex flex-col gap-1">
+                        {monsters.map((m) => (
+                          <Row key={m.id} entry={m} token={tokenFor(m)} current={m.id === current} gm={gm} change={change} />
+                        ))}
+                      </ol>
+                    </SortableContext>
+                  )}
+                </Row>
+              ))}
+            </ol>
+          </SortableContext>
+        </DndContext>
+        {gm && tracker.entries.length === 1 && (
+          <p className="text-sm text-obr-text-secondary">
+            Right-click a token: “Add / Remove Initiative” for players, “Add / Remove Monster” for monsters.
+          </p>
+        )}
+      </div>
     </div>
   );
 };
@@ -230,7 +230,9 @@ const Row = (props: {
       ref={sortable.setNodeRef}
       style={{ transform: CSS.Translate.toString(sortable.transform), transition: sortable.transition }}
       aria-current={props.current ? "step" : undefined}
-      className={sortable.isDragging ? "relative z-10 shadow-lg" : ""}
+      // The GM row and its monsters share a red edge instead of an indent
+      // (an indent squeezes the monsters' notes).
+      className={`${sortable.isDragging ? "relative z-10 shadow-lg" : ""} ${props.children ? "rounded border-l-4 border-red-700/70" : ""}`}
     >
       <div
         className={`flex items-start gap-2 rounded p-1.5 ${props.current ? "bg-obr-primary/20 ring-1 ring-obr-primary" : "bg-obr-bg"} ${
@@ -257,10 +259,7 @@ const Row = (props: {
             {entry.dead && <span className="sr-only"> (dead)</span>}
           </span>
           {gm ? (
-            <div className="flex items-center gap-1">
-              <NoteInput key={entry.note} name={name} value={entry.note} save={(n) => change((t) => setNote(t, entry.id, n))} />
-              {entry.monster && <HpInputs name={name} hp={entry.hp} save={(hp) => change((t) => setHp(t, entry.id, hp))} />}
-            </div>
+            <NoteInput key={entry.note} name={name} value={entry.note} save={(n) => change((t) => setNote(t, entry.id, n))} />
           ) : (
             entry.note && <span className="text-sm whitespace-pre-wrap text-obr-text-secondary">{entry.note}</span>
           )}
@@ -353,28 +352,6 @@ const RollInput = ({ name, value, save }: { name: string; value: number | null; 
     inputMode="numeric"
     className={`${ROLL_SLOT} rounded border border-obr-text-disabled bg-obr-paper px-1 py-0.5 text-right tabular-nums focus:border-obr-primary focus:outline-none`}
     {...useDraft(value === null ? "" : String(value), readRoll, save)}
-  />
-);
-
-// GM-only. Current HP takes "-5" (damage), "+3" (healing) or a number; max
-// empty stops tracking. Unreadable input puts the old value back.
-const HpInputs = ({ name, hp, save }: { name: string; hp: Hp | null; save: (hp: Hp | null) => void }) => (
-  <span className="flex shrink-0 items-center gap-0.5 text-xs text-obr-text-secondary">
-    HP
-    <HpBox key={`cur-${hp?.cur}`} label={`HP for ${name}`} box="cur" hp={hp} save={save} />/
-    <HpBox key={`max-${hp?.max}`} label={`Max HP for ${name}`} box="max" hp={hp} save={save} />
-  </span>
-);
-
-const HpBox = (props: { label: string; box: "cur" | "max"; hp: Hp | null; save: (hp: Hp | null) => void }) => (
-  <input
-    aria-label={props.label}
-    inputMode="numeric"
-    className={`w-9 px-0.5 text-right tabular-nums ${GHOST_INPUT} ${
-      props.box === "cur" && props.hp?.cur === 0 ? "font-semibold text-red-500" : "text-obr-text"
-    }`}
-    placeholder="–"
-    {...useDraft(props.hp === null ? "" : String(props.hp[props.box]), (text) => hpFromInput(props.hp, props.box, text), props.save)}
   />
 );
 

@@ -1,6 +1,6 @@
 # Crawl Keeper
 
-An [Owlbear Rodeo](https://owlbear.rodeo) extension for running old-school dungeon crawls: an initiative tracker (sorted by roll, with a GM / Monsters row, notes and monster HP), crawling and combat states, and encounter checks or the crawling clock on the GM's turn. The GM runs it; players see a read-only view.
+An [Owlbear Rodeo](https://owlbear.rodeo) extension for running old-school dungeon crawls: an initiative tracker (sorted by roll, with a GM / Monsters row and its monsters, notes, and a turn marker on the map), crawling and combat states, and encounter checks or the crawling clock on the GM's turn. The GM runs it; players see a read-only view.
 
 **Status:** in development (v0.1 in progress). The plan is in [`docs/design.md`](docs/design.md).
 

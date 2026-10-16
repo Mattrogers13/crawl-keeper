@@ -1,9 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import OBR from "@owlbear-rodeo/sdk";
 
 import Loading from "./Loading";
-import { SETTINGS_KEY } from "../constants";
+import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import { useRoomValue } from "../hooks/useRoomValue";
 import { syncTurnFromScene } from "../marker";
+import { errorMessage } from "../utils";
 import { parseSettings, type Settings as SettingsDoc } from "../settings";
 
 // The GM's settings (room metadata, so they follow the party across maps).
@@ -33,7 +35,16 @@ const Settings = () => {
         onChange={(showMarker) => {
           set({ showMarker });
           // Add or remove it now, not at the next turn.
-          void syncTurnFromScene(showMarker);
+          void syncTurnFromScene({ ...settings.value, showMarker });
+        }}
+      />
+      <Check
+        label="Mark monsters' turns too"
+        hint="Off: the ring and selection follow players' tokens only."
+        checked={settings.value.markMonsters}
+        onChange={(markMonsters) => {
+          set({ markMonsters });
+          void syncTurnFromScene({ ...settings.value, markMonsters });
         }}
       />
       <Check
@@ -42,7 +53,42 @@ const Settings = () => {
         checked={settings.value.selectOnTurn}
         onChange={(selectOnTurn) => set({ selectOnTurn })}
       />
+      <DataSize />
       <InstallLink />
+    </div>
+  );
+};
+
+const kB = (value: unknown) => `${(new Blob([JSON.stringify(value) ?? ""]).size / 1000).toFixed(1)} kB`;
+
+// How much Owlbear is storing, read when Settings opens. The room limit is
+// documented (16 kB, all extensions together); the scene limit isn't.
+const DataSize = () => {
+  const [sizes, setSizes] = useState<{ tracker: string; scene: string; room: string } | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let alive = true;
+    Promise.all([OBR.scene.isReady(), OBR.room.getMetadata()])
+      .then(async ([ready, room]) => {
+        const scene = ready ? await OBR.scene.getMetadata() : null;
+        if (alive) setSizes({ tracker: scene ? kB(scene[TRACKER_KEY]) : "–", scene: scene ? kB(scene) : "–", room: kB(room) });
+      })
+      .catch((err) => alive && setError(errorMessage(err)));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-0.5 border-t border-obr-text-disabled pt-3">
+      <span>Saved data</span>
+      <span className="text-xs text-obr-text-secondary" role="status">
+        {error
+          ? `Couldn't read: ${error}`
+          : sizes
+            ? `This map: ${sizes.tracker} tracker, ${sizes.scene} all extensions (limit not documented). Room: ${sizes.room} of 16 kB, all extensions.`
+            : "Reading…"}
+      </span>
     </div>
   );
 };

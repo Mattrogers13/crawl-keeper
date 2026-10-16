@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import OBR, { type Image } from "@owlbear-rodeo/sdk";
 
 import { MARKER_KEY, TRACKER_KEY } from "./constants";
-import { buildMarker, markerImage, planMarker, syncTurn, syncTurnFromScene } from "./marker";
-import { GM_ENTRY } from "./tracker";
+import { buildMarker, markedToken, markerImage, planMarker, syncTurn, syncTurnFromScene } from "./marker";
+import { GM_ENTRY, parseTracker } from "./tracker";
 import { obr, token } from "./test/obrMock";
 
 const IMG = markerImage();
@@ -55,6 +55,21 @@ describe("buildMarker", () => {
   });
 });
 
+describe("markedToken", () => {
+  const t = parseTracker({
+    entries: [{ id: "p" }, { id: GM_ENTRY }, { id: "m", monster: true }],
+    phase: "combat",
+    combatRound: 1,
+  });
+  it("players' tokens; monsters only when asked; never the GM row or between rounds", () => {
+    expect(markedToken({ ...t, current: "p" }, false)).toBe("p");
+    expect(markedToken({ ...t, current: "m" }, false)).toBeNull();
+    expect(markedToken({ ...t, current: "m" }, true)).toBe("m");
+    expect(markedToken({ ...t, current: GM_ENTRY }, true)).toBeNull();
+    expect(markedToken({ ...t, current: null }, true)).toBeNull();
+  });
+});
+
 describe("syncTurn", () => {
   it("moves the one marker to the current token and selects it", async () => {
     obr.items = [token("a"), token("b")];
@@ -92,9 +107,9 @@ describe("syncTurn", () => {
   it("a settings change adds or removes the marker for the current turn", async () => {
     obr.items = [token("a")];
     obr.sceneMetadata = { [TRACKER_KEY]: { entries: [{ id: "a" }], current: "a", round: 1 } };
-    await syncTurnFromScene(true);
+    await syncTurnFromScene({ showMarker: true, markMonsters: false });
     expect(markers().map((m) => m.attachedTo)).toEqual(["a"]);
-    await syncTurnFromScene(false);
+    await syncTurnFromScene({ showMarker: false, markMonsters: false });
     expect(markers()).toEqual([]);
     expect(OBR.player.select).not.toHaveBeenCalled();
   });

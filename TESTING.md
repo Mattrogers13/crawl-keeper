@@ -49,23 +49,25 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 | 14 | After removing and re-adding the Dev extension | One toolbar icon; one combat alert per client | Pass 2026-10-16 |
 | 15 | GM: Reset rounds → Cancel; then Reset rounds → Reset | Cancel changes nothing; Reset puts both counts to 0 and "Press ▶ to begin", rolls and order kept | Pass 2026-10-16 |
 
-## PR 3: monsters, HP, turn marker, select the current token (v0.1, 2026-10-16)
+## PR 3: monsters, turn marker, select the current token, panel (v0.1, 2026-10-16)
 
 | # | Steps | Expect | Result |
 |---|---|---|---|
-| 1 | GM: right-click two monster tokens → "Add / Remove Monster" (claw icon) | Listed indented under GM / Monsters, no roll box; player sees them (unless hidden) | |
-| 2 | GM: right-click one of them → "Add / Remove Initiative" | It switches to a player row with a roll box; HP gone | |
+| 1 | GM: right-click two monster tokens → "Add / Remove Monster" (claw icon) | Listed under GM / Monsters with a red edge, not indented, no roll box; notes full width; player sees them (unless hidden) | |
+| 2 | GM: right-click one of them → "Add / Remove Initiative" | It switches to a player row with a roll box | |
 | 3 | GM: drag monsters within the group; drag the GM row among players | Monsters reorder in the group only and travel with the GM row; Sort leaves the monsters' order alone | |
-| 4 | GM: ▶ through a round | GM / Monsters, then each living monster in order, then the next player; dead monsters skipped | |
-| 5 | GM: ▶ onto a token | Gold ring (a bit bigger than the token) around it; the token is selected on the GM's screen | |
-| 6 | GM: ▶ onto GM / Monsters | Ring disappears; selection unchanged | |
-| 7 | GM: move, resize and rotate the current token | Ring follows position and size, stays upright | |
-| 8 | GM: a hidden monster's turn | GM sees the ring (faded like the token); player sees neither the monster nor the ring, and the GM row shows as current | |
-| 9 | GM: delete the current token from the map | Ring goes with it | |
-| 10 | GM: right-click → remove the current token | Turn and ring pass on | |
-| 11 | Player | Ring visible on visible tokens; can't select or move it | |
-| 12 | GM: gear → turn marker off, then on | Ring disappears at once, comes back on the current token | |
-| 13 | GM: gear → Select the current token off; ▶ | Turn moves, selection doesn't | |
-| 14 | GM: monster HP max 20; current "-7", then "+3", then "abc" | 13, then 16; "abc" puts 16 back. Players' rows have no HP; player sees no HP anywhere | |
-| 15 | GM: monster HP to 0 | Shows red; nothing else happens | |
-| 16 | Size: the 40-token map; make most of them monsters with HP; Combat | Saves without "Couldn't save" | |
+| 4 | GM: Crawl, ▶ through a round | GM / Monsters, then the next player: monsters get no turns of their own | |
+| 5 | GM: Combat, ▶ through a round | GM / Monsters, then each living monster in order, then the next player; dead monsters skipped | |
+| 6 | GM: ▶ onto a player's token | Gold ring (a bit bigger than the token) around it; the token is selected on the GM's screen | |
+| 7 | GM: ▶ onto a monster (combat) | No ring, no selection | |
+| 8 | GM: gear → "Mark monsters' turns too" on; ▶ onto a monster | Ring and selection on the monster | |
+| 9 | GM: a hidden monster's turn (with step 8 on) | GM sees the ring (faded like the token); player sees neither, and the GM row shows as current | |
+| 10 | GM: ▶ onto GM / Monsters | Ring disappears; selection unchanged | |
+| 11 | GM: move, resize and rotate the current token | Ring follows position and size, stays upright | |
+| 12 | GM: delete the current token from the map; then right-click → remove the current token | Ring goes with the deleted token; on remove, turn and ring pass on | |
+| 13 | Player | Ring visible on visible tokens; can't select or move it | |
+| 14 | GM: gear → turn marker off, then on | Ring disappears at once, comes back on the current token | |
+| 15 | GM: gear → Select the current token off; ▶ | Turn moves, selection doesn't | |
+| 16 | Add enough tokens to overflow the panel; scroll the list | Crawl Keeper title, Crawl/Combat, arrows and sort stay in view | |
+| 17 | Drag the grip at the bottom down, close and reopen the panel | Panel grows and keeps its height (player: same, their own) | |
+| 18 | GM: gear → Saved data | Shows tracker, whole map and room sizes | |

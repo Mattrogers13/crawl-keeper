@@ -4,8 +4,9 @@
 // `entries` holds the players' rows and the GM / Monsters row in turn order
 // (the GM sorts them by roll or drags them), then the monsters. Monsters act
 // on the GM / Monsters roll (core pp. 82, 88: one roll, the monsters' best
-// DEX): no rolls of their own. Their turns come right after that row, one
-// each, in their list order. Dead entries stay listed but get no turns.
+// DEX): no rolls of their own. In combat their turns come right after that
+// row, one each, in their list order; while crawling the GM turn covers them.
+// Dead entries stay listed but get no turns.
 //
 // Shadowdark is always in turn order (core p. 82). The tracker is in one of
 // two phases: crawl or combat. Each has its own round count; the crawl count
@@ -17,11 +18,6 @@ export const MAX_ENTRIES = 40;
 export const NOTE_MAX = 200;
 export const ROLL_MIN = -99;
 export const ROLL_MAX = 99;
-const HP_MAX = 9999;
-
-// Hit points, GM-only (players never see them), monsters only: players keep
-// their own on the character sheet.
-export type Hp = { cur: number; max: number };
 
 export type Entry = {
   // An item id, or GM_ENTRY for the built-in GM / Monsters row.
@@ -32,8 +28,6 @@ export type Entry = {
   dead: boolean;
   // Acts in the GM / Monsters turn. Never the GM row; roll always null.
   monster: boolean;
-  // Monsters only; null = not tracked.
-  hp: Hp | null;
 };
 
 export type Phase = "crawl" | "combat";
@@ -89,7 +83,6 @@ export const parseTracker = (raw: unknown): Tracker => {
         note: typeof e.note === "string" ? e.note.slice(0, NOTE_MAX) : "",
         dead: e.dead === true,
         monster: e.monster === true,
-        hp: parseHp(e.hp),
       }),
     );
     if (entries.length === MAX_ENTRIES) break;
@@ -111,31 +104,21 @@ export const parseTracker = (raw: unknown): Tracker => {
   return current && phaseRound(t) > 0 ? { ...t, current } : t;
 };
 
-const parseHp = (raw: unknown): Hp | null => {
-  if (!isObject(raw)) return null;
-  const cur = intIn(raw.cur, 0, HP_MAX);
-  const max = intIn(raw.max, 1, HP_MAX);
-  return cur === null || max === null ? null : { cur, max };
-};
-
 // The one place the entry rules live (parse and every edit go through it):
-// the GM row is never dead or a monster; a monster has HP and no roll;
-// anyone else a roll and no HP.
+// the GM row is never dead or a monster; a monster has no roll.
 const normalized = (e: Entry): Entry => {
   const gm = e.id === GM_ENTRY;
   const monster = e.monster && !gm;
-  return { ...e, dead: e.dead && !gm, monster, roll: monster ? null : e.roll, hp: monster ? e.hp : null };
+  return { ...e, dead: e.dead && !gm, monster, roll: monster ? null : e.roll };
 };
 
 const sameEntry = (a: Entry, b: Entry) =>
   a.roll === b.roll &&
   a.note === b.note &&
   a.dead === b.dead &&
-  a.monster === b.monster &&
-  a.hp?.cur === b.hp?.cur &&
-  a.hp?.max === b.hp?.max;
+  a.monster === b.monster;
 
-const newEntry = (id: string, monster: boolean): Entry => ({ id, roll: null, note: "", dead: false, monster, hp: null });
+const newEntry = (id: string, monster: boolean): Entry => ({ id, roll: null, note: "", dead: false, monster });
 
 // Players and the GM row first, then the monsters, each keeping its order.
 const grouped = (entries: Entry[]): Entry[] => [...entries.filter((e) => !e.monster), ...entries.filter((e) => e.monster)];
@@ -154,7 +137,7 @@ export const prune = (t: Tracker, exists: (id: string) => boolean): Tracker => {
 // can't die).
 export const turnOrder = (t: Tracker): Entry[] => {
   const living = t.entries.filter((e) => !e.dead);
-  const monsters = living.filter((e) => e.monster);
+  const monsters = t.phase === "combat" ? living.filter((e) => e.monster) : [];
   return living.filter((e) => !e.monster).flatMap((e) => (e.id === GM_ENTRY ? [e, ...monsters] : [e]));
 };
 
@@ -229,7 +212,7 @@ export const add = (t: Tracker, ids: string[], monster = false): Tracker => {
   const kept = t.entries.filter((e) => !switching.has(e.id));
   const switched = t.entries
     .filter((e) => switching.has(e.id))
-    .map((e) => normalized({ ...e, monster, roll: null, hp: null }));
+    .map((e) => normalized({ ...e, monster, roll: null }));
   return withEntries(t, grouped([...kept, ...switched, ...fresh.map((id) => newEntry(id, monster))]));
 };
 
@@ -276,29 +259,6 @@ export const setRoll = (t: Tracker, id: string, roll: number | null): Tracker =>
 
 export const setNote = (t: Tracker, id: string, note: string): Tracker =>
   edit(t, id, { note: note.slice(0, NOTE_MAX) });
-
-// Monsters only (normalized drops it on anyone else).
-export const setHp = (t: Tracker, id: string, hp: Hp | null): Tracker => edit(t, id, { hp: parseHp(hp) });
-
-// What the GM typed in an HP box. Current: "-5" is damage, "+3" healing, "12"
-// sets it (never below 0). Max: a number; empty stops tracking HP. Starting
-// from nothing, either box sets both. undefined = not understood (the box
-// reverts).
-export const hpFromInput = (hp: Hp | null, box: "cur" | "max", text: string): Hp | null | undefined => {
-  const s = text.trim();
-  if (s === "") return box === "max" || hp === null ? null : undefined;
-  const m = /^([+-]?)(\d{1,4})$/.exec(s);
-  if (!m) return undefined;
-  const n = Number(m[2]);
-  const clamp = (v: number) => Math.min(Math.max(v, 0), HP_MAX);
-  if (box === "max") {
-    if (m[1] || n < 1) return undefined;
-    return hp === null ? { cur: n, max: n } : { cur: Math.min(hp.cur, n), max: n };
-  }
-  if (hp === null) return m[1] || n < 1 ? undefined : { cur: n, max: n };
-  const cur = m[1] === "-" ? hp.cur - n : m[1] === "+" ? hp.cur + n : n;
-  return { cur: clamp(Math.min(cur, hp.max)), max: hp.max };
-};
 
 // Dead entries keep their seat but get no turns; killing the current entry
 // passes the turn on. The GM row can't die.

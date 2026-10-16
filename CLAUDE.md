@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Shadowdark crawl companion for Owlbear Rodeo: initiative tracker (sorted by roll, GM / Monsters row, notes, monster HP, turn marker), Crawling/Combat states, encounter checks or the Crawling Clock on the GM's turn; v0.2 adds encounter and morale rollers. **The agreed design, data layout and release plan are in `docs/design.md`; read it before building.** GM is the only writer; players get a read-only view.
+Shadowdark crawl companion for Owlbear Rodeo: initiative tracker (sorted by roll, GM / Monsters row with grouped monsters, notes, turn marker), Crawling/Combat states, encounter checks or the Crawling Clock on the GM's turn; v0.2 adds encounter and morale rollers. **The agreed design, data layout and release plan are in `docs/design.md`; read it before building.** GM is the only writer; players get a read-only view.
 
 Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript 5 + Tailwind 4, hosted on Cloudflare Workers static assets.
 

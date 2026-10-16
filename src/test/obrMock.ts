@@ -311,6 +311,9 @@ export const OBR = {
       onChange: vi.fn((cb: Listener<Item[]>) => subscribe(obr.itemListeners, cb)),
     },
   },
+  action: {
+    setHeight: vi.fn(async () => undefined),
+  },
   contextMenu: {
     create: vi.fn(async () => undefined),
     remove: vi.fn(async () => undefined),
