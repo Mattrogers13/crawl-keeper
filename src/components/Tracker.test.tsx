@@ -427,7 +427,7 @@ describe("Tracker (GM)", () => {
       fireEvent.click(within(card).getByText("Roll d6"));
       await waitFor(() => expect(saved().crawl.last?.kind).toBe("clock"));
       expect(saved().crawl.clock).toBeLessThan(20);
-      expect(within(card).getByText("Roll d6 (loud noise)")).toBeInTheDocument();
+      expect(within(card).queryByRole("button", { name: /^Roll/ })).not.toBeInTheDocument();
       expect(within(card).getByLabelText("Last roll")).toHaveTextContent(/Clock 20 → \d+|Encounter!/);
     });
 

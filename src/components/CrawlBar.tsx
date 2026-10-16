@@ -22,7 +22,7 @@ import {
 
 // The GM's encounter checks or Crawling Clock, in the top bar while
 // crawling (it stays in view as the list scrolls). It lights up and asks for
-// the roll on the GM's turn when one is due; a loud-noise roll is always there.
+// the roll on the GM's turn when one is due; the roll button only shows then.
 const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; change: (fn: (c: Crawl) => Crawl) => void }) => {
   const { crawl, mode, change } = props;
   const [askingReset, setAskingReset] = useState(false);
@@ -76,13 +76,14 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {mode === "clock" ? (
+        {isDue && mode === "clock" && (
           <BarButton primary={callForRoll} onClick={() => change((c) => rollClock(c, cryptoRand))}>
-            {isDue ? `Roll ${die}` : `Roll ${die} (loud noise)`}
+            Roll {die}
           </BarButton>
-        ) : (
+        )}
+        {isDue && mode === "standard" && (
           <BarButton primary={callForRoll} onClick={() => change((c) => rollCheck(c, cryptoRand))}>
-            {isDue ? "Roll check (d6)" : "Check now (loud noise)"}
+            Roll check (d6)
           </BarButton>
         )}
         <span className="text-xs text-obr-text-secondary" role="status">

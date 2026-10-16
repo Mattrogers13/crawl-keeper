@@ -55,7 +55,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 
 ## Crawl prompt (GM panel, in the header under the title while crawling)
 
-- In the panel header under the Crawl Keeper title (a portal from the tracker), so it stays in view (status, danger level, darkness, a roll for loud noises); highlighted and asking for the roll on the GM turn when one is due. The last roll shows large (dice, then the outcome; red for an encounter). Danger level and darkness live in the bar, per map; the mode, hiding the clock and showing the danger level are in Settings. Players see the clock number in the header (unless hidden) and, if the GM allows, the danger level (the book treats it as GM-only: pp. 112, 130); never the bar.
+- In the panel header under the Crawl Keeper title (a portal from the tracker), so it stays in view (status, danger level, darkness, the roll when due); highlighted and asking for the roll on the GM turn when one is due. The last roll shows large (dice, then the outcome; red for an encounter). Danger level and darkness live in the bar, per map; the mode, hiding the clock and showing the danger level are in Settings. Players see the clock number in the header (unless hidden) and, if the GM allows, the danger level (the book treats it as GM-only: pp. 112, 130); never the bar.
 - When: on the GM's turn of each crawl round (sheet: "rolled on the GM's turn at the end of each crawling round"; core p. 82 GM turn step 2).
 - In darkness (total darkness, no light): standard checks every round (p. 84); the crawling die steps up to a d8 (sheet, "Darkness Descends").
 - Crawl rounds are counted separately from the round number (combat rounds don't count, p. 112): ▶ starting a crawl round adds one, ◀ back over one takes it away, Reset rounds zeroes it.
@@ -64,7 +64,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 - **Crawling Clock:** starts at 20 (GM reset button on entering a dangerous location). Roll the crawling die (d6; d8 when in darkness). Max roll explodes (add another roll; chain capped at 10). Subtract from the clock. At 0 or below: encounter, clock resets to 20 minus the overflow. At 1–5: an omen reminder (sheet: the GM may roll the encounter on their table now and telegraph it; it still happens at 0). An earlier "Roll the encounter now" button that triggered the encounter at once was a misreading and is gone (2026-10-16); v0.2's encounter roller can do the early table roll.
 - Back to Crawl from Combat (clock mode): a fresh clock of 20, unless the clock's own encounter already started one (that keeps its carry-over). Decided 2026-10-16.
 - Roll automatically (setting, default off): ▶ onto the GM / Monsters turn in a crawl round with a roll due rolls it (check or crawling die) in the same write; Undo still works.
-- "Check now" / "Roll again" for loud disturbances (standard: an extra check; clock: an extra crawling-die roll). One-level undo of the last roll. "Reset clock" (asks first; also right-click the clock) resets to 20 for a new dangerous place.
+- The roll button only shows when a roll is due (an extra "loud noise" roll, from core p. 112, was built and removed at the GM's request, 2026-10-16). One-level undo of the last roll. "Reset clock" (asks first; also right-click the clock) resets to 20 for a new dangerous place.
 - Rolls use `crypto.getRandomValues`.
 
 ## Releases
