@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+/* Tailwind's dark: variant follows the `dark` class set from Owlbear's theme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Owlbear's theme colors, set on <html> by useObrTheme. These defaults are
+   Owlbear's dark theme, used until the theme arrives and on the homepage. */
+:root {
+  --obr-bg: #1e2231;
+  --obr-paper: #222639;
+  --obr-text: #ffffff;
+  --obr-text-secondary: #bbbbbb;
+  --obr-text-disabled: #777777;
+  --obr-primary: #bb99ff;
+  --obr-primary-contrast: #000000;
+  --obr-secondary: #ee99ff;
+}
+
+/* bg-obr-paper, text-obr-text, border-obr-primary, ... */
+@theme inline {
+  --color-obr-bg: var(--obr-bg);
+  --color-obr-paper: var(--obr-paper);
+  --color-obr-text: var(--obr-text);
+  --color-obr-text-secondary: var(--obr-text-secondary);
+  --color-obr-text-disabled: var(--obr-text-disabled);
+  --color-obr-primary: var(--obr-primary);
+  --color-obr-primary-contrast: var(--obr-primary-contrast);
+  --color-obr-secondary: var(--obr-secondary);
+}
+
+body {
+  margin: 0;
+  background: var(--obr-paper);
+  color: var(--obr-text);
+  font-family: Roboto, system-ui, sans-serif;
+}

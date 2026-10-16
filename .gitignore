@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+.wrangler/
+*.log
+.env
+.DS_Store
+
+# Reference material (SDK clone, PDFs, etc.). Fetch with scripts/fetch-sources.sh.
+sources/

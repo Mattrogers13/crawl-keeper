@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Placeholder logo: replace per extension. -->
+  <circle cx="32" cy="32" r="30" fill="#222639" stroke="#bb99ff" stroke-width="3"/>
+  <path d="M32 14l15.6 9v18L32 50l-15.6-9V23z" fill="none" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M32 14v18m0 0l15.6 9M32 32l-15.6 9" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+</svg>

@@ -1,0 +1,4 @@
+# Owlbear Rodeo fetches the manifest (and assets) cross-origin. Workers send no
+# CORS header by default, so without this the install fails.
+/*
+  Access-Control-Allow-Origin: *

@@ -1,0 +1,16 @@
+{
+  "name": "My OBR Extension",
+  "version": "0.1.0",
+  "manifest_version": 1,
+  "icon": "/img/logo.png",
+  "author": "Matthew Rogers",
+  "homepage_url": "https://github.com/Mattrogers13/my-obr-extension",
+  "description": "TODO: one line, 128 characters max.",
+  "action": {
+    "title": "My OBR Extension",
+    "icon": "/img/action.svg",
+    "popover": "/",
+    "height": 500,
+    "width": 400
+  }
+}
