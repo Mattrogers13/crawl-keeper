@@ -50,7 +50,7 @@ For Claude: how answers in `BRIEF.md` map to SDK APIs, starter patterns and gotc
 | Players see / change it | Shared metadata. Players changing it → one key per player (`room-sync.md`) |
 | Hidden from players | Not possible in shared state without a server. Options: keep it local to the GM (localStorage / `OBR.scene.local`), accept "hidden from the UI only", or add a server (out of starter scope) |
 | Only their own tokens | Permission check like Torchlight's `playerMayLight` (`CHARACTER_UPDATE`, `CHARACTER_OWNER_ONLY` → `createdUserId`); context menu `permissions: ["UPDATE"]` |
-| List of players | `OBR.party.getPlayers`, `OBR.party.onChange` | 
+| List of players | `OBR.party.getPlayers`, `OBR.party.onChange` |
 
 ## Section 5: where the data lives
 

@@ -4,7 +4,7 @@ Owlbear Rodeo extension built from Matt's `obr-extension-starter` template. Reac
 
 ## First run (this folder was duplicated from the starter for a new extension)
 
-1. **Brief.** `BRIEF.md` is the user's questionnaire. A SessionStart hook (`scripts/open-brief.sh`) opens it in their editor while it says `Status: DRAFT`. Don't build features until it says `Status: DONE`. Then read it, follow `docs/obr/capabilities.md` (follow-ups one at a time, then a component/data/scope proposal), and wait for approval.
+1. **Brief.** `BRIEF.md` is the user's questionnaire. A SessionStart hook (`scripts/open-brief.sh`) opens it in their editor at session start while it says `Status: DRAFT` (skipped in the master folder named `obr-extension-starter`). Don't build features until it says `Status: DONE`. Then read it, follow `docs/obr/capabilities.md` (follow-ups one at a time, then a component/data/scope proposal), and wait for approval.
 2. If `sources/sdk` is missing: `scripts/fetch-sources.sh`.
 3. Replace placeholders: `ID` in `src/constants.ts`, `name`/`description`/`homepage_url` in `public/manifest.json`, `name` in `package.json` and `wrangler.jsonc`, `<title>` in `index.html`, the art in `art/` + `public/img/`.
 4. Replace the example note (`src/note.ts`, `Panel.tsx`, `NOTE_KEY`) with the real feature.

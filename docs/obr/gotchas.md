@@ -50,7 +50,7 @@ Learned building Torchlight (github.com/Mattrogers13/obr-torchlight), 2026-10. E
 - Cloudflare serves `page.html` as a 307 to `/page`. Use extensionless URLs in the manifest (`background_url: "/background"`) and for embeds (`/menu`). **Torchlight**
 - Cloudflare preview URLs don't apply the SPA fallback, so deep links 404 on previews (production is fine). Keep the panel on `/` and switch views in-app. **Torchlight**
 - `wrangler.jsonc` needs `"previews": {}` or PR preview builds fail. **Torchlight**
-- Owlbear caches an installed manifest. After changing the icon or name, remove and re-add the extension to see it. **unverified** (observed once)
+- Owlbear caches an installed manifest. After changing the icon or name, remove and re-add the extension to see it. **unverified** (suspected, not observed)
 - The toolbar action icon can be SVG; Owlbear's own are white monochrome. The manifest `icon` (extension list) is PNG here; SVG there is **unverified**.
 
 ## Browser

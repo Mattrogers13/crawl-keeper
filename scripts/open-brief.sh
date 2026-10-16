@@ -1,9 +1,13 @@
 #!/bin/bash
-# SessionStart hook (.claude/settings.json). While BRIEF.md still says
+# SessionStart hook (.claude/settings.json, new sessions only). While BRIEF.md still says
 # "Status: DRAFT", open it for editing (Sublime Text, else VS Code, else the
 # default app) and tell Claude the brief isn't filled in yet. Once it says
 # "Status: DONE" this does nothing.
 cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/..}" || exit 0
+# Skip the master template itself (keep it named obr-extension-starter), so
+# maintaining it doesn't pop the blank brief open. Duplicates get their own
+# folder name, so they still open it.
+[ "$(basename "$PWD")" = "obr-extension-starter" ] && exit 0
 [ -f BRIEF.md ] && grep -q '^Status: DRAFT' BRIEF.md || exit 0
 
 if [ -d "/Applications/Sublime Text.app" ]; then

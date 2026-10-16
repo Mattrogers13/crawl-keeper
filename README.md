@@ -4,10 +4,14 @@ A starter for [Owlbear Rodeo](https://owlbear.rodeo) extensions: React 19, Vite,
 
 ## Use it
 
-1. Create a repo from this template (GitHub: "Use this template").
-2. `npm install && scripts/fetch-sources.sh`
-3. Follow "First run" in `CLAUDE.md`.
-4. `npm run dev`, then in Owlbear add the custom extension `http://localhost:5173/manifest.json`.
+This is a starting point for Claude Code, not an extension to install.
+
+1. Duplicate this folder and give the copy the new extension's name. Keep the master named `obr-extension-starter`: the brief only auto-opens in copies.
+2. Optional: delete the copy's `.git` and `git init` for a clean history.
+3. Start Claude Code in the copy. `BRIEF.md` opens in Sublime Text (or VS Code). Fill it in, set `Status: DONE`, and tell Claude.
+4. Claude asks follow-ups, proposes components, and builds from there (see `CLAUDE.md`).
+
+`sources/` (the SDK source) and `node_modules/` come along with the copy. To refresh the SDK: `scripts/fetch-sources.sh`.
 
 ## What's in it
 

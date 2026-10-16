@@ -21,8 +21,13 @@ const MAX_RETRY_MS = 30_000;
 // - A failed write tells the user and re-reads the room, so the optimistic
 //   local value doesn't silently stick.
 export const useRoomValue = <T>(key: string, parse: (raw: unknown) => T) => {
-  const [state, setState] = useState(() => ({ loaded: false, value: parse(undefined) }));
-  const lastRaw = useRef<string | undefined>(undefined);
+  // State remembers which key it belongs to, so a new key reads as unloaded
+  // on the very render it changes (before the effect below re-reads).
+  const [state, setState] = useState(() => ({ key, loaded: false, value: parse(undefined) }));
+  // The last value taken for this key, serialized; null = not read yet.
+  // (A missing key serializes as "undefined", so it can't be confused with
+  // "not read yet".)
+  const lastRaw = useRef<string | null>(null);
   const loaded = useRef(false);
   const parseRef = useRef(parse);
   parseRef.current = parse;
@@ -31,22 +36,25 @@ export const useRoomValue = <T>(key: string, parse: (raw: unknown) => T) => {
   // extensions' writes) don't re-render.
   const take = useCallback(
     (metadata: Metadata) => {
-      const raw = JSON.stringify(metadata[key]);
+      const raw = JSON.stringify(metadata[key]) ?? "undefined";
       const wasLoaded = loaded.current;
       loaded.current = true;
       if (raw === lastRaw.current) {
         // Don't even call setState when nothing changed: an updater that
         // returns the same state can still re-render the component.
-        if (!wasLoaded) setState((s) => ({ ...s, loaded: true }));
+        if (!wasLoaded) setState((s) => ({ ...s, key, loaded: true }));
         return;
       }
       lastRaw.current = raw;
-      setState({ loaded: true, value: parseRef.current(metadata[key]) });
+      setState({ key, loaded: true, value: parseRef.current(metadata[key]) });
     },
     [key],
   );
 
   useEffect(() => {
+    // New key: nothing is known about it until its first read lands.
+    loaded.current = false;
+    lastRaw.current = null;
     let alive = true;
     // An event is newer than the initial read's answer.
     let fromEvent = false;
@@ -81,14 +89,14 @@ export const useRoomValue = <T>(key: string, parse: (raw: unknown) => T) => {
   const write = useCallback(
     async (value: T): Promise<boolean> => {
       if (!loaded.current) return false;
-      lastRaw.current = JSON.stringify(value);
-      setState({ loaded: true, value });
+      lastRaw.current = JSON.stringify(value) ?? "undefined";
+      setState({ key, loaded: true, value });
       try {
         await OBR.room.setMetadata({ [key]: value });
         return true;
       } catch (err) {
         notify(`Couldn't save: ${errorMessage(err)}`, "ERROR");
-        lastRaw.current = undefined;
+        lastRaw.current = null;
         await OBR.room
           .getMetadata()
           .then(take)
@@ -99,5 +107,6 @@ export const useRoomValue = <T>(key: string, parse: (raw: unknown) => T) => {
     [key, take],
   );
 
-  return { ...state, write };
+  const current = state.key === key ? state : { key, loaded: false, value: parse(undefined) };
+  return { loaded: current.loaded, value: current.value, write };
 };
