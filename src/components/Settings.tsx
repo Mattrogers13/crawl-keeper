@@ -19,7 +19,7 @@ const Settings = () => {
       />
       <Check
         label="Clear initiative rolls on combat"
-        hint="Everyone rolls fresh for combat (core p. 88). The crawl order comes back when you switch to Crawl."
+        hint="Everyone rolls fresh for combat (core p. 88). The combat order carries on when you switch back to Crawl."
         checked={settings.value.clearRollsOnCombat}
         onChange={(clearRollsOnCombat) => set({ clearRollsOnCombat })}
       />

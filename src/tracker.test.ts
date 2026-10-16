@@ -31,7 +31,6 @@ const tracker = (rolls: Record<string, number | null>, current: string | null = 
   current,
   round,
   combatRound: 0,
-  saved: null,
 });
 const ids = (t: { id: string }[]) => t.map((e) => e.id);
 
@@ -78,19 +77,10 @@ describe("parseTracker", () => {
     expect(t.round).toBe(3);
   });
 
-  it("reads the phase; combat-only fields are dropped while crawling", () => {
-    const combat = parseTracker({
-      entries: [{ id: "a" }],
-      phase: "combat",
-      current: "a",
-      round: 4,
-      combatRound: 2,
-      saved: [["a", 7], ["a", 1], [5, 2], "x", ["b", 900]],
-    });
+  it("reads the phase; the combat round is dropped while crawling", () => {
+    const combat = parseTracker({ entries: [{ id: "a" }], phase: "combat", current: "a", round: 4, combatRound: 2 });
     expect(combat).toMatchObject({ phase: "combat", current: "a", round: 4, combatRound: 2 });
-    expect(combat.saved).toEqual([["a", 7], ["b", null]]);
-    const crawl = parseTracker({ entries: [], phase: "nope", combatRound: 2, saved: [["a", 7]] });
-    expect(crawl).toMatchObject({ phase: "crawl", combatRound: 0, saved: null });
+    expect(parseTracker({ entries: [], phase: "nope", combatRound: 2 })).toMatchObject({ phase: "crawl", combatRound: 0 });
   });
 
   it("a turn needs a round of its phase", () => {
@@ -142,7 +132,7 @@ describe("crawl and combat", () => {
     let t = next(next(next(tracker({ a: 1, gm: 2 }))));
     expect([t.current, t.round]).toEqual(["a", 2]);
     t = toCombat(t, false);
-    expect(t).toMatchObject({ phase: "combat", current: null, round: 2, combatRound: 0, saved: null });
+    expect(t).toMatchObject({ phase: "combat", current: null, round: 2, combatRound: 0 });
     t = next(next(next(t)));
     expect(t).toMatchObject({ current: "a", round: 2, combatRound: 2 });
     expect(previous(previous(t))).toMatchObject({ current: "a", combatRound: 1 });
@@ -158,16 +148,12 @@ describe("crawl and combat", () => {
     expect(toCombat(t, true).entries.map((e) => e.roll)).toEqual([null, null, null]);
   });
 
-  it("cleared rolls and crawl order come back after combat; newcomers stay after them", () => {
-    let t = toCombat(tracker({ a: 12, b: 5, gm: 9, c: 3 }), true);
-    t = add(remove(t, ["c"]), ["m"]);
-    t = setRoll(setRoll(setRoll(t, "b", 20), "m", 15), GM_ENTRY, 1);
-    t = sortByRoll(t);
-    expect(ids(t.entries)).toEqual(["b", "m", "gm", "a"]);
+  it("the combat order and rolls carry on into the crawl", () => {
+    let t = toCombat(tracker({ a: 12, b: 5, gm: 9 }), true);
+    t = sortByRoll(setRoll(setRoll(t, "b", 20), GM_ENTRY, 1));
     t = toCrawl(t);
-    expect(ids(t.entries)).toEqual(["a", "b", "gm", "m"]);
-    expect(t.entries.map((e) => e.roll)).toEqual([12, 5, 9, 15]);
-    expect(t.saved).toBeNull();
+    expect(ids(t.entries)).toEqual(["b", "gm", "a"]);
+    expect(t.entries.map((e) => e.roll)).toEqual([20, 1, null]);
   });
 
   it("switching to the phase you're in changes nothing", () => {
@@ -267,7 +253,7 @@ describe("toggle (right-click)", () => {
 });
 
 describe("size", () => {
-  it("a full tracker in combat stays under 14 kB (about 12 kB passed in a real room; see TESTING.md)", () => {
+  it("a full tracker in combat stays under 12 kB (about that much passed in a real room; see TESTING.md)", () => {
     const id = (i: number) => `${"x".repeat(30)}-${i}`; // Owlbear ids are shorter
     const full = parseTracker({
       entries: Array.from({ length: MAX_ENTRIES }, (_, i) => ({ id: id(i), roll: -99, note: "n".repeat(NOTE_MAX), dead: i > 0 })),
@@ -275,10 +261,8 @@ describe("size", () => {
       current: id(0),
       round: 9999,
       combatRound: 9999,
-      saved: Array.from({ length: MAX_ENTRIES }, (_, i) => [id(i), -99]),
     });
-    expect(full.saved).toHaveLength(MAX_ENTRIES);
-    expect(new Blob([JSON.stringify(full)]).size).toBeLessThan(14_000);
+    expect(new Blob([JSON.stringify(full)]).size).toBeLessThan(12_000);
   });
 });
 

@@ -60,7 +60,7 @@ describe("Tracker (GM)", () => {
   });
 
 
-  it("switches to combat: own round count, rolls cleared, crawl order back after", async () => {
+  it("switches to combat: own round count, rolls cleared; back to crawl keeps the combat order", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     scene([{ id: "a", roll: 15 }, { id: "b", roll: 4 }, { id: GM_ENTRY, roll: 9 }], "b", 3);
     render(<App />);
@@ -72,7 +72,7 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(screen.getByText("Round 1")).toBeInTheDocument());
     fireEvent.click(screen.getByText("Crawl"));
     await waitFor(() => expect(saved()).toMatchObject({ phase: "crawl", round: 3, combatRound: 0 }));
-    expect(saved().entries.map((e) => e.roll)).toEqual([15, 4, 9]);
+    expect(saved().entries.map((e) => e.roll)).toEqual([null, null, null]);
   });
 
   it("keeps the rolls on combat when the setting is off", async () => {

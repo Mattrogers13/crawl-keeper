@@ -12,19 +12,19 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 
 | Where | Key | Contents | Writer |
 |---|---|---|---|
-| Scene metadata | `${ID}/tracker` | entries `[{ id: itemId \| "gm", roll, note, dead, hp?: { cur, max } }]` in turn order, phase (`crawl` \| `combat`), current turn id, crawl round, combat round, saved crawl rolls `[[id, roll]]` (combat only) | GM |
+| Scene metadata | `${ID}/tracker` | entries `[{ id: itemId \| "gm", roll, note, dead, hp?: { cur, max } }]` in turn order, phase (`crawl` \| `combat`), current turn id, crawl round, combat round | GM |
 | Room metadata | `${ID}/settings` | encounter mode (`standard` \| `clock`), danger level, in darkness, hide clock, hide rounds, clear rolls on combat, select on turn | GM |
 | Room metadata | `${ID}/crawl` | clock value, last roll (dice, total, exploded, carry), rounds since last check | GM |
 | Room metadata (v0.2) | `${ID}/tables` | custom encounter tables | GM |
 
-- Caps: 40 entries, notes 200 chars. Worst case about 12 kB in the scene doc (13–14 kB in combat with saved rolls). The undocumented scene limit: a full tracker (about 12 kB) saved fine in a real room, 2026-10-16.
+- Caps: 40 entries, notes 200 chars. Worst case about 12 kB in the scene doc. The undocumented scene limit: a full tracker (about 12 kB) saved fine in a real room, 2026-10-16.
 - Entries whose token no longer exists are dropped on read.
 - HP lives only in the tracker; removing a monster from initiative drops its HP.
 - Changes that belong together (turn + round + crawl roll) go out in one write.
 
 ## Tracker
 
-- Entries: tokens added via right-click "Add to Initiative" (background page context menu), plus the built-in **GM / Monsters** row (can't be removed; one roll using the monsters' highest DEX).
+- Entries: tokens added via right-click "Add to Initiative" (background page context menu), plus the built-in **GM / Monsters** row (can't be removed). Monsters roll once as a group: the GM rolls d20 + the highest monster DEX mod (core pp. 82, 88). Individual monster tokens may still be added (for HP, turn marker).
 - **Order:** the list is the turn order. Sort puts the highest roll first (unrolled last); ties: GM moves rows.
 - Moving rows: ▲▼ per row, shown only while the GM's Reorder toggle is on (not saved, per GM).
 - **Dead:** GM toggles ☠ on a token row (not the GM row). Dead rows keep their seat, show a skull badge on the portrait for everyone, and get no turns; killing the current entry passes the turn on.
@@ -40,7 +40,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 - **Combat:** no encounter checks or clock rolls. Its own round count from 1; the crawl count waits.
 - Switching phase ends the current round: the next ▶ starts a new round of the new phase at the top.
 - Switching to combat pops "ROLL FOR COMBAT INITIATIVE" on every client (background page; panel open or not; only on a switch seen live, not on joining mid-fight).
-- Setting "Clear initiative rolls on combat" (default on, the book's new initiative, p. 88): rolls are cleared for the combat roll; switching back restores the crawl rolls and order, and tokens added during combat follow them.
+- Setting "Clear initiative rolls on combat" (default on, the book's new initiative, p. 88): rolls are cleared for the combat roll. Switching back to Crawl keeps the combat order and rolls (the book has no rule for returning to a crawl order; decided 2026-10-16).
 
 ## Settings (GM only, gear in the panel header)
 

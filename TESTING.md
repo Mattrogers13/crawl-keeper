@@ -37,7 +37,7 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 | 2 | GM: ▶ through two rounds, ◀ once | Round count goes up on wrap and back on ◀; player follows | |
 | 3 | GM: Combat (player's panel closed) | "ROLL FOR COMBAT INITIATIVE" pops up for both GM and player; rolls cleared; "Press ▶ to begin" | |
 | 4 | GM: enter rolls, sort, ▶ | Round 1 (combat); player sees "Combat" and Round 1 | |
-| 5 | GM: add a monster during combat; Crawl | Crawl rolls and order come back, the monster after them; crawl round count as before combat; no alert | |
+| 5 | GM: Crawl | Combat order and rolls stay; crawl round count as before combat; no alert | |
 | 6 | Player: reload during combat | No alert on reload | |
 | 7 | GM: gear → turn off "Clear initiative rolls on combat"; back; Combat | Rolls kept; alert still shows | |
 | 8 | GM: gear → "Hide rounds from players" | Player sees Crawl / Combat but no round count | |
