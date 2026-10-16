@@ -524,6 +524,17 @@ describe("Tracker (GM)", () => {
     expect(screen.getByLabelText("Monster DEX modifier")).toHaveValue("+3");
   });
 
+  it("Settings links to the how-to page and, in clock mode, holds the Crawling Clock rules", async () => {
+    obr.metadata = { [SETTINGS_KEY]: { encounterMode: "standard" } };
+    scene([{ id: GM_ENTRY }]);
+    render(<App />);
+    fireEvent.click(await screen.findByLabelText("Settings"));
+    expect(await screen.findByRole("link", { name: /How to use Crawl Keeper/ })).toHaveAttribute("target", "_blank");
+    expect(screen.queryByText("Crawling Clock rules")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(/Crawling Clock/));
+    expect(await screen.findByText("Crawling Clock rules")).toBeInTheDocument();
+  });
+
   describe("the crawl card", () => {
     it("standard: calls for the check on the GM turn of the 3rd crawl round; the roll saves", async () => {
       obr.items = [token("a", { name: "Aria" })];
