@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { existsSync } from "node:fs";
 import manifest from "../public/manifest.json";
 import { buildLabel, manifestForBranch } from "./devManifest";
 
@@ -15,6 +16,12 @@ describe("manifestForBranch", () => {
     expect(dev.action.title).toBe(`${manifest.action.title} (Dev)`);
     expect(dev.name.length).toBeLessThanOrEqual(45);
     expect(dev.version).toBe(manifest.version);
+  });
+
+  it("gives Dev its own toolbar icon, and the file exists", () => {
+    const icon = manifestForBranch(manifest, "dev").action.icon;
+    expect(icon).toBe(manifest.action.icon.replace(".svg", "-dev.svg"));
+    expect(existsSync(`public${icon}`)).toBe(true);
   });
 });
 

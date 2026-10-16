@@ -12,8 +12,8 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 
 | Where | Key | Contents | Writer |
 |---|---|---|---|
-| Scene metadata | `${ID}/tracker` | entries `[{ id: itemId \| "gm", roll, note, hp?: { cur, max } }]` in seat order, current turn id, round, state (`crawling` \| `combat`) | GM |
-| Room metadata | `${ID}/settings` | order mode (`d20` \| `table`), encounter mode (`standard` \| `clock`), danger level, in darkness, hide clock, hide round, select on turn | GM |
+| Scene metadata | `${ID}/tracker` | entries `[{ id: itemId \| "gm", roll, note, dead, hp?: { cur, max } }]` in seat order, current turn id, round, state (`crawling` \| `combat`) | GM |
+| Room metadata | `${ID}/settings` | encounter mode (`standard` \| `clock`), danger level, in darkness, hide clock, hide round, select on turn | GM |
 | Room metadata | `${ID}/crawl` | clock value, last roll (dice, total, exploded, carry), rounds since last check | GM |
 | Room metadata (v0.2) | `${ID}/tables` | custom encounter tables | GM |
 
@@ -25,8 +25,9 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 ## Tracker
 
 - Entries: tokens added via right-click "Add to Initiative" (background page context menu), plus the built-in **GM / Monsters** row (can't be removed; one roll using the monsters' highest DEX).
-- **d20 order:** sort by roll, highest first. Ties: GM drags.
-- **Table Order:** the list order is the seating (GM drags). Highest roll takes the first turn; turns then go clockwise through the seating.
+- **Order:** the list is the turn order. Sort puts the highest roll first (unrolled last); ties: GM moves rows.
+- Moving rows: ▲▼ per row, shown only while the GM's Reorder toggle is on (not saved, per GM).
+- **Dead:** GM toggles ☠ on a token row (not the GM row). Dead rows keep their seat, show a skull badge on the portrait for everyone, and get no turns; killing the current entry passes the turn on.
 - Next / Previous turn. Round increments when the turn wraps.
 - Note under each name: GM edits, everyone sees.
 - Monster HP: cur/max with a damage/heal field, GM-only display.
@@ -47,13 +48,13 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 ## Releases
 
 - **v0.1**, three PRs, each tested in a real room (GM + player) before the next:
-  1. Tracker core: scene doc, GM row, d20 + Table Order, editing, notes, next/prev, round + hide toggle, player view, context menu. Verify the scene metadata limit.
+  1. Tracker core: scene doc, GM row, sort, editing, notes, next/prev, round + hide toggle, player view, context menu. Verify the scene metadata limit.
   2. Map and combat: monster HP, turn marker, selection toggle, Crawling/Combat states.
   3. Crawl: Standard checks and the Crawling Clock with all options.
 - **v0.2:** encounter roller (book's distance d6 / activity 2d6 / reaction 2d6+CHA, plus GM-pasted custom tables) and a standalone morale roller (d20 + WIS mod vs DC 15; holds / flees).
-- **Later:** 3D-style d20 art for the clock, half-HP morale flag, Torchlight darkness link, Owlbear Dice as a roll source, table import/export, players editing notes.
-- **Not doing:** player editing, real secrecy, shipping the book's text, light timers (Torchlight covers them), co-GM support.
+- **Later:** death timer (GM marks a PC dying: 1d4 + CON mod rounds, min 1; d20 prompt on each of their turns, 20 = up with 1 HP; runs out = marked dead; a dying badge with the rounds left on the portrait, visible to everyone), Time Passes (advance N crawl rounds and run the encounter checks; no effect clearing), 3D-style d20 art for the clock, half-HP morale flag, Torchlight darkness link, Owlbear Dice as a roll source, table import/export, players editing notes.
+- **Not doing:** Table Order (the book's clockwise-from-highest rule: a VTT has no seating, so it only added a hand-set order the screen didn't match; dropped 2026-10-16), player editing, real secrecy, shipping the book's text, light timers (Torchlight covers them), co-GM support.
 
 ## References (read-only, gitignored in `sources/`)
 
-- `ref-initiative-tracker` (Owlbear, GPLv3) for the look; `ref-pretty-sordid-initiative` (GPLv3) for features; `ref-dice` (GPLv3) for the die style. Read for behavior; don't copy code or art (this repo is MIT).
+- `ref-initiative-tracker` (Owlbear, GPLv3) for the look; `ref-pretty-sordid-initiative` (GPLv3) for features; `ref-dice` (GPLv3) for the die style. Foundry's Shadowdark Crawl Helper (github.com/PrototypeESBU/foundryvtt-shadowdark-crawl-helper, no license file, so all rights reserved) for crawl/turn ideas. Read for behavior; don't copy code or art (this repo is MIT).

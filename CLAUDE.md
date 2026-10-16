@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Shadowdark crawl companion for Owlbear Rodeo: initiative tracker (d20 or Table Order, GM / Monsters row, notes, monster HP, turn marker), Crawling/Combat states, encounter checks or the Crawling Clock on the GM's turn; v0.2 adds encounter and morale rollers. **The agreed design, data layout and release plan are in `docs/design.md`; read it before building.** GM is the only writer; players get a read-only view.
+Shadowdark crawl companion for Owlbear Rodeo: initiative tracker (sorted by roll, GM / Monsters row, notes, monster HP, turn marker), Crawling/Combat states, encounter checks or the Crawling Clock on the GM's turn; v0.2 adds encounter and morale rollers. **The agreed design, data layout and release plan are in `docs/design.md`; read it before building.** GM is the only writer; players get a read-only view.
 
 Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript 5 + Tailwind 4, hosted on Cloudflare Workers static assets.
 
@@ -8,8 +8,8 @@ Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript
 
 1. ~~Brief~~ Done 2026-10-15: brief answered, scope approved, recorded in `docs/design.md`.
 2. If `sources/sdk` is missing: `scripts/fetch-sources.sh`.
-3. Replace placeholders: `ID` in `src/constants.ts`, `name`/`description`/`homepage_url` in `public/manifest.json`, `name` in `package.json` and `wrangler.jsonc`, `<title>` in `index.html`, the art in `art/` + `public/img/`.
-4. Replace the example note (`src/note.ts`, `Panel.tsx`, `NOTE_KEY`) with the real feature.
+3. Placeholders replaced (Crawl Keeper) except the art in `art/` + `public/img/` (`logo.png`, `action.svg`): still the starter's.
+4. ~~Replace the example note~~ Done in PR 1 (tracker core).
 5. Cloudflare setup when ready to deploy: `docs/obr/deploy.md`.
 6. Rewrite this section as the project's overview (keep `BRIEF.md` as the record of the original ask; set its hook aside by leaving it DONE).
 
@@ -32,7 +32,8 @@ Node 24 (`.node-version`; fnm auto-switches). Non-interactive shells: `eval "$(f
 
 - `src/main.tsx`: `OBR.isAvailable` (page has `?obrref`) → `App`, else `Homepage`.
 - `src/components/App.tsx`: waits for `OBR.onReady`, applies Owlbear's theme (`useObrTheme`), waits for the role (`useRole`), renders `Panel`.
-- `src/hooks/useRoomValue.ts`: one room-metadata key, parsed on every read, no writes before the first read, failed writes revert. **Single writer per key.**
+- `src/hooks/useRoomValue.ts`: one metadata key (`useRoomValue` / `useSceneValue`), parsed on every read, no writes before the first read, failed writes revert. **Single writer per key.**
+- `src/tracker.ts` (pure tracker rules) → `components/Tracker.tsx`; `src/background.ts` registers the GM's right-click menu. `useSceneReady` remounts the tracker per opened scene.
 - `src/constants.ts`: extension `ID` (prefixes every metadata key and broadcast channel) and keys. No React imports (background pages use it).
 - `src/storage.ts`: the only way to touch localStorage (it throws in Owlbear's iframe under strict privacy).
 - `src/devManifest.ts` + `vite.config.ts`: non-main Cloudflare builds rename the manifest "(Dev)" and show `DEV · branch · sha` in the footer.
