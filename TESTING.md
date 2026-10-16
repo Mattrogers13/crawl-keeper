@@ -33,18 +33,18 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 
 | # | Steps | Expect | Result |
 |---|---|---|---|
-| 1 | GM: open the panel on a fresh map | Crawl selected, "Press ▶ to begin", ◀ greyed out; player sees "Crawl" | |
-| 2 | GM: ▶ through two rounds, ◀ once | Round count goes up on wrap and back on ◀; player follows | |
-| 3 | GM: Combat (player's panel closed) | "ROLL FOR COMBAT INITIATIVE" pops up for both GM and player; rolls cleared; "Press ▶ to begin" | |
-| 4 | GM: enter rolls, sort, ▶ | Round 1 (combat); player sees "Combat" and Round 1 | |
-| 5 | GM: Crawl | Combat order and rolls stay; crawl round count as before combat; no alert | |
-| 6 | Player: reload during combat | No alert on reload | |
-| 7 | GM: gear → turn off "Clear initiative rolls on combat"; back; Combat | Rolls kept; alert still shows | |
-| 8 | GM: gear → "Hide rounds from players" | Player sees Crawl / Combat but no round count | |
-| 9 | Player | No gear, no buttons | |
-| 10 | Size: the 40-token map from PR 1, Combat with clear rolls on | Saves without "Couldn't save" | |
-| 11 | GM: drag a row by its ≡ grip (mouse; and on the iPad, touch) | Row moves and stays; player follows. Player has no grip | |
-| 12 | GM: focus a grip, Space, ↓, Space | Row moves down one | |
-| 13 | GM: gear → Install link → Copy | "Copied" (or the text is selected with a Cmd+C hint); pasted URL is the Dev manifest | |
-| 14 | After removing and re-adding the Dev extension | One toolbar icon; one combat alert per client | |
-| 15 | GM: Reset rounds → Cancel; then Reset rounds → Reset | Cancel changes nothing; Reset puts both counts to 0 and "Press ▶ to begin", rolls and order kept | |
+| 1 | GM: open the panel on a fresh map | Crawl selected, "Press ▶ to begin", ◀ greyed out; player sees "Crawl" | Pass 2026-10-16 |
+| 2 | GM: ▶ through two rounds, ◀ once | Round count goes up on wrap and back on ◀; player follows | Pass 2026-10-16 |
+| 3 | GM: Combat (player's panel closed) | "ROLL FOR COMBAT INITIATIVE" pops up for both GM and player; rolls cleared; "Press ▶ to begin" | Pass 2026-10-16 |
+| 4 | GM: enter rolls, sort, ▶ | Round 1 (combat); player sees "Combat" and Round 1 | Pass 2026-10-16 |
+| 5 | GM: Crawl | Combat order and rolls stay; crawl round count as before combat; no alert | Pass 2026-10-16 |
+| 6 | Player: reload during combat | No alert on reload | Pass 2026-10-16 |
+| 7 | GM: gear → turn off "Clear initiative rolls on combat"; back; Combat | Rolls kept; alert still shows | Pass 2026-10-16 |
+| 8 | GM: gear → "Hide rounds from players" | Player sees Crawl / Combat but no round count | Pass 2026-10-16 |
+| 9 | Player | No gear, no buttons | Pass 2026-10-16 |
+| 10 | Size: the 40-token map from PR 1, Combat with clear rolls on | Saves without "Couldn't save" | Pass 2026-10-16 |
+| 11 | GM: drag a row by its ≡ grip (mouse; and on the iPad, touch) | Row moves and stays; player follows. Player has no grip | Pass 2026-10-16 |
+| 12 | GM: focus a grip, Space, ↓, Space | Row moves down one | Pass 2026-10-16 |
+| 13 | GM: gear → Install link → Copy | "Copied" (or the text is selected with a Cmd+C hint); pasted URL is the Dev manifest | Pass 2026-10-16 |
+| 14 | After removing and re-adding the Dev extension | One toolbar icon; one combat alert per client | Pass 2026-10-16 |
+| 15 | GM: Reset rounds → Cancel; then Reset rounds → Reset | Cancel changes nothing; Reset puts both counts to 0 and "Press ▶ to begin", rolls and order kept | Pass 2026-10-16 |
