@@ -9,6 +9,8 @@ import { obr, token } from "./test/obrMock";
 const IMG = markerImage();
 const markers = () => obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefined);
 const ON = { showMarker: true, selectOnTurn: true };
+// A real ring (what buildMarker makes), attached to `to`.
+const realRing = (id: string, to: string, visible: boolean) => ({ ...buildMarker(token(to) as Image, IMG), id, visible });
 
 describe("planMarker", () => {
   const A = { id: "a", visible: true };
@@ -36,12 +38,15 @@ describe("markerVisibilityFixes", () => {
   it("rings follow their token's visibility; other items are left alone", () => {
     const hidden = token("h", { visible: false });
     const shown = token("s");
-    const rings = [
-      { ...token("r1"), attachedTo: "h", visible: true, metadata: { [MARKER_KEY]: true } },
-      { ...token("r2"), attachedTo: "s", visible: true, metadata: { [MARKER_KEY]: true } },
-      { ...token("x"), attachedTo: "h", visible: true },
-    ];
+    const rings = [realRing("r1", "h", true), realRing("r2", "s", true), { ...token("x"), attachedTo: "h", visible: true }];
     expect(markerVisibilityFixes([hidden, shown, ...rings])).toEqual([{ id: "r1", visible: false }]);
+  });
+
+  it("a hidden item merely tagged as a marker is never shown", () => {
+    const shown = token("s");
+    const tagged = { ...token("secret"), attachedTo: "s", visible: false, metadata: { [MARKER_KEY]: true } };
+    const foreign = { ...realRing("r", "s", false), image: { ...realRing("r", "s", false).image, url: "https://elsewhere.example/img/turn-marker.webp" } };
+    expect(markerVisibilityFixes([shown, tagged, foreign])).toEqual([]);
   });
 });
 
@@ -100,6 +105,15 @@ describe("syncTurn", () => {
     expect(obr.selection).toEqual(["a"]);
     await syncTurn(null, ON);
     expect(markers()).toEqual([]);
+  });
+
+  it("never deletes a token merely tagged as a marker", async () => {
+    const tagged = { ...token("boss"), metadata: { [MARKER_KEY]: true } };
+    obr.items = [token("a"), tagged];
+    await syncTurn("a", ON);
+    await syncTurn(null, ON);
+    expect(obr.items.map((i) => i.id)).toContain("boss");
+    expect(OBR.scene.items.deleteItems).not.toHaveBeenCalledWith(expect.arrayContaining(["boss"]));
   });
 
   it("respects the settings", async () => {
