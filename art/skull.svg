@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
-  <!-- Dead badge: a bone skull on a dark disc, pinned to a dead token's top-right
-       corner. Rendered to public/img/skull.webp (never SVG on the map). The
+  <!-- Dead badge: a bone skull on a dark disc, over a dead token's centre.
+       Rendered to public/img/skull.webp (never SVG on the map). The
        skull is the panel's SkullIcon (src/components/icons.tsx), scaled up. -->
   <circle cx="128" cy="128" r="118" fill="#16131a" stroke="#efe6d2" stroke-width="10"/>
   <g transform="translate(32 30) scale(8)">

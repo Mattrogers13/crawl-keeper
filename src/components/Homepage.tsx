@@ -71,7 +71,8 @@ const Homepage = () => {
         <Steps>
           <li>
             <b>Standard checks</b> (core p. 112): a d6 every 3 crawl rounds when Unsafe, every 2 when Risky, every round
-            when Deadly or in total darkness (p. 84). An encounter on a 1.
+            when Deadly. Total darkness makes a place Deadly (p. 84): pick Deadly while the lights are out. An encounter on
+            a 1.
           </li>
           <li>
             <b>Crawling Clock</b>: a d20 clock that the crawling die wears down each crawl round (rules below).
