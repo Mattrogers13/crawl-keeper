@@ -1,15 +1,6 @@
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type KeyboardEvent,
-  type MouseEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import OBR, { type Item } from "@owlbear-rodeo/sdk";
+import OBR from "@owlbear-rodeo/sdk";
 import {
   DndContext,
   KeyboardSensor,
@@ -20,13 +11,15 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifiers";
-import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 
 import Confirm from "./Confirm";
 import CrawlBar, { ClockDial, FOCUS } from "./CrawlBar";
 import { cryptoRand, due, rollFor } from "../crawl";
+import { PlayIcon, SortIcon } from "./icons";
 import Loading from "./Loading";
+import RowMenu from "./RowMenu";
+import Row, { tokenInfo, type ButtonProps } from "./TrackerRow";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
@@ -37,27 +30,15 @@ import { parseSettings } from "../settings";
 import { errorMessage, notify } from "../utils";
 import {
   GM_ENTRY,
-  MOD_MAX,
-  MOD_MIN,
-  NOTE_MAX,
   moveTo,
   next,
   nextWithAutoRoll,
-  parseRoll,
   parseTracker,
   playerView,
   previous,
   prune,
   removeMonsters,
   resetRounds,
-  rollGmInitiative,
-  setGmMod,
-  remove,
-  setDead,
-  setMarker,
-  setMonster,
-  setNote,
-  setRoll,
   sortByRoll,
   toCombat,
   toCrawl,
@@ -65,19 +46,6 @@ import {
   type Entry,
   type Tracker as TrackerDoc,
 } from "../tracker";
-
-type Token = { name: string; image: string | null; visible: boolean };
-
-// What the tracker shows for a token. Items are Owlbear data: don't trust
-// their shape beyond what's checked here.
-const tokenInfo = (item: Item | undefined): Token => {
-  const image = (item as { image?: { url?: unknown } } | undefined)?.image?.url;
-  return {
-    name: item?.name?.trim() || "Unnamed",
-    image: typeof image === "string" ? image : null,
-    visible: item?.visible !== false,
-  };
-};
 
 // headerSlot: where the crawl controls go (the panel's top bar); titleSlot:
 // beside the title, for the round count.
@@ -372,336 +340,6 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   );
 };
 
-// The GM's actions for the selected token rows (one or many). Opened by
-// right-clicking a row or its ⋯ button (touch has no right-click). Closes on
-// a choice, Escape, or a click elsewhere. A mixed selection offers both ways.
-const RowMenu = (props: {
-  entries: Entry[];
-  name: string;
-  x: number;
-  y: number;
-  close: () => void;
-  change: (fn: (t: TrackerDoc) => TrackerDoc) => void;
-  show: (id: string) => void;
-  clear: () => void;
-}) => {
-  const { entries, close, change } = props;
-  const ids = entries.map((e) => e.id);
-  const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ left: props.x, top: props.y });
-
-  // Keep it inside the panel; focus the first item.
-  useLayoutEffect(() => {
-    const box = ref.current!.getBoundingClientRect();
-    setPos({
-      left: Math.max(4, Math.min(props.x, window.innerWidth - box.width - 4)),
-      top: Math.max(4, Math.min(props.y, window.innerHeight - box.height - 4)),
-    });
-    ref.current!.querySelector<HTMLElement>("[role=menuitem]")?.focus();
-  }, [props.x, props.y]);
-
-  useEffect(() => {
-    const outside = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && close();
-    document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
-  }, [close]);
-
-  // [label, shown?, action]
-  const some = (f: (e: Entry) => boolean) => entries.some(f);
-  const items: [string, boolean, () => void][] = [
-    ["Mark as monster", some((e) => !e.monster), () => change((t) => setMonster(t, ids, true))],
-    ["Mark as player or ally", some((e) => e.monster), () => change((t) => setMonster(t, ids, false))],
-    ["Mark dead", some((e) => !e.dead), () => change((t) => setDead(t, ids, true))],
-    ["Mark alive", some((e) => e.dead), () => change((t) => setDead(t, ids, false))],
-    ["Turn marker on", some((e) => !e.marker), () => change((t) => setMarker(t, ids, true))],
-    ["Turn marker off", some((e) => e.marker), () => change((t) => setMarker(t, ids, false))],
-    ["Show on map", ids.length === 1, () => props.show(ids[0])],
-    [
-      ids.length === 1 ? "Remove from initiative" : `Remove ${ids.length} from initiative`,
-      true,
-      () => {
-        change((t) => remove(t, ids));
-        props.clear();
-      },
-    ],
-  ];
-  // Up / Down move between items.
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "Escape") return close();
-    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-    e.preventDefault();
-    const all = [...ref.current!.querySelectorAll<HTMLElement>("[role=menuitem]")];
-    const i = all.indexOf(document.activeElement as HTMLElement);
-    all[(i + (e.key === "ArrowDown" ? 1 : all.length - 1)) % all.length]?.focus();
-  };
-
-  return (
-    <div
-      ref={ref}
-      role="menu"
-      aria-label={props.name}
-      style={pos}
-      className="fixed z-50 flex min-w-44 flex-col rounded-lg bg-obr-paper py-1 text-sm shadow-xl ring-1 ring-obr-text/10"
-      onKeyDown={onKeyDown}
-    >
-      {items
-        .filter(([, shown]) => shown)
-        .map(([label, , run]) => (
-        <button
-          key={label}
-          type="button"
-          role="menuitem"
-          className="px-3 py-2 text-left hover:bg-obr-text/5 focus:bg-obr-text/10 focus:outline-none"
-          onClick={() => {
-            run();
-            close();
-          }}
-        >
-          {label}
-        </button>
-        ))}
-    </div>
-  );
-};
-
-const Row = (props: {
-  entry: Entry;
-  token: Token | null;
-  current: boolean;
-  gm: boolean;
-  change: (fn: (t: TrackerDoc) => TrackerDoc) => void;
-  show: (id: string) => void;
-  openMenu: (id: string, x: number, y: number) => void;
-  select: (id: string, mods: { shift: boolean; toggle: boolean }) => void;
-  selected: boolean;
-  // The monsters' initiative modifier (shown on the GM row).
-  gmMod: number;
-  // The GM row's crawl card and monsters, listed under it.
-  children?: ReactNode;
-  // The GM row with monsters: one card holds the group.
-  bracket?: boolean;
-  // A monster inside that card: a smaller portrait.
-  small?: boolean;
-}) => {
-  const { entry, token, gm, change } = props;
-  const name = token ? token.name : "GM / Monsters";
-  // Players can't drag: no grip, and the sortable is off.
-  const sortable = useSortable({ id: entry.id, disabled: !gm });
-  return (
-    <li
-      ref={sortable.setNodeRef}
-      style={{ transform: CSS.Translate.toString(sortable.transform), transition: sortable.transition }}
-      aria-current={props.current ? "step" : undefined}
-      // The GM row and its monsters share one card instead of an indent (an
-      // indent squeezes the monsters' notes).
-      className={`${sortable.isDragging ? "relative z-10 rounded-lg bg-obr-paper shadow-lg" : ""} ${
-        props.bracket ? "flex flex-col gap-0.5 rounded-[10px] bg-obr-bg p-1" : ""
-      }`}
-    >
-      <div
-        className={`group flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 ${
-          props.current ? "bg-obr-primary/20 shadow-[inset_3px_0_0_var(--obr-primary)]" : gm ? "hover:bg-obr-text/5" : ""
-        } ${token && !token.visible ? "opacity-60" : ""} ${
-          entry.dead ? "opacity-55" : ""
-        } ${props.selected ? "outline-2 -outline-offset-2 outline-obr-secondary outline-dashed" : ""}`}
-        aria-selected={gm && token ? props.selected : undefined}
-        // GM: click to select (Shift: a range, Cmd/Ctrl: one more), except on
-        // the row's own boxes and buttons.
-        onClick={
-          gm && token
-            ? (e) => {
-                if ((e.target as HTMLElement).closest("input, button")) return;
-                props.select(entry.id, { shift: e.shiftKey, toggle: e.metaKey || e.ctrlKey });
-              }
-            : undefined
-        }
-        // GM: right-click a token's row for its menu.
-        onContextMenu={
-          gm && token
-            ? (e) => {
-                e.preventDefault();
-                props.openMenu(entry.id, e.clientX, e.clientY);
-              }
-            : undefined
-        }
-      >
-        {gm && (
-          <button
-            type="button"
-            ref={sortable.setActivatorNodeRef}
-            {...sortable.attributes}
-            {...sortable.listeners}
-            aria-label={`Move ${name}`}
-            title="Drag to move"
-            className={`flex h-9 w-6 shrink-0 cursor-grab touch-none items-center justify-center text-obr-text-secondary hover:text-obr-text active:cursor-grabbing ${HOVER_ONLY}`}
-          >
-            <GripIcon />
-          </button>
-        )}
-        {gm && token ? (
-          <button type="button" aria-label={`Show ${name} on the map`} title="Show on the map" onClick={() => props.show(entry.id)}>
-            <Portrait token={token} dead={entry.dead} marker={entry.marker} small={props.small} />
-          </button>
-        ) : (
-          <Portrait token={token} dead={entry.dead} small={props.small} />
-        )}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className={`truncate font-medium ${entry.dead ? "line-through" : ""}`}>
-            {name}
-            {entry.dead && <span className="sr-only"> (dead)</span>}
-          </span>
-          {gm ? (
-            <NoteInput key={entry.note} name={name} value={entry.note} save={(n) => change((t) => setNote(t, entry.id, n))} />
-          ) : (
-            entry.note && <span className="text-xs whitespace-pre-wrap text-obr-text-secondary">{entry.note}</span>
-          )}
-        </div>
-        {gm ? (
-          <>
-            {/* Monsters act on the GM / Monsters roll: a gap keeps the columns lined up. */}
-            {!token && <ModInput key={props.gmMod} value={props.gmMod} save={(m) => change((t) => setGmMod(t, m))} />}
-            {entry.monster ? (
-              <span className={ROLL_SLOT} aria-hidden />
-            ) : (
-              <RollInput key={entry.roll ?? ""} name={name} value={entry.roll} save={(r) => change((t) => setRoll(t, entry.id, r))} />
-            )}
-            {/* The row menu (also on right-click). The GM row has none: a gap keeps the roll boxes lined up. */}
-            {token ? (
-              <RowAction
-                label={`Actions for ${name}`}
-                onClick={(e) => {
-                  const box = e.currentTarget.getBoundingClientRect();
-                  props.openMenu(entry.id, box.left, box.bottom);
-                }}
-              >
-                <MoreIcon />
-              </RowAction>
-            ) : (
-              <RowAction
-                label="Roll initiative for GM / Monsters (d20 + modifier)"
-                onClick={() => change((t) => rollGmInitiative(t, cryptoRand))}
-                always
-              >
-                <D20Icon />
-              </RowAction>
-            )}
-          </>
-        ) : (
-          <span className="w-10 text-right text-lg font-bold tabular-nums">{entry.monster ? "" : (entry.roll ?? "–")}</span>
-        )}
-      </div>
-      {props.children}
-    </li>
-  );
-};
-
-// `marker`: a gold dot (GM view) when this token gets the turn marker.
-const Portrait = (props: { token: Token | null; dead: boolean; marker?: boolean; small?: boolean }) => {
-  const { token, dead, marker = false } = props;
-  const size = props.small ? "h-[30px] w-[30px]" : "h-9 w-9";
-  return (
-    <div className={`relative shrink-0 ${size}`}>
-      {token?.image ? (
-        <img src={token.image} alt="" className={`${size} rounded-full object-cover ${dead ? "grayscale" : ""}`} />
-      ) : (
-        <div className={`flex ${size} items-center justify-center rounded-full bg-obr-text/10 text-xs font-bold`} aria-hidden>
-          {token ? "?" : "GM"}
-        </div>
-      )}
-      {dead && (
-        <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 text-white" aria-hidden>
-          <SkullIcon className="h-6 w-6" />
-        </span>
-      )}
-      {marker && (
-        <span
-          className="absolute -right-px -bottom-px h-[11px] w-[11px] rounded-full border-2 border-obr-paper bg-[#c99700] dark:bg-[#f5c542]"
-          title="Gets the turn marker"
-          aria-label="Turn marker on"
-          role="img"
-        />
-      )}
-    </div>
-  );
-};
-
-const ROLL_SLOT = "w-12 shrink-0";
-
-// A text box that saves on Enter or when focus leaves. `read` turns the text
-// into a value, or undefined when it can't (the box then puts the old text
-// back). Unchanged text saves nothing.
-const useDraft = <T,>(shown: string, read: (text: string) => T | undefined, save: (value: T) => void) => {
-  const [draft, setDraft] = useState(shown);
-  return {
-    value: draft,
-    onChange: (e: ChangeEvent<HTMLInputElement>) => setDraft(e.target.value),
-    onBlur: () => {
-      if (draft === shown) return;
-      const value = read(draft);
-      // Saved or not, show it the way it's stored ("3" → "+3"); a change
-      // remounts the box with the new value anyway (keyed by it).
-      if (value !== undefined) save(value);
-      setDraft(shown);
-    },
-    onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && e.currentTarget.blur(),
-  };
-};
-
-// Borderless until hovered or focused.
-const GHOST_INPUT =
-  "rounded border border-transparent bg-transparent hover:border-obr-text-disabled focus:border-obr-primary focus:outline-none";
-
-// Empty = no roll.
-const readRoll = (text: string) => (text.trim() === "" ? null : (parseRoll(Number(text)) ?? undefined));
-
-const RollInput = ({ name, value, save }: { name: string; value: number | null; save: (r: number | null) => void }) => (
-  <input
-    aria-label={`Initiative for ${name}`}
-    inputMode="numeric"
-    placeholder="–"
-    className={`${ROLL_SLOT} px-1 py-0.5 text-right text-lg font-bold tabular-nums placeholder:font-normal placeholder:text-obr-text-secondary ${GHOST_INPUT}`}
-    {...useDraft(value === null ? "" : String(value), readRoll, save)}
-  />
-);
-
-// "+2", "-1" or "2"; empty = 0. Out of range or not a number: put it back.
-const readMod = (text: string) => {
-  const t = text.trim();
-  if (t === "") return 0;
-  if (!/^[+-]?\d+$/.test(t)) return undefined;
-  const n = Number(t);
-  return n >= MOD_MIN && n <= MOD_MAX ? n : undefined;
-};
-const showMod = (n: number) => (n === 0 ? "" : n > 0 ? `+${n}` : String(n));
-
-// The monsters' DEX modifier, added to the GM's d20.
-const ModInput = ({ value, save }: { value: number; save: (m: number) => void }) => (
-  <label className="flex shrink-0 items-center gap-1 text-[10px] font-medium text-obr-text-secondary uppercase">
-    Dex
-    <input
-      aria-label="Monster DEX modifier"
-      title="The highest DEX modifier among the monsters, added to the GM's d20 (p. 83)"
-      inputMode="numeric"
-      placeholder="+0"
-      className="h-7 w-9 rounded-full bg-transparent px-1 text-center text-xs tabular-nums ring-1 ring-obr-text/15 placeholder:text-obr-text-secondary hover:ring-obr-text/30 focus:ring-2 focus:ring-obr-primary focus:outline-none"
-      {...useDraft(showMod(value), readMod, save)}
-    />
-  </label>
-);
-
-const NoteInput = ({ name, value, save }: { name: string; value: string; save: (n: string) => void }) => (
-  <input
-    aria-label={`Note for ${name}`}
-    placeholder="Add a note"
-    maxLength={NOTE_MAX}
-    // The placeholder shows on hover or focus only: a column of "Add a note" crowds the list.
-    className={`-ml-1 w-full min-w-0 px-1 text-xs text-obr-text-secondary placeholder:text-obr-text-secondary [@media(hover:hover)]:placeholder:opacity-0 group-hover:placeholder:opacity-100 focus:placeholder:opacity-100 ${GHOST_INPUT}`}
-    {...useDraft(value, (text) => text, save)}
-  />
-);
-
-type ButtonProps = { label: string; pressed?: boolean; onClick: (e: MouseEvent<HTMLButtonElement>) => void; children: ReactNode };
-
 // Icon buttons in the turn bar: round (36 px), or a wider pill for ◀ ▶.
 // `hint`: its hotkey, shown in the tooltip.
 const RoundButton = (
@@ -720,77 +358,6 @@ const RoundButton = (
   >
     {props.children}
   </button>
-);
-
-// The grip and ⋯ show on hovering the row, or focusing them; on touch screens
-// (no hover) they always show.
-const HOVER_ONLY = "[@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-visible:opacity-100";
-
-// Dead and remove: full-size touch targets, the same width on every row (see Row).
-const ROW_ACTION = "h-9 w-9 shrink-0";
-
-// `always`: shown without hovering (the GM row's roll).
-const RowAction = (props: ButtonProps & { always?: boolean }) => (
-  <button
-    type="button"
-    aria-label={props.label}
-    aria-pressed={props.pressed}
-    title={props.label}
-    className={`${ROW_ACTION} flex items-center justify-center rounded-full hover:bg-obr-paper hover:text-obr-text ${props.always ? "" : HOVER_ONLY} ${
-      props.pressed ? "bg-obr-primary text-obr-primary-contrast hover:bg-obr-primary hover:text-obr-primary-contrast" : "text-obr-text-secondary"
-    }`}
-    onClick={props.onClick}
-  >
-    {props.children}
-  </button>
-);
-
-// Drawn for this extension (no icon font: no third-party requests).
-const SkullIcon = ({ className }: { className: string }) => (
-  <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
-    <path
-      fillRule="evenodd"
-      d="M12 2a8 8 0 0 0-8 8c0 2.7 1.3 4.7 3 5.8V19a1 1 0 0 0 1 1h1v-2h2v2h2v-2h2v2h1a1 1 0 0 0 1-1v-3.2c1.7-1.1 3-3.1 3-5.8a8 8 0 0 0-8-8zM8.5 9a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM12 13.5l-1.2 2h2.4z"
-    />
-  </svg>
-);
-
-// A d20 face-on: the GM / Monsters initiative roll.
-const D20Icon = () => (
-  <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" aria-hidden>
-    <path d="M8 1.5l5.6 3.25v6.5L8 14.5l-5.6-3.25v-6.5z" />
-    <path d="M8 4.5l3 5H5z M8 1.5v3 M2.4 4.75L5 9.5 M13.6 4.75L11 9.5 M5 9.5L8 14.5 M11 9.5L8 14.5 M2.4 11.25L5 9.5 M13.6 11.25L11 9.5" />
-  </svg>
-);
-
-// Three dots: more actions.
-const MoreIcon = () => (
-  <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-hidden>
-    <circle cx="3" cy="8" r="1.5" />
-    <circle cx="8" cy="8" r="1.5" />
-    <circle cx="13" cy="8" r="1.5" />
-  </svg>
-);
-
-// Three lines: the usual drag handle.
-const GripIcon = () => (
-  <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-    <path d="M3 4h10M3 8h10M3 12h10" />
-  </svg>
-);
-
-// A play triangle: ▶ next, ◀ back.
-const PlayIcon = ({ back = false }: { back?: boolean }) => (
-  <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="currentColor" aria-hidden>
-    <path d={back ? "M11 2L4 8l7 6z" : "M5 2l7 6-7 6z"} />
-  </svg>
-);
-
-// Bars shortening downward: the usual "sort, highest first" icon.
-const SortIcon = () => (
-  <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-    <path d="M2 4h12M2 8h8M2 12h4" />
-  </svg>
 );
 
 export default Tracker;
