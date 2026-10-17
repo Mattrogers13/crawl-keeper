@@ -532,6 +532,11 @@ describe("GM / Monsters initiative", () => {
     // A typed roll (or a cleared one) has no equation.
     expect(gmEquation(setRoll(rolled, GM_ENTRY, 9))).toBeNull();
     expect(gmEquation(toCombat(rolled, true))).toBeNull();
+    // Cleared, then the same sum typed back: still no equation (the die is gone).
+    expect(gmEquation(setRoll(setRoll(rolled, GM_ENTRY, null), GM_ENTRY, 14))).toBeNull();
+    expect(setRoll(setRoll(rolled, GM_ENTRY, null), GM_ENTRY, 14).gmDie).toBeNull();
+    expect(toCombat(rolled, true).gmDie).toBeNull();
+    expect(toCombat(rolled, false).gmDie).toEqual({ die: 12, mod: 2 });
   });
 
   it("reads the saved die, and drops a malformed one", () => {

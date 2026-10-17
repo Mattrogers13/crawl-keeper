@@ -19,7 +19,7 @@ import { cryptoRand, due, rollFor } from "../crawl";
 import { ChevronIcon, PlayIcon, SortIcon } from "./icons";
 import Loading from "./Loading";
 import RowMenu from "./RowMenu";
-import Row, { INIT_SLOT, tokenInfo, type ButtonProps } from "./TrackerRow";
+import Row, { INIT_SLOT, tokenInfo, type ButtonProps, type Token } from "./TrackerRow";
 import { MONSTERS_FOLDED_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
@@ -164,11 +164,13 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   const roundLabel =
     round === 0 ? (gm ? "Not started" : "") : gm || !settings.value.hideRound ? `Round ${round}` : "";
   const combat = tracker.phase === "combat";
-  // A monster's combat turn opens the folded list, so the current row shows.
-  const showMonsters = !folded || (combat && monsters.some((m) => m.id === current));
+  // A monster's combat turn opens the folded list while it lasts, so the
+  // current row shows (folding is off until then).
+  const monsterTurn = combat && monsters.some((m) => m.id === current);
+  const showMonsters = !folded || monsterTurn;
   // A player's own token (they put it on the map) has the turn.
-  const currentToken = current && current !== GM_ENTRY ? byId.get(current) : undefined;
-  const myTurn = !gm && currentToken && tokenInfo(currentToken).owner === OBR.player.id ? tokenInfo(currentToken).name : null;
+  const currentToken = !gm && current && current !== GM_ENTRY ? tokenInfo(byId.get(current)) : null;
+  const myTurn = currentToken && currentToken.owner === OBR.player.id ? currentToken.name : null;
   // Players see the Crawling Clock unless the GM hides it; the GM sees it on the card.
   const showClock = !gm && settings.value.encounterMode === "clock" && !settings.value.hideClock;
   const showDanger = !gm && !combat && settings.value.encounterMode === "standard" && settings.value.showDanger;
@@ -312,6 +314,8 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
             className="flex border-b border-obr-text/10 py-1 pr-1 text-[10px] font-semibold tracking-[0.1em] text-obr-text-disabled uppercase"
             aria-hidden
           >
+            {/* Lined up with the names: the GM's grip, checkbox and portrait (16 + 16 + 26 px and
+                three 8 px gaps), or a player's inset and portrait (4 + 26 + 8). */}
             <span className={`flex-1 ${gm ? "pl-[82px]" : "pl-[38px]"}`}>Name</span>
             <span className={`${INIT_SLOT} pr-2 text-right`}>Init</span>
             {gm && <span className="w-7" />}
@@ -333,7 +337,9 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
                         type="button"
                         aria-expanded={showMonsters}
                         aria-label={showMonsters ? "Fold the monsters" : `Show ${monsters.length} monsters`}
-                        className={`flex h-7 w-full items-center gap-1.5 border-b border-obr-text/10 text-[11px] font-medium tracking-[0.04em] text-obr-text-secondary hover:text-obr-text ${
+                        disabled={monsterTurn}
+                        title={monsterTurn ? "Shown while a monster has the turn" : undefined}
+                        className={`flex h-7 w-full items-center gap-1.5 border-b border-obr-text/10 text-[11px] font-medium tracking-[0.04em] text-obr-text-secondary enabled:hover:text-obr-text ${
                           gm ? "pl-[48px]" : "pl-2.5"
                         }`}
                         onClick={() => fold(showMonsters)}
@@ -410,7 +416,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
 };
 
 // The folded monsters' portraits, overlapping (at most five).
-const Stack = ({ tokens }: { tokens: (ReturnType<typeof tokenInfo> | null)[] }) => (
+const Stack = ({ tokens }: { tokens: (Token | null)[] }) => (
   <span className="ml-1 flex" aria-hidden>
     {tokens.slice(0, 5).map((t, i) =>
       t?.image ? (

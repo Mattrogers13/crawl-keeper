@@ -329,7 +329,7 @@ const RollInput = ({ name, value, save }: { name: string; value: number | null; 
     aria-label={`Initiative for ${name}`}
     inputMode="numeric"
     placeholder="–"
-    className={`w-9 px-1 py-0.5 text-right font-mono text-base font-bold tabular-nums placeholder:font-normal placeholder:text-obr-text-secondary ${GHOST_INPUT}`}
+    className={`w-10 px-1 py-0.5 text-right font-mono text-base font-bold tabular-nums placeholder:font-normal placeholder:text-obr-text-secondary ${GHOST_INPUT}`}
     {...useDraft(value === null ? "" : String(value), readRoll, save)}
   />
 );
@@ -369,7 +369,7 @@ const NoteInput = ({ name, value, save }: { name: string; value: string; save: (
 export type ButtonProps = { label: string; pressed?: boolean; onClick: (e: MouseEvent<HTMLButtonElement>) => void; children: ReactNode };
 // The grip, checkbox and ⋯ show on hovering the row, or focusing them; on
 // touch screens (no hover) they always show.
-export const HOVER_ONLY = "[@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-visible:opacity-100";
+const HOVER_ONLY = "[@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-visible:opacity-100";
 
 // The same width on every row (see Row).
 const ROW_ACTION = "h-8 w-7 shrink-0";

@@ -121,10 +121,14 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
           due={isDue}
           onClick={() => change((c) => rollFor(mode)(c, cryptoRand))}
         />
-        <span aria-live="polite" aria-label="Last roll" className="contents">
-          {crawl.last && <Outcome roll={crawl.last} />}
-        </span>
-        {!crawl.last && <span className="text-center text-[11px] leading-tight text-obr-text-secondary">{clock ? "Crawling die" : "Encounter check"}</span>}
+        {/* A live region that stays mounted, so a new result is announced. */}
+        <div role="status" aria-label="Last roll" className="flex flex-col items-center">
+          {crawl.last ? (
+            <Outcome roll={crawl.last} />
+          ) : (
+            <span className="text-center text-[11px] leading-tight text-obr-text-secondary">{clock ? "Crawling die" : "Encounter check"}</span>
+          )}
+        </div>
         {crawl.undo && (
           <button type="button" className="text-[11px] text-obr-text-secondary underline hover:text-obr-text" onClick={() => change(undoRoll)}>
             Undo

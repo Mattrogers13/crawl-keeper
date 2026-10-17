@@ -238,6 +238,7 @@ export const toCombat = (t: Tracker, clearRolls: boolean): Tracker => {
     phase: "combat",
     current: null,
     entries: clearRolls ? t.entries.map((e) => (e.roll === null ? e : { ...e, roll: null })) : t.entries,
+    gmDie: clearRolls ? null : t.gmDie,
   };
 };
 
@@ -325,9 +326,13 @@ const edit = (t: Tracker, id: string, change: Partial<Entry>): Tracker => {
   return entries ? { ...t, entries } : t;
 };
 
-// Monsters have no roll of their own (normalized drops it).
-export const setRoll = (t: Tracker, id: string, roll: number | null): Tracker =>
-  edit(t, id, { roll: parseRoll(roll) });
+// Monsters have no roll of their own (normalized drops it). A roll typed
+// into the GM row drops its equation (a later roll of the same sum mustn't
+// bring an old die back).
+export const setRoll = (t: Tracker, id: string, roll: number | null): Tracker => {
+  const updated = edit(t, id, { roll: parseRoll(roll) });
+  return id === GM_ENTRY && updated !== t && updated.gmDie ? { ...updated, gmDie: null } : updated;
+};
 
 // The monsters' DEX modifier for the GM's initiative roll.
 export const setGmMod = (t: Tracker, mod: number): Tracker => {
