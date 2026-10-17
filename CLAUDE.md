@@ -9,7 +9,7 @@ Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript
 - If `sources/sdk` is missing: `scripts/fetch-sources.sh`. Original ask: `BRIEF.md` (DONE).
 - Installs: live `https://crawl-keeper.editbag.workers.dev/manifest.json`, Dev `https://dev-crawl-keeper.editbag.workers.dev/manifest.json` (`docs/obr/deploy.md`). After a Dev rebuild, reload the Owlbear room: the background page loads once per room.
 - Tracked tasks and undecided review candidates: `docs/design.md` "Releases".
-- Status (2026-10-16): v0.1.0 released (tagged): Owlbear-native look, Keeper's key icon, how-to homepage, revamped Settings. Next: v0.2 (encounter and morale rollers) and picking from the review candidates in `docs/design.md`.
+- Status (2026-10-16): v0.1.0 released (tagged, GitHub release published). Open, awaiting Matt's "merge": #10 (CLAUDE.md + deploy.md), #11 (TESTING.md release checklist, README, CHANGELOG), #12 (Tracker.tsx split, no behavior change). Next: run the TESTING.md release checklist end to end (fill in "Last pass"), then pick the v0.2 scope (encounter and morale rollers + review candidates in `docs/design.md`).
 
 ## Commands
 
