@@ -584,8 +584,11 @@ describe("Tracker (GM)", () => {
     // A monster's turn in combat: shown while it lasts.
     await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), phase: "combat", current: "m2", round: 1 } });
     expect(rowOf("Ogre")).toHaveAttribute("aria-current", "step");
-    fireEvent.click(screen.getByLabelText("Fold the monsters"));
+    expect(screen.getByLabelText("Fold the monsters")).toBeDisabled();
     expect(screen.getByText("Ogre")).toBeInTheDocument();
+    // The turn passes on: folded again, as this viewer left it.
+    await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), current: GM_ENTRY } });
+    expect(screen.queryByText("Ogre")).not.toBeInTheDocument();
   });
 
   it("the round pill says the phase; in combat the crawl card folds to a line", async () => {
@@ -692,7 +695,7 @@ describe("Tracker (GM)", () => {
       render(<App />);
       fireEvent.click(await screen.findByLabelText("Next turn"));
       await waitFor(() => expect(saved()).toMatchObject({ current: GM_ENTRY, crawl: { lastCheck: 1, last: { kind: "clock" } } }));
-      expect(screen.getByLabelText("Last roll")).toBeInTheDocument();
+      expect(screen.getByLabelText("Last roll")).toHaveTextContent(/Clock 20 → \d+|Encounter!/);
     });
 
     it("without auto roll, ▶ onto the GM turn leaves the roll to the GM", async () => {
