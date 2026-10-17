@@ -78,16 +78,15 @@ describe("planSkulls", () => {
 });
 
 describe("buildSkull", () => {
-  it("is a locked badge on the token's top-right corner, anchored at the token's centre", () => {
-    // 2 cells wide: a 0.9-cell badge, its centre 0.76 cells right of and above the token's.
+  it("is a locked badge over the token's centre, half its width", () => {
+    // 2 cells wide: a 1-cell badge centred on the token.
     const t = token("a", { position: { x: 40, y: 60 } }) as Image;
     t.image = { ...t.image, width: 200, height: 200 };
     t.grid = { dpi: 100, offset: { x: 100, y: 100 } };
     const s = buildSkull(t, skullImage()) as Image & Record<string, unknown>;
     const pxPerCell = s.grid.dpi;
-    expect(256 / pxPerCell).toBeCloseTo(0.9);
-    expect((128 - s.grid.offset.x) / pxPerCell).toBeCloseTo(0.76);
-    expect((s.grid.offset.y - 128) / pxPerCell).toBeCloseTo(0.76);
+    expect(256 / pxPerCell).toBeCloseTo(1);
+    expect(s.grid.offset).toEqual({ x: 128, y: 128 });
     expect(s).toMatchObject({ attachedTo: "a", layer: "ATTACHMENT", locked: true, disableHit: true, position: { x: 40, y: 60 } });
     expect(s.metadata).toEqual({ [SKULL_KEY]: true });
     expect((buildSkull({ ...t, visible: false }, skullImage()) as Image).visible).toBe(false);

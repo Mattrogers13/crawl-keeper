@@ -119,19 +119,14 @@ export const planSkulls = (skulls: MarkerState[], dead: { id: string; visible: b
   return { remove, addTo: dead.map((t) => t.id).filter((id) => !kept.has(id)) };
 };
 
-// The skull badge: a disc on the token's top-right corner, a bit under half
-// its width. The anchor (the image's grid offset) sits at the token's centre,
-// off the badge itself, so no scene DPI is needed to place it.
+// The skull badge: a disc over the token's centre, half its width.
 const SKULL_PX = 256;
-const SKULL_SIZE = 0.45;
-const SKULL_SHIFT = 0.38;
+const SKULL_SIZE = 0.5;
 export const buildSkull = (token: Image, image: string) => {
-  const cells = tokenCells(token);
-  const size = Math.max(SKULL_SIZE * cells, 0.3);
-  const shift = (SKULL_SHIFT * cells * SKULL_PX) / size;
+  const size = SKULL_SIZE * tokenCells(token);
   return buildImage(
     { width: SKULL_PX, height: SKULL_PX, mime: "image/webp", url: image },
-    { dpi: SKULL_PX / size, offset: { x: SKULL_PX / 2 - shift, y: SKULL_PX / 2 + shift } },
+    { dpi: SKULL_PX / size, offset: { x: SKULL_PX / 2, y: SKULL_PX / 2 } },
   )
     .name("Dead (Crawl Keeper)")
     .position(token.position)

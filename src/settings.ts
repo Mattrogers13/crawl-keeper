@@ -12,6 +12,8 @@ export type Settings = {
   showDanger: boolean;
   // ▶ onto the GM turn rolls a due check / crawling die by itself.
   autoRoll: boolean;
+  // Players see the last encounter check or crawling die roll.
+  showRolls: boolean;
   // Hide the round counts from players.
   hideRound: boolean;
   // Switching to combat clears the rolls for the combat roll.
@@ -28,6 +30,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hideClock: false,
   showDanger: false,
   autoRoll: false,
+  showRolls: false,
   hideRound: false,
   clearRollsOnCombat: true,
   showMarker: true,
@@ -41,6 +44,7 @@ export const parseSettings = (raw: unknown): Settings => {
     hideClock: r.hideClock === true,
     showDanger: r.showDanger === true,
     autoRoll: r.autoRoll === true,
+    showRolls: r.showRolls === true,
     hideRound: r.hideRound === true,
     clearRollsOnCombat: r.clearRollsOnCombat !== false,
     showMarker: r.showMarker !== false,

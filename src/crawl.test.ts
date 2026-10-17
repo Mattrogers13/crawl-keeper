@@ -8,6 +8,7 @@ import {
   cryptoRand,
   due,
   emptyCrawl,
+  lastFor,
   omen,
   parseCrawl,
   resetClock,
@@ -62,11 +63,21 @@ describe("parseCrawl", () => {
 });
 
 describe("standard checks (core p. 112)", () => {
-  it("cadence: Unsafe 3, Risky 2, Deadly 1; darkness every round", () => {
+  it("cadence: Unsafe 3, Risky 2, Deadly 1 (darkness is Deadly: the GM picks it, p. 84)", () => {
     expect(cadence(crawl({ danger: "unsafe" }))).toBe(3);
     expect(cadence(crawl({ danger: "risky" }))).toBe(2);
     expect(cadence(crawl({ danger: "deadly" }))).toBe(1);
-    expect(cadence(crawl({ danger: "unsafe", dark: true }))).toBe(1);
+    // A darkness flag saved by an older version no longer changes the checks.
+    expect(cadence(crawl({ danger: "unsafe", dark: true }))).toBe(3);
+  });
+
+  it("a roll shows only in its own mode", () => {
+    const check = rollCheck(rounds(crawl(), 3), dice(6, 4));
+    expect(lastFor(check, "standard")?.kind).toBe("check");
+    expect(lastFor(check, "clock")).toBeNull();
+    const clock = rollClock(rounds(crawl(), 1), dice(6, 3));
+    expect(lastFor(clock, "clock")?.kind).toBe("clock");
+    expect(lastFor(clock, "standard")).toBeNull();
   });
 
   it("due on the 3rd, 6th... crawl round when Unsafe; nothing before the first round", () => {
