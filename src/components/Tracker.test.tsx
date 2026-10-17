@@ -72,13 +72,13 @@ describe("Tracker (GM)", () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     scene([{ id: "a", roll: 15 }, { id: "b", roll: 4 }, { id: GM_ENTRY, roll: 9 }], "b", 3);
     render(<App />);
-    fireEvent.click(await screen.findByText("Combat"));
+    fireEvent.click(await screen.findByRole("button", { name: "Combat" }));
     await waitFor(() => expect(saved()).toMatchObject({ phase: "combat", current: null, round: 3 }));
     expect(saved().entries.map((e) => e.roll)).toEqual([null, null, null]);
-    expect(screen.getByText("Combat")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Combat" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByLabelText("Next turn"));
     await waitFor(() => expect(screen.getByText("Round 4")).toBeInTheDocument());
-    fireEvent.click(screen.getByText("Crawl"));
+    fireEvent.click(screen.getByRole("button", { name: "Crawl" }));
     await waitFor(() => expect(saved()).toMatchObject({ phase: "crawl", round: 4 }));
     expect(saved().entries.map((e) => e.roll)).toEqual([null, null, null]);
   });
@@ -88,7 +88,7 @@ describe("Tracker (GM)", () => {
     obr.items = [token("a", { name: "Aria" })];
     scene([{ id: "a", roll: 15 }, { id: GM_ENTRY }]);
     render(<App />);
-    fireEvent.click(await screen.findByText("Combat"));
+    fireEvent.click(await screen.findByRole("button", { name: "Combat" }));
     await waitFor(() => expect(saved().phase).toBe("combat"));
     expect(saved().entries[0].roll).toBe(15);
   });
@@ -428,13 +428,21 @@ describe("Tracker (GM)", () => {
     });
     scene([{ id: GM_ENTRY }]);
     render(<App />);
-    const mod = await screen.findByLabelText("Monster DEX modifier");
-    fireEvent.change(mod, { target: { value: "+3" } });
+    // The d20 left of the roll opens the modifier and Roll.
+    fireEvent.click(await screen.findByLabelText("Roll initiative for GM / Monsters"));
+    const mod = screen.getByLabelText("Monster DEX modifier");
+    fireEvent.change(mod, { target: { value: "+2" } });
     fireEvent.blur(mod);
+    await waitFor(() => expect(saved().gmMod).toBe(2));
+    fireEvent.click(screen.getByLabelText("DEX modifier up"));
     await waitFor(() => expect(saved().gmMod).toBe(3));
-    fireEvent.click(screen.getByLabelText(/Roll initiative for GM/));
+    fireEvent.click(screen.getByRole("button", { name: "Roll d20+3" }));
     await waitFor(() => expect(saved().entries.find((e) => e.id === GM_ENTRY)?.roll).toBe(14));
+    // The roll shows its equation under the row's name; Roll closed the box.
+    expect(rowOf("GM / Monsters")).toHaveTextContent("d20 11 + 3");
+    expect(screen.queryByLabelText("Monster DEX modifier")).not.toBeInTheDocument();
     // Not a number: the box puts the old value back.
+    fireEvent.click(screen.getByLabelText("Roll initiative for GM / Monsters"));
     const saved3 = screen.getByLabelText("Monster DEX modifier");
     expect(saved3).toHaveValue("+3");
     fireEvent.change(saved3, { target: { value: "lots" } });
@@ -461,24 +469,25 @@ describe("Tracker (GM)", () => {
     expect(saved().current).toBe("a");
   });
 
-  it("the roll button is always there: plain, outlined when due, filled when due on the GM's turn; R only rolls when due", async () => {
+  it("the d6 is always there: plain, ringed when due, the card lit when due on the GM's turn; R only rolls when due", async () => {
     obr.items = [token("a", { name: "Aria" })];
     scene([{ id: "a" }, { id: GM_ENTRY }], GM_ENTRY, 1, { crawl: { crawlRounds: 1 } });
     render(<App />);
     const card = await screen.findByRole("region", { name: "Encounter checks" });
-    const roll = () => within(card).getByRole("button", { name: "Roll check (d6)" });
-    expect(roll()).not.toHaveClass("bg-obr-primary");
-    expect(roll()).not.toHaveClass("ring-obr-primary");
+    const roll = () => within(card).getByRole("button", { name: "Encounter check (d6)" });
+    expect(roll()).not.toHaveClass("outline-obr-primary/60");
+    expect(card).not.toHaveClass("ring-obr-primary");
     // Not due: R does nothing (a stray press can't replace a roll).
     fireEvent.keyDown(document.body, { key: "r" });
     expect(saved().crawl.last).toBeNull();
     // Due on a player's turn: outlined.
     await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), current: "a", crawl: { crawlRounds: 3 } } });
-    expect(roll()).toHaveClass("ring-obr-primary");
-    expect(within(card).getByText("Due this round")).toHaveClass("text-obr-primary");
-    // Due on the GM's turn: filled; R rolls it.
+    expect(roll()).toHaveClass("outline-obr-primary/60");
+    expect(card).not.toHaveClass("ring-obr-primary");
+    expect(within(card).getByText("Check now")).toHaveClass("text-obr-primary");
+    // Due on the GM's turn: the card lights up; R rolls it.
     await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), current: GM_ENTRY } });
-    expect(roll()).toHaveClass("bg-obr-primary");
+    expect(card).toHaveClass("ring-obr-primary");
     fireEvent.keyDown(document.body, { key: "r" });
     await waitFor(() => expect(saved().crawl.last?.kind).toBe("check"));
     // In combat the card (and R) are gone.
@@ -517,7 +526,8 @@ describe("Tracker (GM)", () => {
   it("the modifier box shows what's stored, even when nothing changed", async () => {
     scene([{ id: GM_ENTRY }], null, 0, { gmMod: 3 });
     render(<App />);
-    const mod = await screen.findByLabelText("Monster DEX modifier");
+    fireEvent.click(await screen.findByLabelText("Roll initiative for GM / Monsters"));
+    const mod = screen.getByLabelText("Monster DEX modifier");
     expect(mod).toHaveValue("+3");
     fireEvent.change(mod, { target: { value: "3" } });
     fireEvent.blur(mod);
@@ -535,18 +545,73 @@ describe("Tracker (GM)", () => {
     expect(await screen.findByText("Crawling Clock rules")).toBeInTheDocument();
   });
 
+  it("a row's checkbox adds it to the selection or takes it out", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
+    render(<App />);
+    fireEvent.click(await screen.findByLabelText("Select Aria"));
+    fireEvent.click(screen.getByLabelText("Select Borin"));
+    expect(screen.getByLabelText("Select Aria")).toBeChecked();
+    expect(screen.getByLabelText("Select Borin")).toBeChecked();
+    fireEvent.click(screen.getByLabelText("Select Aria"));
+    expect(screen.getByLabelText("Select Aria")).not.toBeChecked();
+    expect(rowOf("Borin").querySelector("[aria-selected=true]")).not.toBeNull();
+    // The GM row has none (it can't be selected).
+    expect(screen.queryByLabelText("Select GM / Monsters")).not.toBeInTheDocument();
+  });
+
+  it("a typed GM roll drops the equation", async () => {
+    scene([{ id: GM_ENTRY, roll: 14 }], null, 0, { gmMod: 2, gmDie: { die: 12, mod: 2 } });
+    render(<App />);
+    expect(await screen.findByText("d20 12 + 2")).toBeInTheDocument();
+    const roll = screen.getByLabelText("Initiative for GM / Monsters");
+    fireEvent.change(roll, { target: { value: "9" } });
+    fireEvent.blur(roll);
+    await waitFor(() => expect(saved().entries[0].roll).toBe(9));
+    expect(screen.queryByText("d20 12 + 2")).not.toBeInTheDocument();
+  });
+
+  it("the monsters fold under the GM row, remembered in this browser; a monster's combat turn opens them", async () => {
+    obr.items = [token("m1", { name: "Goblin" }), token("m2", { name: "Ogre" })];
+    scene([{ id: GM_ENTRY }, { id: "m1", monster: true }, { id: "m2", monster: true }]);
+    const { unmount } = render(<App />);
+    fireEvent.click(await screen.findByLabelText("Fold the monsters"));
+    expect(screen.queryByText("Goblin")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Show 2 monsters")).toHaveAttribute("aria-expanded", "false");
+    unmount();
+    render(<App />);
+    expect(await screen.findByLabelText("Show 2 monsters")).toBeInTheDocument();
+    // A monster's turn in combat: shown while it lasts.
+    await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), phase: "combat", current: "m2", round: 1 } });
+    expect(rowOf("Ogre")).toHaveAttribute("aria-current", "step");
+    expect(screen.getByLabelText("Fold the monsters")).toBeDisabled();
+    expect(screen.getByText("Ogre")).toBeInTheDocument();
+    // The turn passes on: folded again, as this viewer left it.
+    await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), current: GM_ENTRY } });
+    expect(screen.queryByText("Ogre")).not.toBeInTheDocument();
+  });
+
+  it("the round pill says the phase; in combat the crawl card folds to a line", async () => {
+    scene([{ id: GM_ENTRY }], GM_ENTRY, 4, COMBAT);
+    render(<App />);
+    expect((await screen.findByText("Round 4")).closest("header")).toHaveTextContent("Combat·Round 4");
+    expect(screen.getByText(/encounter checks paused/)).toBeInTheDocument();
+  });
+
   describe("the crawl card", () => {
     it("standard: calls for the check on the GM turn of the 3rd crawl round; the roll saves", async () => {
       obr.items = [token("a", { name: "Aria" })];
       scene([{ id: "a" }, { id: GM_ENTRY }], GM_ENTRY, 3, { crawl: { crawlRounds: 3 } });
       render(<App />);
       const card = await screen.findByRole("region", { name: "Encounter checks" });
-      expect(within(card).getByText("Due this round")).toBeInTheDocument();
-      fireEvent.click(within(card).getByText("Roll check (d6)"));
+      expect(within(card).getByText("Check now")).toBeInTheDocument();
+      fireEvent.click(within(card).getByRole("button", { name: "Encounter check (d6)" }));
       await waitFor(() => expect(saved().crawl.last?.kind).toBe("check"));
       expect(saved().crawl.lastCheck).toBe(3);
-      expect(within(card).getByLabelText("Last roll")).toHaveTextContent(/^\d(No encounter|Encounter!)$/);
-      expect(within(card).getByText("Next in 3 crawl rounds")).toBeInTheDocument();
+      // The die shows the roll (its pips, and the number for screen readers), the outcome under it.
+      expect(within(card).getByRole("button", { name: "Encounter check (d6)" })).toHaveTextContent(String(saved().crawl.last?.dice[0]));
+      expect(within(card).getByLabelText("Last roll")).toHaveTextContent(/^(No encounter|Encounter!)$/);
+      expect(within(card).getByText("3 rounds left")).toBeInTheDocument();
       fireEvent.click(within(card).getByText("Undo"));
       await waitFor(() => expect(saved().crawl).toMatchObject({ lastCheck: 0, last: null }));
     });
@@ -555,7 +620,7 @@ describe("Tracker (GM)", () => {
       scene([{ id: GM_ENTRY }]);
       render(<App />);
       const card = await screen.findByRole("region", { name: "Encounter checks" });
-      fireEvent.click(within(card).getByText("deadly"));
+      fireEvent.change(within(card).getByLabelText("Danger level"), { target: { value: "deadly" } });
       await waitFor(() => expect(saved().crawl.danger).toBe("deadly"));
       fireEvent.click(within(card).getByRole("button", { name: /Darkness/ }));
       await waitFor(() => expect(saved().crawl.dark).toBe(true));
@@ -566,7 +631,7 @@ describe("Tracker (GM)", () => {
       scene([{ id: GM_ENTRY }], GM_ENTRY, 1, { crawl: { crawlRounds: 1 } });
       render(<App />);
       const card = await screen.findByRole("region", { name: "Crawling Clock" });
-      fireEvent.click(within(card).getByText("Roll d6"));
+      fireEvent.click(within(card).getByRole("button", { name: "Roll d6" }));
       await waitFor(() => expect(saved().crawl.last?.kind).toBe("clock"));
       expect(saved().crawl.clock).toBeLessThan(20);
       expect(within(card).getByRole("button", { name: "Roll d6" })).not.toHaveClass("bg-obr-primary");
@@ -587,7 +652,7 @@ describe("Tracker (GM)", () => {
       scene([{ id: GM_ENTRY }]);
       render(<App />);
       const card = await screen.findByRole("region", { name: "Crawling Clock" });
-      expect(within(card).getByText("Starts with the first crawl round")).toBeInTheDocument();
+      expect(within(card).getByText("Rolls from round 1")).toBeInTheDocument();
     });
 
     it("clock: an omen at 5 or lower is a reminder, not a roll", async () => {
@@ -630,7 +695,7 @@ describe("Tracker (GM)", () => {
       render(<App />);
       fireEvent.click(await screen.findByLabelText("Next turn"));
       await waitFor(() => expect(saved()).toMatchObject({ current: GM_ENTRY, crawl: { lastCheck: 1, last: { kind: "clock" } } }));
-      expect(screen.getByLabelText("Last roll")).toBeInTheDocument();
+      expect(screen.getByLabelText("Last roll")).toHaveTextContent(/Clock 20 → \d+|Encounter!/);
     });
 
     it("without auto roll, ▶ onto the GM turn leaves the roll to the GM", async () => {
@@ -641,7 +706,7 @@ describe("Tracker (GM)", () => {
       fireEvent.click(await screen.findByLabelText("Next turn"));
       await waitFor(() => expect(saved().current).toBe(GM_ENTRY));
       expect(saved().crawl.last).toBeNull();
-      expect(screen.getByText("Roll d6")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Roll d6" })).toBeInTheDocument();
     });
 
     it("no card in combat, and none for players", async () => {
@@ -735,10 +800,11 @@ describe("Tracker (player)", () => {
     obr.metadata = { [SETTINGS_KEY]: { encounterMode: "clock" } };
     scene([{ id: GM_ENTRY }], null, 0, { crawl: { clock: 13 } });
     render(<App />);
-    expect(await screen.findByTitle("Crawling Clock")).toHaveTextContent("Clock 13");
+    expect(await screen.findByRole("region", { name: "Crawl status" })).toHaveTextContent("The clock is at 13");
+    expect(screen.getByRole("img", { name: "Clock 13 of 20" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Crawling Clock" })).not.toBeInTheDocument();
     await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "clock", hideClock: true } });
-    expect(screen.queryByTitle("Crawling Clock")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Crawl status" })).not.toBeInTheDocument();
   });
 
   it("sees the danger level only when the GM shows it", async () => {
@@ -746,9 +812,19 @@ describe("Tracker (player)", () => {
     scene([{ id: GM_ENTRY }], null, 0, { crawl: { danger: "risky" } });
     render(<App />);
     await screen.findByText("Crawl");
-    expect(screen.queryByTitle("Danger level")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Crawl status" })).not.toBeInTheDocument();
     await writeFromElsewhere({ [SETTINGS_KEY]: { showDanger: true } });
-    expect(screen.getByTitle("Danger level")).toHaveTextContent("risky");
+    expect(screen.getByRole("region", { name: "Crawl status" })).toHaveTextContent("risky");
+  });
+
+  it("sees 'Your turn' on the turn of a token they put on the map, not on anyone else's", async () => {
+    obr.role = "PLAYER";
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin", createdUserId: "someone-else" })];
+    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }], "a", 1);
+    render(<App />);
+    expect(await screen.findByRole("status")).toHaveTextContent("Your turn, Aria");
+    await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), current: "b" } });
+    expect(screen.queryByText("Your turn")).not.toBeInTheDocument();
   });
 
   it("sees no turn-marker dots", async () => {
@@ -794,6 +870,7 @@ describe("Tracker (player)", () => {
     render(<App />);
     expect(await screen.findByText("Crawl")).toBeInTheDocument();
     expect(screen.queryByText("Round 4")).not.toBeInTheDocument();
+    expect(screen.getByText("Crawl").closest("header")).toBeInTheDocument();
   });
 
   it("follows the GM's changes live", async () => {

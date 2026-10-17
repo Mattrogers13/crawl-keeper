@@ -45,3 +45,10 @@ export const SortIcon = () => (
     <path d="M2 4h12M2 8h8M2 12h4" />
   </svg>
 );
+
+// A chevron: down when open, right when folded.
+export const ChevronIcon = ({ open }: { open: boolean }) => (
+  <svg viewBox="0 0 10 10" className="h-2.5 w-2.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d={open ? "M1.5 3.5 5 7l3.5-3.5" : "M3.5 1.5 7 5 3.5 8.5"} />
+  </svg>
+);

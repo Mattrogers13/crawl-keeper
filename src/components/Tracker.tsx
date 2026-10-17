@@ -16,20 +16,22 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 import Confirm from "./Confirm";
 import CrawlBar, { ClockDial, FOCUS } from "./CrawlBar";
 import { cryptoRand, due, rollFor } from "../crawl";
-import { PlayIcon, SortIcon } from "./icons";
+import { ChevronIcon, PlayIcon, SortIcon } from "./icons";
 import Loading from "./Loading";
 import RowMenu from "./RowMenu";
-import Row, { tokenInfo, type ButtonProps } from "./TrackerRow";
-import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
+import Row, { INIT_SLOT, tokenInfo, type ButtonProps, type Token } from "./TrackerRow";
+import { MONSTERS_FOLDED_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
 import { afterTurnChange } from "../marker";
 import { NO_SELECTION, clickRow, keepRows, menuTargets, type Selection } from "../selection";
 import { parseSettings } from "../settings";
+import { readLocal, writeLocal } from "../storage";
 import { errorMessage, notify } from "../utils";
 import {
   GM_ENTRY,
+  gmEquation,
   moveTo,
   next,
   nextWithAutoRoll,
@@ -64,6 +66,13 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   // (right-click or ⋯), which acts on the selection.
   const [picked, setPicked] = useState<Selection>(NO_SELECTION);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  // The monsters folded under the GM row: this viewer's choice, remembered
+  // in this browser.
+  const [folded, setFolded] = useState(() => readLocal(MONSTERS_FOLDED_KEY) === "1");
+  const fold = (f: boolean) => {
+    setFolded(f);
+    writeLocal(MONSTERS_FOLDED_KEY, f ? "1" : "");
+  };
 
   // A tracked token deleted from the map: the GM's panel saves the tracker
   // without it, and if it was that token's turn, the turn and the marker
@@ -149,12 +158,19 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
     setPicked(menuTargets(selection, id));
     setMenu({ x, y });
   };
-  const rowProps = { gm, change, show, openMenu, select, gmMod: tracker.gmMod };
+  const rowProps = { gm, change, show, openMenu, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker) };
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
   const round = tracker.round;
   const roundLabel =
     round === 0 ? (gm ? "Not started" : "") : gm || !settings.value.hideRound ? `Round ${round}` : "";
   const combat = tracker.phase === "combat";
+  // A monster's combat turn opens the folded list while it lasts, so the
+  // current row shows (folding is off until then).
+  const monsterTurn = combat && monsters.some((m) => m.id === current);
+  const showMonsters = !folded || monsterTurn;
+  // A player's own token (they put it on the map) has the turn.
+  const currentToken = !gm && current && current !== GM_ENTRY ? tokenInfo(byId.get(current)) : null;
+  const myTurn = currentToken && currentToken.owner === OBR.player.id ? currentToken.name : null;
   // Players see the Crawling Clock unless the GM hides it; the GM sees it on the card.
   const showClock = !gm && settings.value.encounterMode === "clock" && !settings.value.hideClock;
   const showDanger = !gm && !combat && settings.value.encounterMode === "standard" && settings.value.showDanger;
@@ -182,8 +198,8 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
         if (!(e.target as HTMLElement).closest("[aria-selected], [role=menu]")) setPicked(NO_SELECTION);
       }}
     >
-      <div className="flex items-center gap-2">
-        {gm ? (
+      {gm && (
+        <div className="flex items-center gap-2">
           <div role="group" aria-label="Phase" className="flex rounded-full bg-obr-bg p-[3px] text-sm font-medium">
             <button
               type="button"
@@ -202,30 +218,9 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
               Combat
             </button>
           </div>
-        ) : (
-          <h2
-            className={`flex h-8 items-center rounded-full px-3.5 font-medium ${combat ? "bg-red-700 text-white" : "bg-obr-bg"}`}
-          >
-            {combat ? "Combat" : "Crawl"}
-          </h2>
-        )}
-        {gm && (
           <RoundButton label="Sort by roll" onClick={() => change(sortByRoll)}>
             <SortIcon />
           </RoundButton>
-        )}
-        {roundLabel && (titleSlot ? createPortal(roundLabel, titleSlot) : <span className="text-sm text-obr-text-secondary">{roundLabel}</span>)}
-        {showDanger && (
-          <span className="ml-auto flex h-8 items-center rounded-full bg-obr-bg px-3 text-xs font-medium capitalize" title="Danger level">
-            {tracker.crawl.danger}
-          </span>
-        )}
-        {showClock && (
-          <span className="ml-auto flex items-center gap-2 text-sm text-obr-text-secondary" title="Crawling Clock">
-            Clock <ClockDial value={tracker.crawl.clock} size={44} on="paper" />
-          </span>
-        )}
-        {gm && (
           <div className="ml-auto flex gap-1.5">
             <RoundButton label="Previous turn" hint="B" wide disabled={tracker.current === null} onClick={() => change(previous)}>
               <PlayIcon back />
@@ -234,8 +229,50 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
               <PlayIcon />
             </RoundButton>
           </div>
+        </div>
+      )}
+
+      {/* The phase and round, beside the title. */}
+      {titleSlot &&
+        createPortal(
+          <span
+            className={`flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium ${
+              combat ? "bg-red-600/15 text-red-700 dark:text-red-300" : "bg-obr-primary/15 text-obr-text"
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${combat ? "bg-red-600 dark:bg-red-400" : "bg-obr-primary"}`} aria-hidden />
+            <span>{combat ? "Combat" : "Crawl"}</span>
+            {roundLabel && (
+              <>
+                <span aria-hidden>·</span>
+                <span className="text-obr-text">{roundLabel}</span>
+              </>
+            )}
+          </span>,
+          titleSlot,
         )}
-      </div>
+
+      {/* Players: the clock or the danger level, if the GM shows them. */}
+      {!gm && (showClock || showDanger) && !combat && (
+        <section
+          aria-label="Crawl status"
+          className="flex items-center gap-3 rounded-[14px] bg-obr-bg px-3 py-2 ring-1 ring-obr-text/10 ring-inset"
+        >
+          {showClock && <ClockDial value={tracker.crawl.clock} size={52} />}
+          <span className="flex flex-col text-xs leading-normal text-obr-text-secondary">
+            <span>
+              <span className="text-sm font-medium text-obr-text">Crawling</span>
+              {showDanger && <span className="capitalize"> · {tracker.crawl.danger}</span>}
+            </span>
+            {showClock && <span>The clock is at {tracker.crawl.clock}</span>}
+          </span>
+        </section>
+      )}
+      {myTurn && (
+        <p role="status" className="rounded-[10px] bg-obr-primary/15 px-3 py-1.5 text-sm">
+          <span className="font-semibold">Your turn</span>, {myTurn}
+        </p>
+      )}
 
       {gm &&
         !combat &&
@@ -247,6 +284,15 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
             gmTurn={tracker.current === GM_ENTRY}
             change={(fn) => change((t) => updateCrawl(t, fn))}
           />,
+          headerSlot,
+        )}
+      {gm &&
+        combat &&
+        headerSlot &&
+        createPortal(
+          <p className="rounded-xl bg-red-600/10 px-3 py-2 text-xs text-red-800 ring-1 ring-red-600/30 ring-inset dark:text-red-200">
+            <span className="font-semibold text-obr-text">Combat</span> · encounter checks paused
+          </p>,
           headerSlot,
         )}
 
@@ -264,8 +310,18 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
           onDragCancel={() => (dragging.current = false)}
         >
           {/* Two drag groups: players and the GM row; monsters inside the GM row. */}
+          <div
+            className="flex border-b border-obr-text/10 py-1 pr-1 text-[10px] font-semibold tracking-[0.1em] text-obr-text-disabled uppercase"
+            aria-hidden
+          >
+            {/* Lined up with the names: the GM's grip, checkbox and portrait (16 + 16 + 26 px and
+                three 8 px gaps), or a player's inset and portrait (4 + 26 + 8). */}
+            <span className={`flex-1 ${gm ? "pl-[82px]" : "pl-[38px]"}`}>Name</span>
+            <span className={`${INIT_SLOT} pr-2 text-right`}>Init</span>
+            {gm && <span className="w-7" />}
+          </div>
           <SortableContext items={top.map((e) => e.id)} strategy={verticalListSortingStrategy}>
-            <ol className="flex flex-col gap-0.5">
+            <ol className="flex flex-col">
               {top.map((entry) => (
                 <Row
                   key={entry.id}
@@ -273,19 +329,38 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
                   token={tokenFor(entry)}
                   current={entry.id === current}
                   selected={selection.ids.includes(entry.id)}
-                  bracket={entry.id === GM_ENTRY && monsters.length > 0}
                   {...rowProps}
                 >
                   {entry.id === GM_ENTRY && monsters.length > 0 && (
                     <SortableContext items={monsters.map((e) => e.id)} strategy={verticalListSortingStrategy}>
-                      <span className="block px-2 pt-1 text-[11px] font-medium tracking-[0.06em] text-obr-text-secondary uppercase" aria-hidden>
-                        Monsters · {monsters.length}
-                      </span>
-                      <ol aria-label="Monsters" className="flex flex-col gap-0.5">
-                        {monsters.map((m) => (
-                          <Row key={m.id} entry={m} token={tokenFor(m)} current={m.id === current} selected={selection.ids.includes(m.id)} small {...rowProps} />
-                        ))}
-                      </ol>
+                      <button
+                        type="button"
+                        aria-expanded={showMonsters}
+                        aria-label={showMonsters ? "Fold the monsters" : `Show ${monsters.length} monsters`}
+                        disabled={monsterTurn}
+                        title={monsterTurn ? "Shown while a monster has the turn" : undefined}
+                        className={`flex h-7 w-full items-center gap-1.5 border-b border-obr-text/10 text-[11px] font-medium tracking-[0.04em] text-obr-text-secondary enabled:hover:text-obr-text ${
+                          gm ? "pl-[48px]" : "pl-2.5"
+                        }`}
+                        onClick={() => fold(showMonsters)}
+                      >
+                        <ChevronIcon open={showMonsters} />
+                        {showMonsters ? (
+                          <span className="uppercase">Monsters · {monsters.length}</span>
+                        ) : (
+                          <>
+                            {monsters.length === 1 ? "1 monster" : `${monsters.length} monsters`}
+                            <Stack tokens={monsters.map(tokenFor)} />
+                          </>
+                        )}
+                      </button>
+                      {showMonsters && (
+                        <ol aria-label="Monsters" className="flex flex-col">
+                          {monsters.map((m) => (
+                            <Row key={m.id} entry={m} token={tokenFor(m)} current={m.id === current} selected={selection.ids.includes(m.id)} small {...rowProps} />
+                          ))}
+                        </ol>
+                      )}
                     </SortableContext>
                   )}
                 </Row>
@@ -339,6 +414,19 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
     </div>
   );
 };
+
+// The folded monsters' portraits, overlapping (at most five).
+const Stack = ({ tokens }: { tokens: (Token | null)[] }) => (
+  <span className="ml-1 flex" aria-hidden>
+    {tokens.slice(0, 5).map((t, i) =>
+      t?.image ? (
+        <img key={i} src={t.image} alt="" className="-ml-1 h-3.5 w-3.5 rounded-full border-2 border-obr-paper object-cover" />
+      ) : (
+        <span key={i} className="-ml-1 h-3.5 w-3.5 rounded-full border-2 border-obr-paper bg-obr-text/30" />
+      ),
+    )}
+  </span>
+);
 
 // Icon buttons in the turn bar: round (36 px), or a wider pill for ◀ ▶.
 // `hint`: its hotkey, shown in the tooltip.

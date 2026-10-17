@@ -68,7 +68,13 @@ export type Tracker = {
   // What the GM adds to the GM / Monsters initiative d20 (p. 83: the highest
   // DEX modifier of any monsters).
   gmMod: number;
+  // The GM's last initiative roll, for the equation under the GM row
+  // (`d20 12 + 2`). Shown only while it still adds up to that row's roll (a
+  // typed roll replaces it).
+  gmDie: GmDie | null;
 };
+
+export type GmDie = { die: number; mod: number };
 
 export const emptyTracker = (): Tracker => ({
   entries: [newEntry(GM_ENTRY, false)],
@@ -77,6 +83,7 @@ export const emptyTracker = (): Tracker => ({
   round: 0,
   crawl: emptyCrawl(),
   gmMod: 0,
+  gmDie: null,
 });
 
 
@@ -116,11 +123,19 @@ export const parseTracker = (raw: unknown): Tracker => {
     round: parseCount(raw.round),
     crawl: parseCrawl(raw.crawl),
     gmMod: intIn(raw.gmMod, MOD_MIN, MOD_MAX) ?? 0,
+    gmDie: parseGmDie(raw.gmDie),
   };
   // A turn only exists inside a round, and only for an entry that takes
   // turns now (living; monsters only in combat).
   const current = t.round > 0 && typeof raw.current === "string" ? turnFor(t, raw.current) : null;
   return current ? { ...t, current } : t;
+};
+
+const parseGmDie = (raw: unknown): GmDie | null => {
+  if (!isObject(raw)) return null;
+  const die = intIn(raw.die, 1, 20);
+  const mod = intIn(raw.mod, MOD_MIN, MOD_MAX);
+  return die === null || mod === null ? null : { die, mod };
 };
 
 // Who has the turn a saved `id` held, if `id` doesn't take turns now: the GM
@@ -223,6 +238,7 @@ export const toCombat = (t: Tracker, clearRolls: boolean): Tracker => {
     phase: "combat",
     current: null,
     entries: clearRolls ? t.entries.map((e) => (e.roll === null ? e : { ...e, roll: null })) : t.entries,
+    gmDie: clearRolls ? null : t.gmDie,
   };
 };
 
@@ -310,9 +326,13 @@ const edit = (t: Tracker, id: string, change: Partial<Entry>): Tracker => {
   return entries ? { ...t, entries } : t;
 };
 
-// Monsters have no roll of their own (normalized drops it).
-export const setRoll = (t: Tracker, id: string, roll: number | null): Tracker =>
-  edit(t, id, { roll: parseRoll(roll) });
+// Monsters have no roll of their own (normalized drops it). A roll typed
+// into the GM row drops its equation (a later roll of the same sum mustn't
+// bring an old die back).
+export const setRoll = (t: Tracker, id: string, roll: number | null): Tracker => {
+  const updated = edit(t, id, { roll: parseRoll(roll) });
+  return id === GM_ENTRY && updated !== t && updated.gmDie ? { ...updated, gmDie: null } : updated;
+};
 
 // The monsters' DEX modifier for the GM's initiative roll.
 export const setGmMod = (t: Tracker, mod: number): Tracker => {
@@ -321,8 +341,17 @@ export const setGmMod = (t: Tracker, mod: number): Tracker => {
 };
 
 // The GM / Monsters initiative: a d20 plus the monsters' modifier (p. 83, 88),
-// saved as the GM row's roll.
-export const rollGmInitiative = (t: Tracker, rand: Rand): Tracker => setRoll(t, GM_ENTRY, rollDie(20, rand) + t.gmMod);
+// saved as the GM row's roll, with the die kept for the equation.
+export const rollGmInitiative = (t: Tracker, rand: Rand): Tracker => {
+  const die = rollDie(20, rand);
+  return { ...setRoll(t, GM_ENTRY, die + t.gmMod), gmDie: { die, mod: t.gmMod } };
+};
+
+// The GM row's equation, if its roll is still the last d20 rolled for it.
+export const gmEquation = (t: Tracker): GmDie | null => {
+  const roll = t.entries.find((e) => e.id === GM_ENTRY)?.roll;
+  return t.gmDie && roll === t.gmDie.die + t.gmDie.mod ? t.gmDie : null;
+};
 
 export const setNote = (t: Tracker, id: string, note: string): Tracker =>
   edit(t, id, { note: note.slice(0, NOTE_MAX) });

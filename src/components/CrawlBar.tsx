@@ -1,9 +1,10 @@
-import { useState, type ReactNode } from "react";
+import { useId, useState } from "react";
 
 import Confirm from "./Confirm";
 import {
   CLOCK_START,
   OMEN_AT,
+  cadence,
   cryptoRand,
   crawlDie,
   due,
@@ -21,89 +22,65 @@ import {
 } from "../crawl";
 
 // The GM's encounter checks or Crawling Clock, in the top bar while
-// crawling (it stays in view as the list scrolls). It lights up and asks for
-// the roll on the GM's turn when one is due; the roll button is always there
-// (an extra roll when the GM wants one), outlined while a roll is due and
-// filled when it's due on the GM's turn.
+// crawling (it stays in view as the list scrolls). Three columns: the dial
+// (what's left before the next roll), the place (danger level, darkness),
+// and the d6, which is both the roll button and its last result. The card
+// and the die light up when a roll is due; the die can always be rolled (an
+// extra check when the GM wants one).
 const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; change: (fn: (c: Crawl) => Crawl) => void }) => {
   const { crawl, mode, change } = props;
   const [askingReset, setAskingReset] = useState(false);
   const clock = mode === "clock";
   const isDue = due(crawl, mode);
   const callForRoll = isDue && props.gmTurn;
+  const started = crawl.crawlRounds > 0;
   const toNext = roundsToCheck(crawl);
-  const status =
-    crawl.crawlRounds === 0
-      ? "Starts with the first crawl round"
-      : isDue
-        ? "Due this round"
-        : clock
-          ? "Rolled this round"
-          : `Next in ${toNext} crawl round${toNext === 1 ? "" : "s"}`;
+  const every = cadence(crawl);
+  // Under the dial.
+  const dialLabel = isDue ? (clock ? "Roll now" : "Check now") : !clock ? plural(toNext, "round") + " left" : started ? "Rolled" : "Rolls from round 1";
+  // Darkness changes nothing for a Deadly place's standard checks.
+  const darkMatters = clock || crawl.danger !== "deadly";
 
   return (
     <section
       aria-label={clock ? "Crawling Clock" : "Encounter checks"}
-      className={`grid items-center gap-x-3 gap-y-2.5 rounded-xl bg-obr-bg p-3 text-sm ring-1 ring-inset ${
-        clock ? "grid-cols-[76px_minmax(0,1fr)]" : "grid-cols-1"
-      } ${callForRoll ? "ring-obr-primary" : "ring-obr-text/10"}`}
+      className={`grid grid-cols-[76px_minmax(0,1fr)_76px] items-start gap-3 rounded-[14px] bg-obr-bg p-2.5 ring-1 ring-inset ${
+        callForRoll ? "shadow-[0_0_0_3px_color-mix(in_srgb,var(--obr-primary)_18%,transparent)] ring-obr-primary" : "ring-obr-text/10"
+      }`}
     >
-      {clock && (
-        // Right-click the clock to reset it.
-        <div
-          title="Right-click to reset the clock"
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setAskingReset(true);
-          }}
-        >
-          <ClockDial value={crawl.clock} />
-        </div>
-      )}
+      <div className="flex flex-col items-center gap-1">
+        {clock ? (
+          // Right-click the clock to reset it.
+          <div
+            title="Right-click to reset the clock"
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setAskingReset(true);
+            }}
+          >
+            <ClockDial value={crawl.clock} />
+          </div>
+        ) : (
+          <CheckDial of={every} left={toNext} due={isDue} dark={crawl.dark} />
+        )}
+        <span className={`text-center text-[11px] leading-tight ${isDue ? "font-medium text-obr-primary" : "text-obr-text-secondary"}`}>
+          {dialLabel}
+        </span>
+      </div>
 
-      <div className="flex min-w-0 flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          {!clock && (
-            <div role="group" aria-label="Danger level" className="flex rounded-full bg-obr-paper p-0.5 text-xs font-medium">
-              {(["unsafe", "risky", "deadly"] as const).map((d: Danger) => (
-                <button
-                  key={d}
-                  type="button"
-                  aria-pressed={crawl.danger === d}
-                  className={`h-8 rounded-full px-3 capitalize ${FOCUS} ${crawl.danger === d ? "bg-obr-primary text-obr-primary-contrast" : "hover:bg-obr-text/10"}`}
-                  onClick={() => change((c) => setDanger(c, d))}
-                >
-                  {d}
-                </button>
-              ))}
-            </div>
-          )}
-          <PillButton
-            look={callForRoll ? "filled" : isDue ? "outlined" : "plain"}
-            hint="R when due"
-            onClick={() => change((c) => rollFor(mode)(c, cryptoRand))}
-          >
-            {clock ? `Roll d${crawlDie(crawl)}` : "Roll check (d6)"}
-          </PillButton>
-          <button
-            type="button"
-            aria-pressed={crawl.dark}
-            title={clock ? "Total darkness: the crawling die is a d8" : "Total darkness: a check every crawl round (p. 84)"}
-            className={`h-8 rounded-full px-3 text-xs font-medium ${FOCUS} ${
-              crawl.dark ? "bg-obr-text text-obr-paper" : "bg-obr-paper text-obr-text-secondary hover:bg-obr-text/10"
-            }`}
-            onClick={() => change((c) => setDark(c, !c.dark))}
-          >
-            Darkness · {clock ? "d8" : "every round"}
-          </button>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-obr-text-secondary">
-          <span role="status" className={isDue ? "font-medium text-obr-primary" : ""}>
-            {status}
-          </span>
+      <div className="flex min-w-0 flex-col items-start gap-1.5 pt-1">
+        {clock ? (
+          <span className="text-sm font-medium">Crawling Clock</span>
+        ) : (
+          <DangerSelect value={crawl.danger} onChange={(d) => change((c) => setDanger(c, d))} />
+        )}
+        <span className="text-xs leading-snug text-obr-text-secondary">
+          {clock
+            ? `Crawling die d${crawlDie(crawl)}${crawl.dark ? " (darkness)" : ""}`
+            : `A check every ${every === 1 ? "crawl round" : `${every} crawl rounds`}`}
           {clock && omen(crawl) && !crawl.last?.encounter && (
             <>
-              <span aria-hidden>·</span>
+              {" · "}
               <span
                 className="font-medium text-amber-700 dark:text-amber-400"
                 title="The clock is low. You may roll the encounter on your table now and telegraph it; it still hits when the clock reaches 0."
@@ -112,165 +89,313 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
               </span>
             </>
           )}
-          {crawl.undo && (
-            <>
-              <span aria-hidden>·</span>
-              <button type="button" className="underline hover:text-obr-text" onClick={() => change(undoRoll)}>
-                Undo
-              </button>
-            </>
-          )}
-          {clock && (
-            <>
-              <span aria-hidden>·</span>
-              <Confirm
-                label="Reset clock"
-                question={`Reset the clock to ${CLOCK_START}?`}
-                action="Reset"
-                onConfirm={() => change(resetClock)}
-                asking={askingReset}
-                setAsking={setAskingReset}
-              />
-            </>
-          )}
-        </div>
+        </span>
+        <TorchToggle
+          dark={crawl.dark}
+          matters={darkMatters}
+          title={
+            !darkMatters
+              ? "Total darkness: Deadly already checks every crawl round"
+              : clock
+                ? "Total darkness: the crawling die is a d8"
+                : "Total darkness: a check every crawl round (p. 84)"
+          }
+          onClick={() => change((c) => setDark(c, !c.dark))}
+        />
+        {clock && (
+          <Confirm
+            label="Reset clock"
+            question={`Reset the clock to ${CLOCK_START}?`}
+            action="Reset"
+            onConfirm={() => change(resetClock)}
+            asking={askingReset}
+            setAsking={setAskingReset}
+          />
+        )}
       </div>
 
-      {crawl.last && <LastRoll roll={crawl.last} />}
+      <div className="flex flex-col items-center gap-1">
+        <D6Button
+          roll={crawl.last}
+          label={clock ? `Roll d${crawlDie(crawl)}` : "Encounter check (d6)"}
+          due={isDue}
+          onClick={() => change((c) => rollFor(mode)(c, cryptoRand))}
+        />
+        {/* A live region that stays mounted, so a new result is announced. */}
+        <div role="status" aria-label="Last roll" className="flex flex-col items-center">
+          {crawl.last ? (
+            <Outcome roll={crawl.last} />
+          ) : (
+            <span className="text-center text-[11px] leading-tight text-obr-text-secondary">{clock ? "Crawling die" : "Encounter check"}</span>
+          )}
+        </div>
+        {crawl.undo && (
+          <button type="button" className="text-[11px] text-obr-text-secondary underline hover:text-obr-text" onClick={() => change(undoRoll)}>
+            Undo
+          </button>
+        )}
+      </div>
     </section>
   );
 };
 
-// A d20 seen face-on (the clock starts at 20): a hexagon, the front face,
-// and the edges between them. Drawn for a 76 px dial, centred on 38, 38.
-const D20_R = 24;
-const at = (deg: number, r = D20_R) => [38 + r * Math.cos((deg * Math.PI) / 180), 38 + r * Math.sin((deg * Math.PI) / 180)];
-const HEX = [-90, -30, 30, 90, 150, 210].map((deg) => at(deg));
-const FACE = [
-  [38, 38 - 0.5 * D20_R],
-  [38 + 0.55 * D20_R, 38 + 0.38 * D20_R],
-  [38 - 0.55 * D20_R, 38 + 0.38 * D20_R],
-];
-const path = (points: number[][]) => `M${points.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(" L")}Z`;
-// Each corner of the face joins the three hexagon corners nearest it.
-const EDGES = [
-  [0, 0], [0, 1], [0, 5],
-  [1, 1], [1, 2], [1, 3],
-  [2, 3], [2, 4], [2, 5],
-]
-  .map(([f, h]) => `M${FACE[f].map((n) => n.toFixed(1)).join(" ")} L${HEX[h].map((n) => n.toFixed(1)).join(" ")}`)
-  .join(" ");
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-// The clock as a ring that empties as it runs down, around a d20 showing
-// what's left. Drawn on a 76-unit grid and scaled to `size` px; small dials
-// (the players' view) get a bolder ring and number so they still read.
-// `on`: what it sits on (the number's outline matches it, so the die's edges
-// don't cut through the number).
-export const ClockDial = ({ value, size = 76, on = "bg" }: { value: number; size?: number; on?: "bg" | "paper" }) => {
-  const small = size < 60;
-  const stroke = small ? 7 : 5;
-  const r = 38 - stroke / 2 - 1;
-  const length = 2 * Math.PI * r;
+const DANGERS: Danger[] = ["unsafe", "risky", "deadly"];
+
+// A native select (keyboard and screen readers for free) styled as a pill.
+const DangerSelect = ({ value, onChange }: { value: Danger; onChange: (d: Danger) => void }) => (
+  <span className="relative inline-flex">
+    <select
+      aria-label="Danger level"
+      title="Danger level: how often to check (core p. 112)"
+      value={value}
+      onChange={(e) => onChange(e.target.value as Danger)}
+      className={`h-8 cursor-pointer appearance-none rounded-lg bg-obr-paper pr-7 pl-2.5 text-sm font-semibold capitalize hover:bg-obr-text/10 ${FOCUS}`}
+    >
+      {DANGERS.map((d) => (
+        <option key={d} value={d} className="bg-obr-paper text-obr-text">
+          {d[0].toUpperCase() + d.slice(1)}
+        </option>
+      ))}
+    </select>
+    <ChevronDown className="pointer-events-none absolute top-1/2 right-2.5 h-2.5 w-2.5 -translate-y-1/2 text-obr-text-secondary" />
+  </span>
+);
+
+// Torchlit or total darkness. Greyed (still clickable) where it changes
+// nothing: a Deadly place already checks every round.
+const TorchToggle = (props: { dark: boolean; matters: boolean; title: string; onClick: () => void }) => (
+  <button
+    type="button"
+    aria-label="Darkness"
+    aria-pressed={props.dark}
+    title={props.title}
+    className={`flex h-7 items-center gap-1.5 rounded-full pr-3 pl-2 text-xs font-medium ${FOCUS} ${
+      props.dark ? "bg-obr-text/10 text-obr-text-secondary" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+    } ${props.matters ? "" : "opacity-50"}`}
+    onClick={props.onClick}
+  >
+    <TorchIcon lit={!props.dark} />
+    {props.dark ? "Darkness" : "Torchlit"}
+  </button>
+);
+
+const TorchIcon = ({ lit }: { lit: boolean }) => (
+  <svg viewBox="0 0 14 20" className="h-4 w-3" aria-hidden>
+    {lit ? (
+      <>
+        <path d="M7 1c2 3 4 4 4 7a4 4 0 0 1-8 0c0-2 1-3 2-4 0 2 1 3 2 3 0-2-1-4 0-6z" fill="#ff9a3c" />
+        <path d="M7 5c1 2 2 2.5 2 4a2 2 0 0 1-4 0c0-1 1-2 2-4z" fill="#ffe08a" />
+      </>
+    ) : (
+      <path d="M6 2c-1 1 1 2 0 3M8 1c-1 1 1 2 0 3" stroke="currentColor" fill="none" />
+    )}
+    <rect x="5" y="10" width="4" height="9" rx="1" fill="#8a6a45" />
+    <rect x="4" y="9" width="6" height="2" rx="1" fill={lit ? "#5a3d22" : "currentColor"} />
+  </svg>
+);
+
+const ChevronDown = ({ className }: { className: string }) => (
+  <svg viewBox="0 0 10 10" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M1.5 3.5 5 7l3.5-3.5" />
+  </svg>
+);
+
+// The d6: press it to roll; it shows the last roll (pips for a check, the
+// total for the crawling die). Red on an encounter, ringed while a roll is due.
+const D6Button = (props: { roll: CrawlRoll | null; label: string; due: boolean; onClick: () => void }) => {
+  const { roll } = props;
+  const enc = roll?.encounter ?? false;
+  return (
+    <div className="flex h-[76px] w-[76px] items-center justify-center">
+      <button
+        type="button"
+        aria-label={props.label}
+        title={`${props.label} (R when due)`}
+        className={`relative h-14 w-14 rounded-xl transition-transform active:translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-obr-primary focus-visible:ring-offset-2 focus-visible:ring-offset-obr-bg ${
+          enc ? "bg-red-600 text-white shadow-[0_4px_0_#8f2a2a,0_8px_14px_rgba(0,0,0,.35)]" : "bg-[#f4f1ea] text-[#1b1b1b] shadow-[0_4px_0_#b9b2a3,0_8px_14px_rgba(0,0,0,.35)]"
+        } ${props.due ? "outline-3 outline-offset-3 outline-obr-primary/60" : ""}`}
+        onClick={props.onClick}
+      >
+        {!roll ? (
+          <span className="text-xs font-bold tracking-wide uppercase opacity-60">Roll</span>
+        ) : roll.kind === "check" ? (
+          <Pips n={roll.dice[0]} />
+        ) : (
+          <>
+            <span className="text-[22px] font-extrabold tabular-nums">{roll.dice.reduce((a, b) => a + b, 0)}</span>
+            <span className="absolute -top-1.5 -right-1.5 rounded-md bg-obr-paper px-1 text-[9.5px] font-medium text-obr-text-secondary ring-1 ring-obr-text/10">
+              d{roll.sides}
+            </span>
+          </>
+        )}
+      </button>
+    </div>
+  );
+};
+
+// Pip spots in percent of the face.
+const PIPS: Record<number, [number, number][]> = {
+  1: [[50, 50]],
+  2: [[28, 28], [72, 72]],
+  3: [[25, 25], [50, 50], [75, 75]],
+  4: [[28, 28], [72, 28], [28, 72], [72, 72]],
+  5: [[25, 25], [75, 25], [50, 50], [25, 75], [75, 75]],
+  6: [[28, 22], [72, 22], [28, 50], [72, 50], [28, 78], [72, 78]],
+};
+const Pips = ({ n }: { n: number }) => (
+  <>
+    <span className="sr-only">{n}</span>
+    {(PIPS[n] ?? []).map(([x, y], i) => (
+      <i
+        key={i}
+        aria-hidden
+        className="absolute h-2.5 w-2.5 rounded-full bg-current"
+        style={{ left: `calc(${x}% - 5px)`, top: `calc(${y}% - 5px)` }}
+      />
+    ))}
+  </>
+);
+
+// What the last roll did, under the die.
+const Outcome = ({ roll }: { roll: CrawlRoll }) => {
+  const total = roll.dice.reduce((a, b) => a + b, 0);
+  const text = roll.encounter ? "Encounter!" : roll.kind === "check" ? "No encounter" : `Clock ${roll.before} → ${roll.after}`;
+  return (
+    <span
+      className={`text-center text-[11px] leading-tight ${roll.encounter ? "font-bold text-red-600 uppercase dark:text-red-400" : "text-obr-text-secondary"}`}
+      title={roll.dice.length > 1 ? `${roll.dice.join(" + ")} = ${total}` : undefined}
+    >
+      {text}
+      {roll.kind === "clock" && roll.encounter && <span className="block font-medium normal-case">Next clock {roll.after}</span>}
+    </span>
+  );
+};
+
+// The dial's d20, a sapphire resin die seen face-on: a hexagon, nine lit
+// facets and a front face drawn bigger than a real d20's so the number sits
+// fully on it. Drawn on a 76-unit grid, centred on 38, 38.
+const C = 38;
+const D20_R = 26;
+const FACE_K = 0.86;
+const at = (deg: number) => [C + D20_R * Math.cos((deg * Math.PI) / 180), C + D20_R * Math.sin((deg * Math.PI) / 180)];
+const HEX = [-90, -30, 30, 90, 150, 210].map(at);
+const FACE = [
+  [C, C - FACE_K * D20_R],
+  [C + 0.84 * FACE_K * D20_R, C + 0.62 * FACE_K * D20_R],
+  [C - 0.84 * FACE_K * D20_R, C + 0.62 * FACE_K * D20_R],
+];
+const FACE_CY = (FACE[0][1] + FACE[1][1] + FACE[2][1]) / 3;
+const FACETS = [
+  [FACE[0], HEX[0], HEX[1]], [FACE[0], HEX[1], FACE[1]], [FACE[1], HEX[1], HEX[2]],
+  [FACE[1], HEX[2], HEX[3]], [FACE[1], HEX[3], FACE[2]], [FACE[2], HEX[3], HEX[4]],
+  [FACE[2], HEX[4], HEX[5]], [FACE[2], HEX[5], FACE[0]], [FACE[0], HEX[5], HEX[0]],
+];
+// Light from the top-left: how much white each facet gets.
+const FACET_LIGHT = [0.28, 0.14, 0.06, 0, 0, 0.04, 0.1, 0.2, 0.34];
+const path = (points: number[][]) => `M${points.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(" L")}Z`;
+const EDGE = "#0c1d4a";
+
+const D20 = ({ text }: { text: string }) => {
+  const id = useId();
+  const size = text.length > 1 ? 15 : 18;
+  const y = FACE_CY + size * 0.36;
+  return (
+    <g strokeLinejoin="round">
+      <defs>
+        <linearGradient id={`${id}b`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#9cc4ff" />
+          <stop offset="1" stopColor="#1d3f8f" />
+        </linearGradient>
+        <linearGradient id={`${id}f`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#5f97ff" />
+          <stop offset="1" stopColor="#2c5bd0" />
+        </linearGradient>
+      </defs>
+      <path d={path(HEX)} fill={`url(#${id}b)`} stroke={EDGE} />
+      {FACETS.map((f, i) => (
+        <path key={i} d={path(f)} fill={`rgba(255,255,255,${FACET_LIGHT[i]})`} stroke={EDGE} strokeOpacity={0.55} strokeWidth={0.8} />
+      ))}
+      <path d={path(FACE)} fill={`url(#${id}f)`} stroke={EDGE} strokeOpacity={0.6} strokeWidth={0.8} />
+      <text x={C} y={y + 0.8} textAnchor="middle" fontSize={size} fontWeight="800" fill="rgba(5,15,60,.6)" aria-hidden>
+        {text}
+      </text>
+      <text x={C} y={y} textAnchor="middle" fontSize={size} fontWeight="800" fill="#fff" className="tabular-nums">
+        {text}
+      </text>
+    </g>
+  );
+};
+
+const RING_R = 32;
+const RING_W = 7;
+
+// The clock as a ring that empties as it runs down, around the d20 showing
+// what's left; amber at omen range. Scaled to `size` px (the players' card
+// uses a small one).
+export const ClockDial = ({ value, size = 76 }: { value: number; size?: number }) => {
+  const length = 2 * Math.PI * RING_R;
   const filled = (Math.max(0, Math.min(value, CLOCK_START)) / CLOCK_START) * length;
-  const line = small ? 1.8 : 1.2;
   return (
     <svg viewBox="0 0 76 76" width={size} height={size} className="shrink-0" role="img" aria-label={`Clock ${value} of ${CLOCK_START}`}>
-      <circle cx="38" cy="38" r={r} fill="none" strokeWidth={stroke} className="stroke-obr-text/15" />
+      <circle cx={C} cy={C} r={RING_R} fill="none" strokeWidth={RING_W} className="stroke-obr-text/15" />
       <circle
-        cx="38"
-        cy="38"
-        r={r}
+        cx={C}
+        cy={C}
+        r={RING_R}
         fill="none"
-        strokeWidth={stroke}
+        strokeWidth={RING_W}
         strokeLinecap="round"
         strokeDasharray={`${filled} ${length}`}
-        transform="rotate(-90 38 38)"
-        className={value <= OMEN_AT ? "stroke-amber-600 dark:stroke-amber-500" : "stroke-obr-primary"}
+        transform={`rotate(-90 ${C} ${C})`}
+        className={value <= OMEN_AT ? "stroke-amber-600 dark:stroke-amber-400" : "stroke-obr-primary"}
       />
-      <g strokeLinejoin="round">
-        <path d={path(HEX)} strokeWidth={line} className="fill-obr-text/5 stroke-obr-text/45" />
-        <path d={EDGES} strokeWidth={line * 0.8} className="stroke-obr-text/25" />
-        <path d={path(FACE)} fill="none" strokeWidth={line} className="stroke-obr-text/45" />
-        <text
-          x="38"
-          y={38 + 0.16 * D20_R + (small ? 7 : 5)}
-          textAnchor="middle"
-          fontSize={small ? 22 : 16}
-          fontWeight="700"
-          strokeWidth={small ? 4 : 3}
-          paintOrder="stroke"
-          className={`fill-obr-text tabular-nums ${on === "paper" ? "stroke-obr-paper" : "stroke-obr-bg"}`}
-        >
-          {value}
-        </text>
-      </g>
+      <D20 text={String(value)} />
     </svg>
   );
 };
 
-// The last roll, big: the dice as chips, then what happened.
-const LastRoll = ({ roll }: { roll: CrawlRoll }) => {
-  const total = roll.dice.reduce((a, b) => a + b, 0);
-  const outcome =
-    roll.kind === "check"
-      ? roll.encounter
-        ? "Encounter!"
-        : "No encounter"
-      : roll.encounter
-        ? "Encounter!"
-        : `Clock ${roll.before} → ${roll.after}`;
+// Standard checks: one ring segment per crawl round between checks, filling
+// as they pass; the d20 shows the rounds left, "!" when the check is due.
+// Ember while in darkness (a check every round).
+const CheckDial = (props: { of: number; left: number; due: boolean; dark: boolean }) => {
+  const length = 2 * Math.PI * RING_R;
+  // Round caps reach half the stroke past each end: leave room for them.
+  const step = length / props.of;
+  const gap = props.of === 1 ? 0 : 5 + RING_W;
+  const seg = step - gap;
+  const passed = props.due ? props.of : props.of - props.left;
   return (
-    <div
-      aria-live="polite"
-      aria-label="Last roll"
-      className={`col-span-full flex flex-wrap items-center gap-2 rounded-lg px-2.5 py-2 ${
-        roll.encounter ? "bg-red-700 text-white" : "bg-obr-paper"
-      }`}
+    <svg
+      viewBox="0 0 76 76"
+      width={76}
+      height={76}
+      className="shrink-0"
+      role="img"
+      aria-label={props.due ? "Check due" : `${plural(props.left, "crawl round")} to the next check`}
     >
-      {roll.dice.map((d, i) => (
-        <span key={i} className="contents">
-          {i > 0 && (
-            <span className="text-obr-text-secondary" aria-hidden>
-              +
-            </span>
-          )}
-          <span
-            className={`flex h-8 min-w-8 items-center justify-center rounded-lg px-1 text-lg font-bold tabular-nums ${
-              roll.encounter ? "bg-white text-red-700" : "bg-obr-text text-obr-paper"
-            }`}
-          >
-            {d}
-          </span>
-        </span>
+      {Array.from({ length: props.of }, (_, i) => (
+        <circle
+          key={i}
+          cx={C}
+          cy={C}
+          r={RING_R}
+          fill="none"
+          strokeWidth={RING_W}
+          strokeLinecap={gap ? "round" : "butt"}
+          strokeDasharray={`${seg} ${length - seg}`}
+          strokeDashoffset={-(i * step + gap / 2)}
+          transform={`rotate(-90 ${C} ${C})`}
+          className={i < passed ? (props.dark ? "stroke-orange-400" : "stroke-obr-primary") : "stroke-obr-text/15"}
+        />
       ))}
-      {roll.dice.length > 1 && <span className="text-lg font-bold tabular-nums">= {total}</span>}
-      <span className="ml-auto flex flex-col items-end text-base leading-tight font-bold">
-        {outcome}
-        {roll.kind === "clock" && roll.encounter && <span className="text-xs font-medium">Next clock {roll.after}</span>}
-      </span>
-    </div>
+      <D20 text={props.due ? "!" : String(props.left)} />
+    </svg>
   );
 };
 
 // One focus style for the pill controls.
 export const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-obr-primary";
-
-const PILL_LOOK = {
-  filled: "bg-obr-primary text-obr-primary-contrast",
-  outlined: "bg-obr-paper text-obr-primary ring-2 ring-obr-primary ring-inset hover:bg-obr-primary/10",
-  plain: "bg-obr-paper ring-1 ring-obr-text/20 ring-inset hover:bg-obr-text/10",
-};
-
-// `hint`: its hotkey, shown in the tooltip.
-const PillButton = (props: { look: keyof typeof PILL_LOOK; hint?: string; onClick: () => void; children: ReactNode }) => (
-  <button
-    type="button"
-    title={props.hint && `Roll (${props.hint})`}
-    className={`h-9 rounded-full px-4 text-sm font-medium ${FOCUS} ${PILL_LOOK[props.look]}`}
-    onClick={props.onClick}
-  >
-    {props.children}
-  </button>
-);
 
 export default CrawlBar;
