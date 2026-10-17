@@ -6,11 +6,12 @@
   "author": "Matthew Rogers",
   "homepage_url": "https://github.com/Mattrogers13/crawl-keeper",
   "description": "Initiative, crawl rounds and the crawling clock for old-school dungeon crawls. GM runs it; players follow along.",
+  "background_url": "/background",
   "action": {
     "title": "Crawl Keeper",
     "icon": "/img/action.svg",
     "popover": "/",
-    "height": 500,
+    "height": 600,
     "width": 400
   }
 }

@@ -12,7 +12,7 @@
 
 import { vi } from "vitest";
 import { act } from "@testing-library/react";
-import type { Metadata, Player, Theme } from "@owlbear-rodeo/sdk";
+import type { Item, Metadata, Player, Theme } from "@owlbear-rodeo/sdk";
 
 type Listener<T> = (value: T) => void;
 type Role = "GM" | "PLAYER";
@@ -53,6 +53,17 @@ const fresh = () => ({
   playerListeners: [] as Listener<Player>[],
   themeListeners: [] as Listener<Theme>[],
   broadcastListeners: new Map<string, Listener<{ data: unknown; connectionId: string }>[]>(),
+  // The open scene (map). Scene metadata and items only work while ready.
+  sceneReady: true,
+  sceneMetadata: {} as Metadata,
+  items: [] as Item[],
+  sceneReadyListeners: [] as Listener<boolean>[],
+  sceneMetadataListeners: [] as Listener<Metadata>[],
+  itemListeners: [] as Listener<Item[]>[],
+  // This client's selected item ids.
+  selection: [] as string[],
+  // Ids handed out by buildImage.
+  built: 0,
 });
 
 export const obr = fresh();
@@ -81,6 +92,21 @@ const applyWrite = (update: Partial<Metadata>) => {
   [...obr.metadataListeners].forEach((l) => l(snapshot));
 };
 
+const applySceneWrite = (update: Partial<Metadata>) => {
+  obr.sceneMetadata = { ...obr.sceneMetadata, ...update };
+  const snapshot = obr.sceneMetadata;
+  [...obr.sceneMetadataListeners].forEach((l) => l(snapshot));
+};
+
+const applyItems = (items: Item[]) => {
+  obr.items = items;
+  [...obr.itemListeners].forEach((l) => l(items));
+};
+
+const needScene = () => {
+  if (!obr.sceneReady) throw new Error("No scene open");
+};
+
 const playerSnapshot = () => ({ id: obr.playerId, name: obr.playerName, role: obr.role }) as Player;
 
 // --- Helpers for tests ---------------------------------------------------
@@ -104,6 +130,53 @@ export const writeFromElsewhere = (update: Partial<Metadata>) =>
     applyWrite(update);
   });
 
+/** Another client wrote to the scene's metadata. */
+export const writeSceneFromElsewhere = (update: Partial<Metadata>) =>
+  act(async () => {
+    applySceneWrite(update);
+  });
+
+/** A scene opened (true) or closed (false). Opening another map: close, then
+ * open with new `sceneMetadata` / `items`. */
+export const setSceneReady = (ready: boolean, scene?: { metadata?: Metadata; items?: Item[] }) =>
+  act(async () => {
+    obr.sceneReady = ready;
+    if (scene?.metadata) obr.sceneMetadata = scene.metadata;
+    if (scene?.items) obr.items = scene.items;
+    [...obr.sceneReadyListeners].forEach((l) => l(ready));
+  });
+
+/** The scene's items changed (added, removed, renamed, hidden...). */
+export const setItems = (items: Item[]) =>
+  act(async () => {
+    obr.items = items;
+    [...obr.itemListeners].forEach((l) => l(items));
+  });
+
+/** A minimal character token for tests. */
+export const token = (id: string, extra: Partial<Item> & { url?: string } = {}): Item => {
+  const { url, ...rest } = extra;
+  return {
+    id,
+    type: "IMAGE",
+    name: id,
+    visible: true,
+    locked: false,
+    createdUserId: "player-1",
+    zIndex: 0,
+    lastModified: "",
+    lastModifiedUserId: "",
+    position: { x: 0, y: 0 },
+    rotation: 0,
+    scale: { x: 1, y: 1 },
+    layer: "CHARACTER",
+    metadata: {},
+    image: { url: url ?? `https://example.com/${id}.png`, width: 100, height: 100, mime: "image/png" },
+    grid: { dpi: 100, offset: { x: 50, y: 50 } },
+    ...rest,
+  } as Item;
+};
+
 /** The player changed (role switch, rename). */
 export const changePlayer = (change: { role?: Role; name?: string }) =>
   act(async () => {
@@ -126,6 +199,31 @@ export const receiveBroadcast = (channel: string, data: unknown) =>
   });
 
 // --- The mocked SDK ------------------------------------------------------
+
+/** buildImage: a chainable builder that records what it was given. */
+export const buildImage = (image: Record<string, unknown>, grid: Record<string, unknown>) => {
+  const item: Record<string, unknown> = {
+    id: `built-${++obr.built}`,
+    type: "IMAGE",
+    image,
+    grid,
+    visible: true,
+    metadata: {},
+    position: { x: 0, y: 0 },
+    scale: { x: 1, y: 1 },
+    disableAttachmentBehavior: [],
+  };
+  const builder = {
+    build: () => item as unknown as Item,
+  } as Record<string, unknown>;
+  for (const key of ["name", "position", "attachedTo", "visible", "layer", "locked", "disableHit", "disableAttachmentBehavior", "metadata"]) {
+    builder[key] = (value: unknown) => {
+      item[key] = value;
+      return builder;
+    };
+  }
+  return builder as { build: () => Item } & Record<string, (v: unknown) => typeof builder>;
+};
 
 export const OBR = {
   isAvailable: true,
@@ -166,6 +264,67 @@ export const OBR = {
       return obr.role;
     }),
     onChange: vi.fn((cb: Listener<Player>) => subscribe(obr.playerListeners, cb)),
+    select: vi.fn(async (ids: string[], replace?: boolean) => {
+      obr.selection = replace ? [...ids] : [...new Set([...obr.selection, ...ids])];
+    }),
+  },
+  scene: {
+    isReady: vi.fn(async () => obr.sceneReady),
+    onReadyChange: vi.fn((cb: Listener<boolean>) => subscribe(obr.sceneReadyListeners, cb)),
+    getMetadata: vi.fn(async () => {
+      needScene();
+      return obr.sceneMetadata;
+    }),
+    setMetadata: vi.fn(async (update: Partial<Metadata>) => {
+      needScene();
+      if (obr.failWrites) throw new Error("Metadata too large");
+      applySceneWrite(update);
+    }),
+    onMetadataChange: vi.fn((cb: Listener<Metadata>) => subscribe(obr.sceneMetadataListeners, cb)),
+    items: {
+      getItems: vi.fn(async (filter?: string[] | ((item: Item) => boolean)) => {
+        needScene();
+        if (!filter) return obr.items;
+        return obr.items.filter((i) => (typeof filter === "function" ? filter(i) : filter.includes(i.id)));
+      }),
+      // Like Owlbear: the change reaches every items.onChange listener.
+      addItems: vi.fn(async (items: Item[]) => {
+        needScene();
+        applyItems([...obr.items, ...items]);
+      }),
+      // Like Owlbear's (an immer draft): the updater edits copies of the items.
+      updateItems: vi.fn(async (ids: string[], update: (drafts: Item[]) => void) => {
+        needScene();
+        const drafts = obr.items.filter((i) => ids.includes(i.id)).map((i) => structuredClone(i));
+        update(drafts);
+        const byId = new Map(drafts.map((d) => [d.id, d]));
+        applyItems(obr.items.map((i) => byId.get(i.id) ?? i));
+      }),
+      deleteItems: vi.fn(async (ids: string[]) => {
+        needScene();
+        // Attachments go with their parent (default DELETE behaviour).
+        const gone = new Set(ids);
+        let grew = true;
+        while (grew) {
+          grew = false;
+          for (const i of obr.items) {
+            if (!gone.has(i.id) && i.attachedTo && gone.has(i.attachedTo)) {
+              gone.add(i.id);
+              grew = true;
+            }
+          }
+        }
+        applyItems(obr.items.filter((i) => !gone.has(i.id)));
+      }),
+      onChange: vi.fn((cb: Listener<Item[]>) => subscribe(obr.itemListeners, cb)),
+    },
+  },
+  action: {
+    setHeight: vi.fn(async () => undefined),
+  },
+  contextMenu: {
+    create: vi.fn(async () => undefined),
+    remove: vi.fn(async () => undefined),
   },
   theme: {
     getTheme: vi.fn(async () => obr.theme),

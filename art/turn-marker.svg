@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Turn marker: a gold ring around the current token, dark-edged so it
+       reads on any map. Rendered to public/img/turn-marker.webp (never SVG on the map). -->
+  <circle cx="128" cy="128" r="114" fill="none" stroke="#1a1408" stroke-width="20" opacity="0.7"/>
+  <circle cx="128" cy="128" r="114" fill="none" stroke="#f5c542" stroke-width="11"/>
+  <g fill="#f5c542" stroke="#1a1408" stroke-width="3" stroke-linejoin="round">
+    <path d="M128 2 L142 22 L114 22 Z"/>
+    <path d="M128 254 L114 234 L142 234 Z"/>
+    <path d="M2 128 L22 114 L22 142 Z"/>
+    <path d="M254 128 L234 142 L234 114 Z"/>
+  </g>
+</svg>

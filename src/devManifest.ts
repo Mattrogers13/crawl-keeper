@@ -1,14 +1,18 @@
 // Build-time only (used by vite.config.ts). Cloudflare Workers Builds sets
 // WORKERS_CI_BRANCH; any branch other than main is a dev build, and gets a
-// different name so it can't be mistaken for the live extension in Owlbear.
+// different name and toolbar icon (action-dev.svg next to the live one) so it
+// can't be mistaken for the live extension in Owlbear.
 
 export const PRODUCTION_BRANCH = "main";
 export const DEV_SUFFIX = " (Dev)";
 
 interface Manifest {
   name: string;
-  action: { title: string };
+  action: { title: string; icon: string };
 }
+
+// "/img/action.svg" → "/img/action-dev.svg"
+export const devIcon = (icon: string) => icon.replace(/(\.\w+)$/, "-dev$1");
 
 const isDevBranch = (branch: string | undefined) => !!branch && branch !== PRODUCTION_BRANCH;
 
@@ -22,5 +26,5 @@ export const manifestForBranch = <M extends Manifest>(manifest: M, branch: strin
     : {
         ...manifest,
         name: manifest.name + DEV_SUFFIX,
-        action: { ...manifest.action, title: manifest.action.title + DEV_SUFFIX },
+        action: { ...manifest.action, title: manifest.action.title + DEV_SUFFIX, icon: devIcon(manifest.action.icon) },
       };
