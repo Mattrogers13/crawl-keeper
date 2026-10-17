@@ -13,3 +13,5 @@ export const SETTINGS_KEY = `${ID}/settings`;
 export const MENU_ID = `${ID}/initiative-menu`;
 // Item metadata: marks the turn marker we attach to the current token.
 export const MARKER_KEY = `${ID}/marker`;
+// localStorage (this browser only): the monsters folded under the GM row.
+export const MONSTERS_FOLDED_KEY = `${ID}/monsters-folded`;

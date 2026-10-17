@@ -23,6 +23,7 @@ import {
   setMonster,
   resetRounds,
   rollGmInitiative,
+  gmEquation,
   setGmMod,
   toCombat,
   toCrawl,
@@ -44,6 +45,7 @@ const tracker = (rolls: Record<string, number | null>, current: string | null = 
   round,
   crawl: emptyCrawl(),
   gmMod: 0,
+  gmDie: null,
 });
 const ids = (t: { id: string }[]) => t.map((e) => e.id);
 
@@ -520,6 +522,24 @@ describe("GM / Monsters initiative", () => {
     const rolled = rollGmInitiative(t, d20(14));
     expect(rolled.entries.find((e) => e.id === GM_ENTRY)?.roll).toBe(16);
     expect(rollGmInitiative(setGmMod(t, -3), d20(1)).entries.find((e) => e.id === GM_ENTRY)?.roll).toBe(-2);
+  });
+
+  it("keeps the die for the equation while the row's roll still adds up", () => {
+    const rolled = rollGmInitiative(setGmMod(tracker({ a: 12, [GM_ENTRY]: null }), 2), d20(12));
+    expect(gmEquation(rolled)).toEqual({ die: 12, mod: 2 });
+    // A new modifier after the roll doesn't rewrite it.
+    expect(gmEquation(setGmMod(rolled, 4))).toEqual({ die: 12, mod: 2 });
+    // A typed roll (or a cleared one) has no equation.
+    expect(gmEquation(setRoll(rolled, GM_ENTRY, 9))).toBeNull();
+    expect(gmEquation(toCombat(rolled, true))).toBeNull();
+  });
+
+  it("reads the saved die, and drops a malformed one", () => {
+    const raw = { entries: [{ id: GM_ENTRY, roll: 14 }], gmMod: 2 };
+    expect(gmEquation(parseTracker({ ...raw, gmDie: { die: 12, mod: 2 } }))).toEqual({ die: 12, mod: 2 });
+    for (const gmDie of [{ die: 21, mod: 2 }, { die: 12, mod: 20 }, { die: "12", mod: 2 }, 14, null]) {
+      expect(parseTracker({ ...raw, gmDie }).gmDie).toBeNull();
+    }
   });
 
   it("Remove monsters clears their modifier too", () => {

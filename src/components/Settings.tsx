@@ -25,8 +25,11 @@ const Settings = () => {
         href={`${window.location.origin}/`}
         target="_blank"
         rel="noopener"
-        className="flex items-center gap-3 rounded-xl bg-obr-bg px-4 py-3 hover:bg-obr-text/10 focus-visible:ring-2 focus-visible:ring-obr-primary focus-visible:outline-none"
+        className="flex items-center gap-3 rounded-xl bg-obr-bg px-4 py-3 ring-1 ring-obr-text/10 ring-inset hover:bg-obr-text/10 focus-visible:ring-2 focus-visible:ring-obr-primary focus-visible:outline-none"
       >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-obr-primary/15 font-bold text-obr-primary" aria-hidden>
+          ?
+        </span>
         <span className="flex flex-1 flex-col">
           <span className="font-medium">How to use Crawl Keeper</span>
           <span className="text-xs text-obr-text-secondary">Setup, turns, hotkeys, crawling and combat</span>
@@ -143,7 +146,7 @@ const Settings = () => {
 const Group = ({ title, children }: { title: string; children: ReactNode }) => (
   <section className="flex flex-col gap-1.5">
     <h3 className="px-1 text-[11px] font-medium tracking-[0.06em] text-obr-text-secondary uppercase">{title}</h3>
-    <div className="flex flex-col divide-y divide-obr-text/10 rounded-xl bg-obr-bg">{children}</div>
+    <div className="flex flex-col divide-y divide-obr-text/10 rounded-xl bg-obr-bg ring-1 ring-obr-text/10 ring-inset">{children}</div>
   </section>
 );
 

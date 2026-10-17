@@ -11,6 +11,8 @@ vi.mock("@owlbear-rodeo/sdk", async () => {
 
 beforeEach(() => {
   resetObr();
+  // Per-browser conveniences (src/storage.ts), e.g. the folded monsters.
+  localStorage.clear();
   document.documentElement.className = "";
   document.documentElement.removeAttribute("style");
 });
