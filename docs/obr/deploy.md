@@ -23,10 +23,13 @@ Build logs aren't reachable from the CLI (the GitHub check has no log): download
 - **Live:** `https://<name>.<subdomain>.workers.dev/manifest.json`
 - **Dev:** a long-lived `dev` branch → `https://dev-<name>.<subdomain>.workers.dev/manifest.json`. Its manifest is renamed "(Dev)" automatically (`src/devManifest.ts`), so the two can't be confused.
 
-To review open PRs in Owlbear, rebuild `dev` from main plus the branches and force-push it:
+To review open PRs in Owlbear, merge the branch into `dev` and push (no force-push: auto mode blocks it). After squash-merges `dev`'s history differs from main, so the merge can conflict; if `dev`'s files match main's, take the branch's files:
 
 ```bash
-git checkout -B dev origin/main && git merge --no-edit <branches...> && git push -f origin dev
+git checkout dev && git pull --ff-only && git merge --no-edit <branch>
+# on conflicts:
+git diff --quiet HEAD origin/main && git checkout <branch> -- . && git commit --no-edit
+git push origin dev
 ```
 
 `dev` is disposable: never PR from it or merge it into main. Don't ask testers to install per-PR previews.

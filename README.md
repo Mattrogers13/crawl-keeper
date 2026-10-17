@@ -2,7 +2,9 @@
 
 An [Owlbear Rodeo](https://owlbear.rodeo) extension for running old-school dungeon crawls: an initiative tracker (sorted by roll, with a GM / Monsters row and its monsters, notes, and a turn marker on the map), crawling and combat states, and encounter checks or the crawling clock on the GM's turn. The GM runs it; players see a read-only view.
 
-**Status:** in development (v0.1 in progress). The plan is in [`docs/design.md`](docs/design.md).
+**Status:** v0.1.0 released (see [`CHANGELOG.md`](CHANGELOG.md)). Next: v0.2, encounter and morale rollers. The plan is in [`docs/design.md`](docs/design.md).
+
+**How to use it:** the guide is at [crawl-keeper.editbag.workers.dev](https://crawl-keeper.editbag.workers.dev/) (also linked from the panel's Settings).
 
 ## Install
 
