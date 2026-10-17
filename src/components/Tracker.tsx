@@ -24,7 +24,7 @@ import { MONSTERS_FOLDED_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
-import { afterTurnChange } from "../marker";
+import { afterChange } from "../marker";
 import { NO_SELECTION, clickRow, keepRows, menuTargets, type Selection } from "../selection";
 import { parseSettings } from "../settings";
 import { readLocal, writeLocal } from "../storage";
@@ -96,7 +96,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
     void writeDoc(pruned).then((saved) => {
       if (!saved) return;
       lastPrune.current = "";
-      return afterTurnChange(docValue, pruned, settings.value);
+      return afterChange(docValue, pruned, settings.value);
     });
   }, [gmReady, items, docValue, writeDoc, settings.value]);
 
@@ -137,7 +137,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
     const updated = fn(tracker);
     if (updated === doc.value) return;
     void doc.write(updated).then((saved) => {
-      if (saved) return afterTurnChange(tracker, updated, settings.value);
+      if (saved) return afterChange(tracker, updated, settings.value);
     });
   };
 

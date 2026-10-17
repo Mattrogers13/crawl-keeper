@@ -6,7 +6,7 @@ Automated tests run against an in-memory SDK; these checks need real Owlbear. On
 
 The per-PR checklists for v0.1 (PRs 1–4) are in git history (`git log -p -- TESTING.md`).
 
-## Release checklist (current as of v0.1.0)
+## Release checklist (current as of v0.1.1)
 
 v0.1.0 was room-tested PR by PR (the old lists in git history plus checks on #7–#9), not with this list as a whole. First full end-to-end pass: 2026-10-17 (Dev, GM + player), all rows passed.
 
@@ -87,6 +87,20 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 38 | Player: the panel | Phase chip, round (unless hidden), the small d20 clock (unless hidden) or danger level (if shown); no gear, no buttons, no grips | 2026-10-17 |
+| 38 | Player: the panel | Phase pill with the round (unless hidden), a card with the small d20 clock (unless hidden) and / or danger level (if shown); no gear, grips or checkboxes (the monster fold is theirs) | 2026-10-17 |
 | 39 | Owlbear light theme, then dark | The panel follows: text, chips, amber, gold dot and switches readable in both | 2026-10-17 |
 | 40 | Toolbar | The Keeper's key icon (Dev: with a dot); one icon and one alert per client after reinstalling | 2026-10-17 |
+
+### New in v0.1.1
+
+| # | Steps | Expect | Last pass |
+|---|---|---|---|
+| 41 | GM: Crawl, standard, Unsafe; ▶ through 3 crawl rounds; click the d6; Undo | The d20 counts 3 → 2 → 1 → "!", ring segments fill; the card lights on the GM turn; the d6 shows the pips, "No encounter" / red "Encounter!" under it; Undo clears it | |
+| 42 | GM: danger dropdown to Deadly; Torchlit ↔ Darkness; Crawling Clock mode, roll | One segment (every round); the torch greys on Deadly; ember ring in darkness; clock mode: the d20 shows the clock, the d6 its total with "d6/d8", "Clock 20 → N" | |
+| 43 | GM: the GM row's d20 → − / + / type a DEX → Roll d20+N | The row opens under the GM row; Roll fills the roll and shows `d20 X + N` under the name; typing a roll by hand drops it | |
+| 44 | GM: tick checkboxes on two rows; right-click one | Both tinted and in the menu; checkboxes stay visible while any is ticked | |
+| 45 | GM and player: fold the monsters; reload; Combat, ▶ to a monster | Folded ("N monsters" + portraits), still folded after reload; opens on a monster's turn, folds again after | |
+| 46 | GM: Mark dead on a token, hide it, show it, Mark alive; mark another dead and Remove from initiative | A skull badge on the token's top-right corner, hidden with it for the player; gone when alive or removed | |
+| 47 | Player: their own token's turn (a token they placed), then someone else's | "Your turn, <name>" strip, then none | |
+| 48 | Any view, both themes | No broken styles or missing portraits (the new CSP); browser console has no CSP errors | |
+

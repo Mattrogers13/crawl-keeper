@@ -2,6 +2,24 @@
 
 Versions follow semver; the same number is in `package.json` and `public/manifest.json`.
 
+## v0.1.1 (unreleased)
+
+Polish from the first full room pass (2026-10-17).
+
+**Panel**
+- The round count is a pill beside the title that also says Crawl or Combat (red in combat).
+- The crawl card in three parts: a dial with a sapphire d20 (rounds to the next check, or the Crawling Clock), the danger level as a dropdown with a Torchlit / Darkness toggle, and a d6 that is both the "Encounter check" button and its last result. In combat it folds to one line.
+- Rows as a table: checkboxes for selecting, a quiet tint for the selection, borderless inputs, monospace rolls.
+- The GM / Monsters row: a d20 left of its roll opens the monsters' DEX and Roll; the roll shows its equation (`d20 12 + 2`). A hooded portrait for the row.
+- Monsters fold under the GM row (remembered per browser); a monster's combat turn shows them.
+- Players: a small card with the clock and danger level (when the GM shows them) and a "Your turn" strip on their own token's turn.
+
+**Map**
+- A skull badge on dead tokens (matches the token's visibility; off when revived or removed).
+
+**Security**
+- Markers and skulls are only removed or re-shown when they're really ours, not just tagged; CSP and nosniff headers; read-only CI token.
+
 ## v0.1.0 (2026-10-16)
 
 First release. A Shadowdark crawl companion for Owlbear Rodeo: the GM runs it, players get a read-only view.
