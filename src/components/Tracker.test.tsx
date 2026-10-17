@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import OBR from "@owlbear-rodeo/sdk";
 
 import App from "./App";
-import { MARKER_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
+import { MARKER_KEY, SETTINGS_KEY, SKULL_KEY, TRACKER_KEY } from "../constants";
 import { GM_ENTRY, parseTracker } from "../tracker";
 import { obr, setItems, setSceneReady, token, writeFromElsewhere, writeSceneFromElsewhere } from "../test/obrMock";
 
@@ -496,15 +496,17 @@ describe("Tracker (GM)", () => {
     expect(saved().crawl.last).toBeNull();
   });
 
-  it("Reset rounds and Remove monsters sit below the list, not by ◀ ▶", async () => {
+  it("Reset rounds and Remove monsters sit under the turn bar, above the list", async () => {
     obr.items = [token("m", { name: "Goblin" })];
     scene([{ id: GM_ENTRY }, { id: "m", monster: true }]);
     render(<App />);
     await screen.findByText("Goblin");
     const list = screen.getByLabelText("Monsters").closest(".overflow-y-auto")!;
-    const reset = screen.getByText("Reset rounds");
-    expect(list.compareDocumentPosition(reset) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(list.compareDocumentPosition(screen.getByText("Remove monsters")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const next = screen.getByLabelText("Next turn");
+    for (const link of [screen.getByText("Reset rounds"), screen.getByText("Remove monsters")]) {
+      expect(list.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+      expect(next.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
   });
 
   it("hotkeys wait while the row menu is open", async () => {
@@ -616,14 +618,35 @@ describe("Tracker (GM)", () => {
       await waitFor(() => expect(saved().crawl).toMatchObject({ lastCheck: 0, last: null }));
     });
 
-    it("danger level and darkness save with the map", async () => {
+    it("standard: the danger level saves with the map; no darkness switch (darkness is Deadly, p. 84)", async () => {
       scene([{ id: GM_ENTRY }]);
       render(<App />);
       const card = await screen.findByRole("region", { name: "Encounter checks" });
       fireEvent.change(within(card).getByLabelText("Danger level"), { target: { value: "deadly" } });
       await waitFor(() => expect(saved().crawl.danger).toBe("deadly"));
-      fireEvent.click(within(card).getByRole("button", { name: /Darkness/ }));
+      expect(within(card).queryByRole("button", { name: "Darkness" })).not.toBeInTheDocument();
+    });
+
+    it("clock: darkness saves with the map and makes the crawling die a d8", async () => {
+      obr.metadata = { [SETTINGS_KEY]: { encounterMode: "clock" } };
+      scene([{ id: GM_ENTRY }]);
+      render(<App />);
+      const card = await screen.findByRole("region", { name: "Crawling Clock" });
+      fireEvent.click(within(card).getByRole("button", { name: "Darkness" }));
       await waitFor(() => expect(saved().crawl.dark).toBe(true));
+      expect(within(card).getByRole("button", { name: "Roll d8" })).toBeInTheDocument();
+    });
+
+    it("after switching modes the die doesn't show the other mode's roll (or offer to undo it)", async () => {
+      scene([{ id: GM_ENTRY }], GM_ENTRY, 1, {
+        crawl: { crawlRounds: 1, lastCheck: 1, clock: 15, last: { kind: "clock", dice: [5], sides: 6, before: 20, after: 15, encounter: false }, undo: { clock: 20, lastCheck: 0 } },
+      });
+      render(<App />);
+      const card = await screen.findByRole("region", { name: "Encounter checks" });
+      expect(within(card).getByLabelText("Last roll")).toHaveTextContent("Encounter check");
+      expect(within(card).queryByText("Undo")).not.toBeInTheDocument();
+      await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "clock" } });
+      expect(within(await screen.findByRole("region", { name: "Crawling Clock" })).getByLabelText("Last roll")).toHaveTextContent("Clock 20 → 15");
     });
 
     it("clock: rolling takes the die off the clock; players see the clock unless hidden", async () => {
@@ -647,12 +670,15 @@ describe("Tracker (GM)", () => {
       expect(saved().crawl.clock).toBe(9);
     });
 
-    it("before the first crawl round the status says so (not 'Rolled')", async () => {
+    it("standard counts the rounds to the check; the clock (a roll every round) has no such label", async () => {
+      scene([{ id: GM_ENTRY }], GM_ENTRY, 1, { crawl: { crawlRounds: 1 } });
+      const { unmount } = render(<App />);
+      expect(within(await screen.findByRole("region", { name: "Encounter checks" })).getByText("2 rounds left")).toBeInTheDocument();
+      unmount();
       obr.metadata = { [SETTINGS_KEY]: { encounterMode: "clock" } };
-      scene([{ id: GM_ENTRY }]);
       render(<App />);
       const card = await screen.findByRole("region", { name: "Crawling Clock" });
-      expect(within(card).getByText("Rolls from round 1")).toBeInTheDocument();
+      expect(within(card).queryByText(/Roll now|Rolled|left/)).not.toBeInTheDocument();
     });
 
     it("clock: an omen at 5 or lower is a reminder, not a roll", async () => {
@@ -764,6 +790,21 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(saved().entries[0].dead).toBe(false));
   });
 
+  it("a dead token wears a skull on the map until it's alive again or leaves the tracker", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
+    render(<App />);
+    const skulls = () => obr.items.filter((i) => i.metadata[SKULL_KEY] !== undefined).map((i) => i.attachedTo);
+    await pick("Aria", "Mark dead");
+    await waitFor(() => expect(skulls()).toEqual(["a"]));
+    await pick("Aria", "Mark alive");
+    await waitFor(() => expect(skulls()).toEqual([]));
+    await pick("Borin", "Mark dead");
+    await waitFor(() => expect(skulls()).toEqual(["b"]));
+    await pick("Borin", "Remove from initiative");
+    await waitFor(() => expect(skulls()).toEqual([]));
+  });
+
   it("removes a token but never the GM row", async () => {
     obr.items = [token("a", { name: "Aria" })];
     scene([{ id: "a" }, { id: GM_ENTRY }]);
@@ -825,6 +866,23 @@ describe("Tracker (player)", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Your turn, Aria");
     await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), current: "b" } });
     expect(screen.queryByText("Your turn")).not.toBeInTheDocument();
+  });
+
+  it("sees the last roll only when the GM shows the rolls", async () => {
+    obr.role = "PLAYER";
+    obr.metadata = { [SETTINGS_KEY]: { encounterMode: "clock" } };
+    scene([{ id: GM_ENTRY }], GM_ENTRY, 1, {
+      crawl: { crawlRounds: 1, lastCheck: 1, clock: 9, last: { kind: "clock", dice: [6, 5], sides: 6, before: 20, after: 9, encounter: false } },
+    });
+    render(<App />);
+    expect(await screen.findByRole("region", { name: "Crawl status" })).toHaveTextContent("The clock is at 9");
+    expect(screen.queryByLabelText("Last roll")).not.toBeInTheDocument();
+    await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "clock", showRolls: true } });
+    expect(screen.getByLabelText("Last roll")).toHaveTextContent("11d6Clock 20 → 9");
+    // Hidden clock, rolls shown: the card still shows the roll.
+    await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "clock", showRolls: true, hideClock: true } });
+    expect(screen.getByRole("region", { name: "Crawl status" })).not.toHaveTextContent("The clock is at");
+    expect(screen.getByLabelText("Last roll")).toBeInTheDocument();
   });
 
   it("sees no turn-marker dots", async () => {

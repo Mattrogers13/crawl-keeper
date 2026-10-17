@@ -1,9 +1,22 @@
 import { describe, it, expect, vi } from "vitest";
 import OBR, { type Image } from "@owlbear-rodeo/sdk";
 
-import { MARKER_KEY, TRACKER_KEY } from "./constants";
-import { buildMarker, markedToken, markerImage, markerVisibilityFixes, planMarker, syncTurn, syncTurnFromScene } from "./marker";
-import { GM_ENTRY, parseTracker } from "./tracker";
+import { MARKER_KEY, SKULL_KEY, TRACKER_KEY } from "./constants";
+import {
+  afterChange,
+  buildMarker,
+  buildSkull,
+  markedToken,
+  markerImage,
+  markerVisibilityFixes,
+  planMarker,
+  planSkulls,
+  skullImage,
+  syncSkulls,
+  syncTurn,
+  syncTurnFromScene,
+} from "./marker";
+import { GM_ENTRY, parseTracker, setDead } from "./tracker";
 import { obr, token } from "./test/obrMock";
 
 const IMG = markerImage();
@@ -47,6 +60,68 @@ describe("markerVisibilityFixes", () => {
     const tagged = { ...token("secret"), attachedTo: "s", visible: false, metadata: { [MARKER_KEY]: true } };
     const foreign = { ...realRing("r", "s", false), image: { ...realRing("r", "s", false).image, url: "https://elsewhere.example/img/turn-marker.webp" } };
     expect(markerVisibilityFixes([shown, tagged, foreign])).toEqual([]);
+  });
+});
+
+describe("planSkulls", () => {
+  const SK = "https://x/skull.webp";
+  const skull = (id: string, attachedTo: string, image = SK, visible = true) => ({ id, attachedTo, image, visible });
+
+  it("one current skull per dead token; the living lose theirs; duplicates and old art go", () => {
+    const plan = planSkulls(
+      [skull("s1", "a"), skull("s2", "a"), skull("s3", "b"), skull("s4", "c", "old.webp"), skull("s5", "d", SK, true)],
+      [{ id: "a", visible: true }, { id: "c", visible: true }, { id: "d", visible: false }, { id: "e", visible: true }],
+      SK,
+    );
+    expect(plan).toEqual({ remove: ["s2", "s3", "s4", "s5"], addTo: ["c", "d", "e"] });
+  });
+});
+
+describe("buildSkull", () => {
+  it("is a locked badge over the token's centre, half its width", () => {
+    // 2 cells wide: a 1-cell badge centred on the token.
+    const t = token("a", { position: { x: 40, y: 60 } }) as Image;
+    t.image = { ...t.image, width: 200, height: 200 };
+    t.grid = { dpi: 100, offset: { x: 100, y: 100 } };
+    const s = buildSkull(t, skullImage()) as Image & Record<string, unknown>;
+    const pxPerCell = s.grid.dpi;
+    expect(256 / pxPerCell).toBeCloseTo(1);
+    expect(s.grid.offset).toEqual({ x: 128, y: 128 });
+    expect(s).toMatchObject({ attachedTo: "a", layer: "ATTACHMENT", locked: true, disableHit: true, position: { x: 40, y: 60 } });
+    expect(s.metadata).toEqual({ [SKULL_KEY]: true });
+    expect((buildSkull({ ...t, visible: false }, skullImage()) as Image).visible).toBe(false);
+  });
+});
+
+describe("syncSkulls", () => {
+  const skulls = () => obr.items.filter((i) => i.metadata[SKULL_KEY] !== undefined);
+
+  it("puts a skull on each dead token and takes it off when they're alive again", async () => {
+    obr.items = [token("a"), token("b", { visible: false })];
+    await syncSkulls(["a", "b", "gone"]);
+    expect(skulls().map((s) => [s.attachedTo, s.visible])).toEqual([["a", true], ["b", false]]);
+    await syncSkulls(["b"]);
+    expect(skulls().map((s) => s.attachedTo)).toEqual(["b"]);
+    // Nothing to change: no writes.
+    vi.mocked(OBR.scene.items.addItems).mockClear();
+    await syncSkulls(["b"]);
+    expect(OBR.scene.items.addItems).not.toHaveBeenCalled();
+  });
+
+  it("never deletes a token merely tagged as a skull", async () => {
+    obr.items = [token("a"), { ...token("boss"), metadata: { [SKULL_KEY]: true } }];
+    await syncSkulls([]);
+    expect(obr.items.map((i) => i.id)).toContain("boss");
+  });
+
+  it("afterChange syncs the skulls only when who's dead changed", async () => {
+    obr.items = [token("a")];
+    const before = parseTracker({ entries: [{ id: "a" }, { id: GM_ENTRY }] });
+    const off = { showMarker: false, selectOnTurn: false };
+    await afterChange(before, before, off);
+    expect(OBR.scene.items.getItems).not.toHaveBeenCalled();
+    await afterChange(before, setDead(before, ["a"], true), off);
+    expect(skulls().map((s) => s.attachedTo)).toEqual(["a"]);
   });
 });
 

@@ -14,8 +14,8 @@ import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifi
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 
 import Confirm from "./Confirm";
-import CrawlBar, { ClockDial, FOCUS } from "./CrawlBar";
-import { cryptoRand, due, rollFor } from "../crawl";
+import CrawlBar, { ClockDial, FOCUS, PlayerRoll } from "./CrawlBar";
+import { cryptoRand, due, lastFor, rollFor } from "../crawl";
 import { ChevronIcon, PlayIcon, SortIcon } from "./icons";
 import Loading from "./Loading";
 import RowMenu from "./RowMenu";
@@ -24,7 +24,7 @@ import { MONSTERS_FOLDED_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
-import { afterTurnChange } from "../marker";
+import { afterChange } from "../marker";
 import { NO_SELECTION, clickRow, keepRows, menuTargets, type Selection } from "../selection";
 import { parseSettings } from "../settings";
 import { readLocal, writeLocal } from "../storage";
@@ -96,7 +96,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
     void writeDoc(pruned).then((saved) => {
       if (!saved) return;
       lastPrune.current = "";
-      return afterTurnChange(docValue, pruned, settings.value);
+      return afterChange(docValue, pruned, settings.value);
     });
   }, [gmReady, items, docValue, writeDoc, settings.value]);
 
@@ -137,7 +137,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
     const updated = fn(tracker);
     if (updated === doc.value) return;
     void doc.write(updated).then((saved) => {
-      if (saved) return afterTurnChange(tracker, updated, settings.value);
+      if (saved) return afterChange(tracker, updated, settings.value);
     });
   };
 
@@ -174,6 +174,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   // Players see the Crawling Clock unless the GM hides it; the GM sees it on the card.
   const showClock = !gm && settings.value.encounterMode === "clock" && !settings.value.hideClock;
   const showDanger = !gm && !combat && settings.value.encounterMode === "standard" && settings.value.showDanger;
+  const playerRoll = !gm && settings.value.showRolls ? lastFor(tracker.crawl, settings.value.encounterMode) : null;
   const goNext = () =>
     change((t) => (settings.value.autoRoll ? nextWithAutoRoll(t, settings.value.encounterMode, cryptoRand) : next(t)));
   const mode = settings.value.encounterMode;
@@ -231,6 +232,27 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
           </div>
         </div>
       )}
+      {/* Under the turn bar, where they're easy to find (each asks first). */}
+      {gm && (
+        <div className="-mt-1 flex shrink-0 flex-wrap items-center gap-x-3">
+          {/* A stray click would lose the crawl round count the encounter checks run on. */}
+          <Confirm
+            label="Reset rounds"
+            question="Reset the round count to 0? Encounter checks start over too."
+            action="Reset"
+            onConfirm={() => change(resetRounds)}
+          />
+          {/* After a fight: clear the monsters out (kept until then, so a fight can resume). */}
+          {!combat && tracker.entries.some((e) => e.monster) && (
+            <Confirm
+              label="Remove monsters"
+              question="Remove every monster from the tracker?"
+              action="Remove"
+              onConfirm={() => change(removeMonsters)}
+            />
+          )}
+        </div>
+      )}
 
       {/* The phase and round, beside the title. */}
       {titleSlot &&
@@ -252,8 +274,8 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
           titleSlot,
         )}
 
-      {/* Players: the clock or the danger level, if the GM shows them. */}
-      {!gm && (showClock || showDanger) && !combat && (
+      {/* Players: the clock, the danger level and the last roll, as the GM allows. */}
+      {!gm && (showClock || showDanger || playerRoll) && !combat && (
         <section
           aria-label="Crawl status"
           className="flex items-center gap-3 rounded-[14px] bg-obr-bg px-3 py-2 ring-1 ring-obr-text/10 ring-inset"
@@ -266,6 +288,11 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
             </span>
             {showClock && <span>The clock is at {tracker.crawl.clock}</span>}
           </span>
+          {playerRoll && (
+            <span className="ml-auto" aria-label="Last roll">
+              <PlayerRoll roll={playerRoll} />
+            </span>
+          )}
         </section>
       )}
       {myTurn && (
@@ -375,26 +402,9 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
           </p>
         )}
       </div>
-      {/* Below the list, away from ◀ ▶ (a miss there shouldn't land on these). */}
       {gm && (
-        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
-          {/* A stray click would lose the crawl round count the encounter checks run on. */}
-          <Confirm
-            label="Reset rounds"
-            question="Reset the round count to 0? Encounter checks start over too."
-            action="Reset"
-            onConfirm={() => change(resetRounds)}
-          />
-          {/* After a fight: clear the monsters out (kept until then, so a fight can resume). */}
-          {!combat && tracker.entries.some((e) => e.monster) && (
-            <Confirm
-              label="Remove monsters"
-              question="Remove every monster from the tracker?"
-              action="Remove"
-              onConfirm={() => change(removeMonsters)}
-            />
-          )}
-          <span className="ml-auto text-xs text-obr-text-secondary" title="Click in the panel first: Owlbear keeps keys typed on the map.">
+        <div className="flex shrink-0 justify-end">
+          <span className="text-xs text-obr-text-secondary" title="Click in the panel first: Owlbear keeps keys typed on the map.">
             Keys: N next · B back · R roll
           </span>
         </div>

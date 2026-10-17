@@ -87,6 +87,16 @@ const Settings = () => {
 
       <Group title="What players see">
         <Toggle
+          label="Show the rolls to players"
+          hint={
+            clock
+              ? "Players see the crawling die's last roll and what it did to the clock."
+              : "Players see the last encounter check and whether it was an encounter."
+          }
+          checked={settings.value.showRolls}
+          onChange={(showRolls) => set({ showRolls })}
+        />
+        <Toggle
           label="Hide rounds from players"
           hint="Players see Crawl or Combat but not the round number."
           checked={settings.value.hideRound}

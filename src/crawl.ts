@@ -4,7 +4,9 @@
 // crawl roll save in one write.
 //
 // Standard (core p. 112): every 3 crawl rounds when Unsafe, 2 when Risky,
-// every round when Deadly or in total darkness (p. 84); 1d6, encounter on 1.
+// every round when Deadly; 1d6, encounter on 1. Total darkness makes the
+// place Deadly (p. 84), so the GM picks Deadly: darkness has no switch of its
+// own here (Matt, 2026-10-17).
 //
 // Crawling Clock (sheet in sources/; after Goblin Punch's "Underclock"):
 // starts at 20 in a dangerous place; each crawl round the GM rolls the
@@ -41,7 +43,7 @@ export type CrawlRoll = {
 
 type CrawlCore = {
   danger: Danger;
-  // Total darkness: checks every round; the crawling die steps up to a d8.
+  // Total darkness (Crawling Clock only): the crawling die steps up to a d8.
   dark: boolean;
   clock: number;
   // Crawl rounds started on this map, and the count at the last check or
@@ -122,8 +124,8 @@ export const cryptoRand: Rand = () => {
 
 export const crawlDie = (c: Crawl) => (c.dark ? 8 : 6);
 
-// Crawl rounds between checks: every round in darkness or when Deadly.
-export const cadence = (c: Crawl) => (c.dark ? 1 : CADENCE[c.danger]);
+// Crawl rounds between standard checks.
+export const cadence = (c: Crawl) => CADENCE[c.danger];
 
 // Is a check (standard) or a clock roll due in this crawl round?
 export const due = (c: Crawl, mode: EncounterMode) =>
@@ -174,6 +176,11 @@ export const OMEN_AT = 5;
 export const omen = (c: Crawl) => c.clock <= OMEN_AT;
 
 // The card's roll button (and the R hotkey): the mode's roll.
+// The last roll if it belongs to this mode: after switching between
+// standard checks and the clock, the other mode's roll isn't shown (or undone).
+export const lastFor = (c: Crawl, mode: EncounterMode): CrawlRoll | null =>
+  c.last && c.last.kind === (mode === "clock" ? "clock" : "check") ? c.last : null;
+
 export const rollFor = (mode: EncounterMode) => (c: Crawl, rand: Rand) => (mode === "clock" ? rollClock(c, rand) : rollCheck(c, rand));
 
 // Entering a new dangerous place: a fresh clock (sheet: "The clock begins at

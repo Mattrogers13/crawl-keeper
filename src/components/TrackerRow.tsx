@@ -6,7 +6,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 import { cryptoRand } from "../crawl";
-import { D20Icon, GripIcon, MoreIcon, SkullIcon } from "./icons";
+import { D20Icon, GmPortrait, GripIcon, MoreIcon, SkullIcon } from "./icons";
 import {
   MOD_MAX,
   MOD_MIN,
@@ -271,9 +271,7 @@ const Portrait = (props: { token: Token | null; dead: boolean; marker?: boolean;
           ?
         </div>
       ) : (
-        <div className={`flex ${size} items-center justify-center rounded-full bg-obr-primary text-[10px] font-extrabold text-obr-primary-contrast`} aria-hidden>
-          GM
-        </div>
+        <GmPortrait className={`${size} shrink-0`} />
       )}
       {dead && (
         <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 text-white" aria-hidden>

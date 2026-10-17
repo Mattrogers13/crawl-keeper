@@ -52,3 +52,15 @@ export const ChevronIcon = ({ open }: { open: boolean }) => (
     <path d={open ? "M1.5 3.5 5 7l3.5-3.5" : "M3.5 1.5 7 5 3.5 8.5"} />
   </svg>
 );
+
+// The GM / Monsters portrait: a hooded figure in the dark, eyes lit. Drawn
+// for this extension; fills its round frame.
+export const GmPortrait = ({ className }: { className: string }) => (
+  <svg viewBox="0 0 24 24" className={className} aria-hidden>
+    <circle cx="12" cy="12" r="12" className="fill-obr-primary" />
+    <path d="M12 3.5c-4.3 0-7.3 3.7-7.3 8.6 0 3.3-.7 5.6-2 7.4A12 12 0 0 0 21.3 19.5c-1.3-1.8-2-4.1-2-7.4 0-4.9-3-8.6-7.3-8.6z" fill="#1d1630" />
+    <path d="M12 7.6c-2.6 0-4.3 2.3-4.3 5.3v2.7c1.2.9 2.6 1.4 4.3 1.4s3.1-.5 4.3-1.4v-2.7c0-3-1.7-5.3-4.3-5.3z" fill="#08060d" />
+    <circle cx="10.3" cy="12.4" r="0.95" fill="#ffcf5a" />
+    <circle cx="13.7" cy="12.4" r="0.95" fill="#ffcf5a" />
+  </svg>
+);
