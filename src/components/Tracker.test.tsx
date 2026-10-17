@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import OBR from "@owlbear-rodeo/sdk";
 
 import App from "./App";
-import { MARKER_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
+import { MARKER_KEY, SETTINGS_KEY, SKULL_KEY, TRACKER_KEY } from "../constants";
 import { GM_ENTRY, parseTracker } from "../tracker";
 import { obr, setItems, setSceneReady, token, writeFromElsewhere, writeSceneFromElsewhere } from "../test/obrMock";
 
@@ -762,6 +762,21 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(saved()).toMatchObject({ current: "b", round: 2 }));
     await pick("Aria", "Mark alive");
     await waitFor(() => expect(saved().entries[0].dead).toBe(false));
+  });
+
+  it("a dead token wears a skull on the map until it's alive again or leaves the tracker", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
+    render(<App />);
+    const skulls = () => obr.items.filter((i) => i.metadata[SKULL_KEY] !== undefined).map((i) => i.attachedTo);
+    await pick("Aria", "Mark dead");
+    await waitFor(() => expect(skulls()).toEqual(["a"]));
+    await pick("Aria", "Mark alive");
+    await waitFor(() => expect(skulls()).toEqual([]));
+    await pick("Borin", "Mark dead");
+    await waitFor(() => expect(skulls()).toEqual(["b"]));
+    await pick("Borin", "Remove from initiative");
+    await waitFor(() => expect(skulls()).toEqual([]));
   });
 
   it("removes a token but never the GM row", async () => {

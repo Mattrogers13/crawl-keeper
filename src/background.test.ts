@@ -3,7 +3,7 @@ import OBR, { type Image } from "@owlbear-rodeo/sdk";
 
 import { COMBAT_ALERT, createMenu, toggleInitiative, watchCombat, watchMarkerVisibility } from "./background";
 import { MARKER_KEY, TRACKER_KEY } from "./constants";
-import { buildMarker, markerImage } from "./marker";
+import { buildMarker, buildSkull, markerImage, skullImage } from "./marker";
 import { GM_ENTRY, parseTracker } from "./tracker";
 import { changePlayer, obr, setItems, setSceneReady, token, writeSceneFromElsewhere } from "./test/obrMock";
 
@@ -116,6 +116,16 @@ describe("background: turn marker visibility", () => {
     await setItems([token("a", { visible: false }), ring(true)]);
     await settle();
     expect(obr.items.find((i) => i.id === "r")?.visible).toBe(false);
+    off();
+  });
+
+  it("the skull follows its token's visibility too", async () => {
+    obr.role = "GM";
+    const off = watchMarkerVisibility();
+    await settle();
+    await setItems([token("a", { visible: false }), { ...buildSkull(token("a") as Image, skullImage()), id: "s", visible: true }]);
+    await settle();
+    expect(obr.items.find((i) => i.id === "s")?.visible).toBe(false);
     off();
   });
 

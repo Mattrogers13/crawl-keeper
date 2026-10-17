@@ -4,7 +4,7 @@
 import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 
 import { MENU_ID, TRACKER_KEY } from "./constants";
-import { afterTurnChange, fixMarkerVisibility, readSettings } from "./marker";
+import { afterChange, fixMarkerVisibility, readSettings } from "./marker";
 import { MAX_ENTRIES, parseTracker, toggle, type Phase } from "./tracker";
 import { errorMessage, notify } from "./utils";
 
@@ -24,8 +24,9 @@ export const toggleInitiative = async (ids: string[]) => {
   if (updated === tracker) return full();
   await OBR.scene.setMetadata({ [TRACKER_KEY]: updated });
   full();
-  // Removing the current token passed the turn on: move the marker with it.
-  await afterTurnChange(tracker, updated, settings);
+  // Removing the current token passed the turn on (the marker moves with it);
+  // removing a dead one takes its skull off.
+  await afterChange(tracker, updated, settings);
 };
 
 // Players and monsters alike; the GM marks monsters in the tracker.
