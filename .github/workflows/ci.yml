@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+# Tests and builds only: the token can read the repo, nothing more.
+permissions:
+  contents: read
+
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
