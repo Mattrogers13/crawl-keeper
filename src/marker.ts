@@ -35,12 +35,23 @@ export const planMarker = (markers: MarkerState[], token: { id: string; visible:
   return { remove, addTo: token !== null && kept === null ? token.id : null };
 };
 
+// Ours: a ring this install drew. The metadata tag alone isn't enough: any
+// client or extension can tag any item, and the GM's client deletes and
+// re-shows markers, so a tagged token must never count (that would let a
+// tampering client get a token deleted or a hidden item shown by the GM).
+export const isOurMarker = (item: Item): item is Image =>
+  item.metadata[MARKER_KEY] === true &&
+  item.layer === "ATTACHMENT" &&
+  isImage(item) &&
+  typeof item.image?.url === "string" &&
+  item.image.url.startsWith(`${window.location.origin}/img/`);
+
 // Pure: rings whose visibility differs from their token's (Owlbear doesn't
 // hide an attachment with its token, verified 2026-10-16).
 export const markerVisibilityFixes = (items: Item[]) => {
   const visible = new Map(items.map((i) => [i.id, i.visible]));
   return items
-    .filter((i) => i.metadata[MARKER_KEY] !== undefined && i.attachedTo && visible.has(i.attachedTo))
+    .filter((i) => isOurMarker(i) && i.attachedTo && visible.has(i.attachedTo))
     .filter((m) => m.visible !== visible.get(m.attachedTo!))
     .map((m) => ({ id: m.id, visible: visible.get(m.attachedTo!)! }));
 };
@@ -107,9 +118,7 @@ const syncNow = async (tokenId: string | null, settings: TurnSettings) => {
   const target = settings.showMarker && isImage(token) ? token : null;
   const image = markerImage();
   const plan = planMarker(
-    all
-      .filter((i) => i.metadata[MARKER_KEY] !== undefined)
-      .map((m) => ({ id: m.id, attachedTo: m.attachedTo, image: isImage(m) ? m.image.url : undefined, visible: m.visible })),
+    all.filter(isOurMarker).map((m) => ({ id: m.id, attachedTo: m.attachedTo, image: m.image.url, visible: m.visible })),
     target,
     image,
   );

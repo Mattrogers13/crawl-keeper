@@ -1,4 +1,11 @@
 # Owlbear Rodeo fetches the manifest (and assets) cross-origin. Workers send no
 # CORS header by default, so without this the install fails.
+# The rest is defense in depth: only our own scripts and styles run (token
+# portraits can come from any host, so images can too), and nothing is
+# posted or embedded from here. Owlbear talks to the page with postMessage,
+# which CSP doesn't restrict. Check a room on Dev after changing this.
 /*
   Access-Control-Allow-Origin: *
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src * data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'

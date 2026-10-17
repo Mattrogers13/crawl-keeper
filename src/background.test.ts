@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
-import OBR from "@owlbear-rodeo/sdk";
+import OBR, { type Image } from "@owlbear-rodeo/sdk";
 
 import { COMBAT_ALERT, createMenu, toggleInitiative, watchCombat, watchMarkerVisibility } from "./background";
 import { MARKER_KEY, TRACKER_KEY } from "./constants";
+import { buildMarker, markerImage } from "./marker";
 import { GM_ENTRY, parseTracker } from "./tracker";
 import { changePlayer, obr, setItems, setSceneReady, token, writeSceneFromElsewhere } from "./test/obrMock";
 
@@ -105,7 +106,7 @@ describe("background: combat alert", () => {
 });
 
 describe("background: turn marker visibility", () => {
-  const ring = (visible: boolean) => ({ ...token("r"), attachedTo: "a", visible, metadata: { [MARKER_KEY]: true } });
+  const ring = (visible: boolean) => ({ ...buildMarker(token("a") as Image, markerImage()), id: "r", visible });
   const settle = () => new Promise((r) => setTimeout(r, 0));
 
   it("the GM's client hides the ring when its token is hidden, panel closed", async () => {
