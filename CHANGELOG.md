@@ -2,7 +2,7 @@
 
 Versions follow semver; the same number is in `package.json` and `public/manifest.json`.
 
-## v0.1.1 (unreleased)
+## v0.1.1 (2026-10-17)
 
 Polish from the first full room pass (2026-10-17).
 
