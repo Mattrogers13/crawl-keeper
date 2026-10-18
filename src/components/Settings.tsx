@@ -78,6 +78,12 @@ const Settings = () => {
           )}
         </div>
         <Toggle
+          label="Follow Torchlight"
+          hint="When the last light on a tracked token goes out in Torchlight, it's total darkness: Deadly, a d8 crawling die, and a 3 ft light on the party's tokens so players still see themselves. The first light back undoes it. Off: set danger and darkness yourself."
+          checked={settings.value.followTorchlight}
+          onChange={(followTorchlight) => set({ followTorchlight })}
+        />
+        <Toggle
           label="Roll automatically on the GM turn"
           hint="When ▶ reaches GM / Monsters in a crawl round and a roll is due, Crawl Keeper rolls it for you. Undo still works."
           checked={settings.value.autoRoll}

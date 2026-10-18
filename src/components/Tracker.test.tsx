@@ -790,6 +790,18 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(saved().entries[0].dead).toBe(false));
   });
 
+  it("a token Torchlight lit shows a flame; in the dark the standard card says why it's Deadly", async () => {
+    obr.items = [
+      { ...token("a", { name: "Aria" }), metadata: { "io.github.mattrogers13.torchlight/token": { source: "lantern", saved: null } } },
+      token("b", { name: "Borin" }),
+    ];
+    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }], null, 0, { crawl: { danger: "deadly", dark: true, dangerBeforeDark: "unsafe" } });
+    render(<App />);
+    expect(await screen.findByRole("img", { name: "Lantern lit" })).toBeInTheDocument();
+    expect(within(rowOf("Borin")).queryByRole("img", { name: /lit$/ })).not.toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Encounter checks" })).getByText("Darkness")).toBeInTheDocument();
+  });
+
   it("a dead token wears a skull on the map until it's alive again or leaves the tracker", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);

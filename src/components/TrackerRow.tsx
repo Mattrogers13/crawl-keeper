@@ -6,7 +6,8 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 import { cryptoRand } from "../crawl";
-import { D20Icon, GmPortrait, GripIcon, MoreIcon, SkullIcon } from "./icons";
+import { D20Icon, FlameIcon, GmPortrait, GripIcon, MoreIcon, SkullIcon } from "./icons";
+import { SOURCE_LABEL, lightOn, type LightSource } from "../torchlight";
 import {
   MOD_MAX,
   MOD_MIN,
@@ -21,8 +22,9 @@ import {
   type Tracker as TrackerDoc,
 } from "../tracker";
 
-// `owner`: the player who put the token on the map.
-export type Token = { name: string; image: string | null; visible: boolean; owner: string };
+// `owner`: the player who put the token on the map. `light`: what
+// Torchlight has burning on it.
+export type Token = { name: string; image: string | null; visible: boolean; owner: string; light: LightSource | null };
 
 // What the tracker shows for a token. Items are Owlbear data: don't trust
 // their shape beyond what's checked here.
@@ -33,6 +35,7 @@ export const tokenInfo = (item: Item | undefined): Token => {
     image: typeof image === "string" ? image : null,
     visible: item?.visible !== false,
     owner: typeof item?.createdUserId === "string" ? item.createdUserId : "",
+    light: lightOn(item),
   };
 };
 
@@ -143,9 +146,16 @@ const Row = (props: {
           <Portrait token={token} dead={entry.dead} small={props.small} />
         )}
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className={`truncate leading-tight ${props.small ? "text-[13px]" : "font-medium"} ${entry.dead ? "line-through" : ""}`}>
-            {name}
-            {entry.dead && <span className="sr-only"> (dead)</span>}
+          <span className="flex min-w-0 items-center gap-1">
+            <span className={`truncate leading-tight ${props.small ? "text-[13px]" : "font-medium"} ${entry.dead ? "line-through" : ""}`}>
+              {name}
+              {entry.dead && <span className="sr-only"> (dead)</span>}
+            </span>
+            {token?.light && (
+              <span role="img" aria-label={`${SOURCE_LABEL[token.light]} lit`} title={`${SOURCE_LABEL[token.light]} lit (Torchlight)`} className="shrink-0">
+                <FlameIcon spell={token.light === "light-spell"} />
+              </span>
+            )}
           </span>
           {gm ? (
             <span className="flex min-w-0 items-baseline gap-1.5">

@@ -43,8 +43,12 @@ export type CrawlRoll = {
 
 type CrawlCore = {
   danger: Danger;
-  // Total darkness (Crawling Clock only): the crawling die steps up to a d8.
+  // Total darkness: the crawling die steps up to a d8 (standard checks
+  // ignore it; there darkness means Deadly, set by lightsOut).
   dark: boolean;
+  // The danger level before lightsOut made it Deadly, to put back when a
+  // light returns; null when it didn't.
+  dangerBeforeDark: Danger | null;
   clock: number;
   // Crawl rounds started on this map, and the count at the last check or
   // clock roll (combat rounds don't count, p. 112). lastCheck can run ahead of
@@ -66,6 +70,7 @@ export type Crawl = CrawlCore & {
 export const emptyCrawl = (): Crawl => ({
   danger: "unsafe",
   dark: false,
+  dangerBeforeDark: null,
   clock: CLOCK_START,
   crawlRounds: 0,
   lastCheck: 0,
@@ -100,6 +105,7 @@ export const parseCrawl = (raw: unknown): Crawl => {
   return {
     danger: parseDanger(raw.danger),
     dark: raw.dark === true,
+    dangerBeforeDark: raw.dangerBeforeDark === "unsafe" || raw.dangerBeforeDark === "risky" || raw.dangerBeforeDark === "deadly" ? raw.dangerBeforeDark : null,
     clock: parseClock(raw.clock),
     crawlRounds,
     lastCheck: ahead(crawlRounds, parseCount(raw.lastCheck)),
@@ -193,6 +199,26 @@ export const resetClock = (c: Crawl): Crawl =>
 export const undoRoll = (c: Crawl): Crawl => (c.undo ? { ...c, ...c.undo, last: null, undo: null } : c);
 
 export const setDanger = (c: Crawl, danger: Danger): Crawl => (c.danger === danger ? c : { ...c, danger });
+
+// Every light on the party's tokens went out (Torchlight; the "Follow
+// Torchlight" setting): total darkness. The place becomes Deadly (p. 84) and
+// the crawling die a d8 (Crawling Clock sheet). The danger it had is kept.
+export const lightsOut = (c: Crawl): Crawl =>
+  c.dark && c.danger === "deadly"
+    ? c
+    : { ...c, dark: true, danger: "deadly", dangerBeforeDark: c.dangerBeforeDark ?? (c.danger === "deadly" ? null : c.danger) };
+
+// A light is back: no darkness, and the danger level it had, unless the GM
+// changed it from Deadly in the meantime (theirs stands).
+export const lightsBack = (c: Crawl): Crawl =>
+  !c.dark && c.dangerBeforeDark === null
+    ? c
+    : {
+        ...c,
+        dark: false,
+        danger: c.danger === "deadly" && c.dangerBeforeDark ? c.dangerBeforeDark : c.danger,
+        dangerBeforeDark: null,
+      };
 export const setDark = (c: Crawl, dark: boolean): Crawl => (c.dark === dark ? c : { ...c, dark });
 
 // A new crawl round started (▶ wrapped while crawling), or ◀ went back over
