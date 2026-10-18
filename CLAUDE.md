@@ -9,7 +9,7 @@ Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript
 - If `sources/sdk` is missing: `scripts/fetch-sources.sh`. Original ask: `BRIEF.md` (DONE).
 - Installs: live `https://crawl-keeper.editbag.workers.dev/manifest.json`, Dev `https://dev-crawl-keeper.editbag.workers.dev/manifest.json` (`docs/obr/deploy.md`). After a Dev rebuild, reload the Owlbear room: the background page loads once per room.
 - Tracked tasks and undecided review candidates: `docs/design.md` "Releases".
-- Status (2026-10-17): v0.1.1 built (layout #14, security #15, skull + GM portrait); release after Matt's room pass. Next: v0.2 (Dice+, morale, oracle, encounter tables, Time Passes, End tracker) in `docs/design.md`.
+- Status (2026-10-17): v0.1.1 released (room pass passed, rows 1–50). Next: v0.2 (Follow Torchlight done; Dice+, morale, encounter tables, Time Passes, End tracker) in `docs/design.md`.
 
 ## Commands
 

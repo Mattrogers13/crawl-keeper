@@ -95,16 +95,16 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 41 | GM: Crawl, standard, Unsafe; ▶ through 3 crawl rounds; click the d6; Undo | The d20 counts 3 → 2 → 1 → "!", ring segments fill; the card lights on the GM turn; the d6 shows the pips, "No encounter" / red "Encounter!" under it; Undo clears it | |
-| 42 | GM: danger dropdown to Deadly; switch to Crawling Clock, Darkness, roll; switch back | Deadly: one segment (every round), no darkness switch in standard; clock mode: the d20 shows the clock (no label under it), Darkness makes it "Roll d8", the d6 shows its total and "Clock 20 → N"; back in standard the d6 doesn't show the clock roll | |
-| 43 | GM: the GM row's d20 → − / + / type a DEX → Roll d20+N | The row opens under the GM row; Roll fills the roll and shows `d20 X + N` under the name; typing a roll by hand drops it | |
-| 44 | GM: tick checkboxes on two rows; right-click one | Both tinted and in the menu; checkboxes stay visible while any is ticked | |
-| 45 | GM and player: fold the monsters; reload; Combat, ▶ to a monster | Folded ("N monsters" + portraits), still folded after reload; opens on a monster's turn, folds again after | |
-| 46 | GM: Mark dead on a token, hide it, show it, Mark alive; mark another dead and Remove from initiative | A skull badge over the token's centre, hidden with it for the player; gone when alive or removed | |
-| 47 | Player: their own token's turn (a token they placed), then someone else's | "Your turn, <name>" strip, then none | |
-| 49 | GM: Settings → Show the rolls to players; roll in each mode | The player's card shows the die and its result (with the clock hidden too); off: no roll | |
-| 50 | GM: Reset rounds / Remove monsters | Under the turn bar, above the list; each asks first | |
-| 48 | Any view, both themes | No broken styles or missing portraits (the new CSP); browser console has no CSP errors | |
+| 41 | GM: Crawl, standard, Unsafe; ▶ through 3 crawl rounds; click the d6; Undo | The d20 counts 3 → 2 → 1 → "!", ring segments fill; the card lights on the GM turn; the d6 shows the pips, "No encounter" / red "Encounter!" under it; Undo clears it | 2026-10-17 |
+| 42 | GM: danger dropdown to Deadly; switch to Crawling Clock, Darkness, roll; switch back | Deadly: one segment (every round), no darkness switch in standard; clock mode: the d20 shows the clock (no label under it), Darkness makes it "Roll d8", the d6 shows its total and "Clock 20 → N"; back in standard the d6 doesn't show the clock roll | 2026-10-17 |
+| 43 | GM: the GM row's d20 → − / + / type a DEX → Roll d20+N | The row opens under the GM row; Roll fills the roll and shows `d20 X + N` under the name; typing a roll by hand drops it | 2026-10-17 |
+| 44 | GM: tick checkboxes on two rows; right-click one | Both tinted and in the menu; checkboxes stay visible while any is ticked | 2026-10-17 |
+| 45 | GM and player: fold the monsters; reload; Combat, ▶ to a monster | Folded ("N monsters" + portraits), still folded after reload; opens on a monster's turn, folds again after | 2026-10-17 |
+| 46 | GM: Mark dead on a token, hide it, show it, Mark alive; mark another dead and Remove from initiative | A skull badge over the token's centre, hidden with it for the player; gone when alive or removed | 2026-10-17 |
+| 47 | Player: their own token's turn (a token they placed), then someone else's | "Your turn, <name>" strip, then none | 2026-10-17 |
+| 49 | GM: Settings → Show the rolls to players; roll in each mode | The player's card shows the die and its result (with the clock hidden too); off: no roll | 2026-10-17 |
+| 50 | GM: Reset rounds / Remove monsters | Under the turn bar, above the list; each asks first | 2026-10-17 |
+| 48 | Any view, both themes | No broken styles or missing portraits (the new CSP); browser console has no CSP errors | 2026-10-17 |
 
 ### New: Follow Torchlight (Torchlight installed too)
 
