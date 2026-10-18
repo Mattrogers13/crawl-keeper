@@ -106,3 +106,13 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 | 50 | GM: Reset rounds / Remove monsters | Under the turn bar, above the list; each asks first | 2026-10-17 |
 | 48 | Any view, both themes | No broken styles or missing portraits (the new CSP); browser console has no CSP errors | 2026-10-17 |
 
+### New: Follow Torchlight (Torchlight installed too)
+
+| # | Steps | Expect | Last pass |
+|---|---|---|---|
+| 51 | Torchlight: light a torch on a tracked token; a lantern; a Light spell | A flame (blue for the spell) beside the name for GM and player; hover names the source | |
+| 52 | Standard, Risky: put out every light on tracked tokens | Danger goes Deadly, a Darkness chip shows; each party token without a light gets a small 3 ft light (players see their own token) | |
+| 53 | Light one torch again | Back to Risky, chip gone, the 3 ft lights come off (the lit token keeps its torch) | |
+| 54 | Crawling Clock: lights out, then back | The torch toggle flips to Darkness (Roll d8) and back | |
+| 55 | Settings → Follow Torchlight off; put out the lights | Nothing changes on its own; the 3 ft lights come off | |
+| 56 | A room without Torchlight | Never goes dark on its own | |

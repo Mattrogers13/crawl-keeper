@@ -5,6 +5,7 @@ import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 
 import { MENU_ID, TRACKER_KEY } from "./constants";
 import { afterChange, fixMarkerVisibility, readSettings } from "./marker";
+import { watchTorchlight } from "./torchlight";
 import { MAX_ENTRIES, parseTracker, toggle, type Phase } from "./tracker";
 import { errorMessage, notify } from "./utils";
 
@@ -115,4 +116,5 @@ OBR.onReady(() => {
   createMenu().catch((err) => console.error(`Couldn't add the initiative menu: ${errorMessage(err)}`));
   watchCombat();
   watchMarkerVisibility();
+  watchTorchlight();
 });

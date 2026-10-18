@@ -269,6 +269,11 @@ export const OBR = {
     }),
   },
   scene: {
+    // A 5 ft grid at 150 dpi, Owlbear's default.
+    grid: {
+      getDpi: vi.fn(async () => 150),
+      getScale: vi.fn(async () => ({ raw: "5ft", parsed: { multiplier: 5, unit: "ft", digits: 0 } })),
+    },
     isReady: vi.fn(async () => obr.sceneReady),
     onReadyChange: vi.fn((cb: Listener<boolean>) => subscribe(obr.sceneReadyListeners, cb)),
     getMetadata: vi.fn(async () => {
