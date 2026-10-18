@@ -62,6 +62,14 @@ describe("parseCrawl", () => {
   });
 });
 
+describe("dangerBeforeDark", () => {
+  it("parses a danger level or null", () => {
+    expect(parseCrawl({ dangerBeforeDark: "risky" }).dangerBeforeDark).toBe("risky");
+    expect(parseCrawl({}).dangerBeforeDark).toBeNull();
+    expect(parseCrawl({ dangerBeforeDark: 7 }).dangerBeforeDark).toBeNull();
+  });
+});
+
 describe("standard checks (core p. 112)", () => {
   it("cadence: Unsafe 3, Risky 2, Deadly 1 (darkness is Deadly: the GM picks it, p. 84)", () => {
     expect(cadence(crawl({ danger: "unsafe" }))).toBe(3);

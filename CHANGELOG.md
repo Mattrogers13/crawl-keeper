@@ -2,6 +2,10 @@
 
 Versions follow semver; the same number is in `package.json` and `public/manifest.json`.
 
+## Unreleased
+
+- Follow Torchlight (setting, on): a flame beside tokens with a lit Torchlight light; when the last one goes out, total darkness (Deadly, d8 crawling die) and a 3 ft light on the party's tokens; the first light back undoes it.
+
 ## v0.1.1 (unreleased)
 
 Polish from the first full room pass (2026-10-17).

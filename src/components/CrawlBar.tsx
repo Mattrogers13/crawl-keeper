@@ -92,8 +92,21 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
             </>
           )}
         </span>
-        {/* Standard checks have no darkness switch: total darkness is Deadly (p. 84). */}
-        {clock && <TorchToggle dark={crawl.dark} onClick={() => change((c) => setDark(c, !c.dark))} />}
+        {/* Standard checks have no darkness switch: total darkness is Deadly (p. 84).
+            Following Torchlight, a chip says why it went Deadly. */}
+        {clock ? (
+          <TorchToggle dark={crawl.dark} onClick={() => change((c) => setDark(c, !c.dark))} />
+        ) : (
+          crawl.dark && (
+            <span
+              className="flex h-7 items-center gap-1.5 rounded-full bg-obr-text/10 pr-3 pl-2 text-xs font-medium text-obr-text-secondary"
+              title="Every light on the party's tokens is out (Torchlight): Deadly until one comes back"
+            >
+              <TorchIcon lit={false} />
+              Darkness
+            </span>
+          )
+        )}
         {clock && (
           <Confirm
             label="Reset clock"
