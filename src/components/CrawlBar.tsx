@@ -2,9 +2,10 @@ import { useId, useState } from "react";
 
 import Confirm from "./Confirm";
 import {
-  CLOCK_START,
+  CLOCK_DIE,
   OMEN_AT,
   cadence,
+  clockLeft,
   cryptoRand,
   crawlDie,
   due,
@@ -27,11 +28,19 @@ import {
 // (what's left before the next roll), the place (danger level; darkness for
 // the clock), and the d6, which is both the roll button and its last result. The card
 // and the die light up when a roll is due; the die can always be rolled (an
-// extra check when the GM wants one).
-const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; change: (fn: (c: Crawl) => Crawl) => void }) => {
-  const { crawl, mode, change } = props;
+// extra check when the GM wants one). Manual: the same d6 check, or the GM
+// rolls at the table; no auto roll. `start` is the clock's size.
+const CrawlBar = (props: {
+  crawl: Crawl;
+  mode: EncounterMode;
+  start: number;
+  gmTurn: boolean;
+  change: (fn: (c: Crawl) => Crawl) => void;
+}) => {
+  const { crawl, mode, start, change } = props;
   const [askingReset, setAskingReset] = useState(false);
   const clock = mode === "clock";
+  const manual = mode === "manual";
   const isDue = due(crawl, mode);
   const callForRoll = isDue && props.gmTurn;
   const toNext = roundsToCheck(crawl);
@@ -56,7 +65,7 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
               setAskingReset(true);
             }}
           >
-            <ClockDial value={crawl.clock} />
+            <ClockDial value={clockLeft(crawl, start)} of={start} />
           </div>
         ) : (
           <CheckDial of={every} left={toNext} due={isDue} dark={crawl.dark} />
@@ -72,7 +81,7 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
 
       <div className="flex min-w-0 flex-col items-start gap-1.5 pt-1">
         {clock ? (
-          <span className="text-sm font-medium">Crawling Clock</span>
+          <span className="text-sm font-medium">Crawling Clock{start > CLOCK_DIE && <span className="text-obr-text-secondary"> · 2d20</span>}</span>
         ) : (
           <DangerSelect value={crawl.danger} onChange={(d) => change((c) => setDanger(c, d))} />
         )}
@@ -80,6 +89,11 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
           {clock
             ? `Crawling die d${crawlDie(crawl)}${crawl.dark ? " (darkness)" : ""}`
             : `A check every ${every === 1 ? "crawl round" : `${every} crawl rounds`}`}
+          {manual && (
+            <span className={`block ${isDue ? "font-medium text-obr-text" : ""}`}>
+              {isDue ? "Check due: roll the d6, here or at the table" : "Manual rolls"}
+            </span>
+          )}
           {clock && omen(crawl) && !crawl.last?.encounter && (
             <>
               {" · "}
@@ -110,7 +124,7 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
         {clock && (
           <Confirm
             label="Reset clock"
-            question={`Reset the clock to ${CLOCK_START}?`}
+            question={`Reset the clock to ${start}?`}
             action="Reset"
             onConfirm={() => change(resetClock)}
             asking={askingReset}
@@ -124,7 +138,7 @@ const CrawlBar = (props: { crawl: Crawl; mode: EncounterMode; gmTurn: boolean; c
           roll={last}
           label={clock ? `Roll d${crawlDie(crawl)}` : "Encounter check (d6)"}
           due={isDue}
-          onClick={() => change((c) => rollFor(mode)(c, cryptoRand))}
+          onClick={() => change((c) => rollFor(mode, start)(c, cryptoRand))}
         />
         {/* A live region that stays mounted, so a new result is announced. */}
         <div role="status" aria-label="Last roll" className="flex flex-col items-center">
@@ -348,13 +362,16 @@ const RING_R = 32;
 const RING_W = 7;
 
 // The clock as a ring that empties as it runs down, around the d20 showing
-// what's left; amber at omen range. Scaled to `size` px (the players' card
-// uses a small one).
-export const ClockDial = ({ value, size = 76 }: { value: number; size?: number }) => {
+// what's left; amber at omen range. A 2d20 clock (`of` 40) runs one die at a
+// time: the d20 shows the front die, "+20" while the second is still full,
+// and a notch marks where one die ends. Scaled to `size` px (the players'
+// card uses a small one).
+export const ClockDial = ({ value, of = CLOCK_DIE, size = 76 }: { value: number; of?: number; size?: number }) => {
   const length = 2 * Math.PI * RING_R;
-  const filled = (Math.max(0, Math.min(value, CLOCK_START)) / CLOCK_START) * length;
+  const filled = (Math.max(0, Math.min(value, of)) / of) * length;
+  const spare = value > CLOCK_DIE;
   return (
-    <svg viewBox="0 0 76 76" width={size} height={size} className="shrink-0" role="img" aria-label={`Clock ${value} of ${CLOCK_START}`}>
+    <svg viewBox="0 0 76 76" width={size} height={size} className="shrink-0" role="img" aria-label={`Clock ${value} of ${of}`}>
       <circle cx={C} cy={C} r={RING_R} fill="none" strokeWidth={RING_W} className="stroke-obr-text/15" />
       <circle
         cx={C}
@@ -367,7 +384,16 @@ export const ClockDial = ({ value, size = 76 }: { value: number; size?: number }
         transform={`rotate(-90 ${C} ${C})`}
         className={value <= OMEN_AT ? "stroke-amber-600 dark:stroke-amber-400" : "stroke-obr-primary"}
       />
-      <D20 text={String(value)} />
+      {of > CLOCK_DIE && <rect x={C - 1.25} y={C + RING_R - RING_W / 2 - 0.5} width={2.5} height={RING_W + 1} className="fill-obr-bg" />}
+      <D20 text={String(spare ? value - CLOCK_DIE : value)} />
+      {spare && (
+        <g aria-hidden>
+          <rect x={47} y={56} width={24} height={14} rx={4} className="fill-obr-paper stroke-obr-text/20" strokeWidth={1} />
+          <text x={59} y={66.5} textAnchor="middle" fontSize={10} fontWeight="700" className="fill-obr-text">
+            +{CLOCK_DIE}
+          </text>
+        </g>
+      )}
     </svg>
   );
 };

@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 
 import {
-  CLOCK_START,
   cadence,
+  checkMade,
+  clockLeft,
   crawlRoundStarted,
   crawlRoundUndone,
   cryptoRand,
@@ -15,6 +16,7 @@ import {
   resetCrawlRounds,
   rollCheck,
   rollClock,
+  rollFor,
   roundsToCheck,
   undoRoll,
   type Crawl,
@@ -38,7 +40,8 @@ describe("parseCrawl", () => {
       crawlRounds: 5,
       lastCheck: 6,
     });
-    expect(parseCrawl({ danger: "chaos", clock: 99 })).toMatchObject({ danger: "unsafe", clock: CLOCK_START });
+    expect(parseCrawl({ danger: "chaos", clock: 99 })).toMatchObject({ danger: "unsafe", clock: 40 });
+    expect(parseCrawl({ clock: 33 }).clock).toBe(33);
   });
 
   it("lastCheck runs at most the longest cadence ahead, so bad data can't switch checks off", () => {
@@ -145,10 +148,57 @@ describe("Crawling Clock", () => {
     expect(onTime.lastCheck).toBe(3);
   });
 
-  it("New clock for a new dangerous place; nothing to reset keeps the object", () => {
-    expect(resetClock(crawl({ clock: 9 })).clock).toBe(20);
+  it("New clock for a new dangerous place (full for either size); nothing to reset keeps the object", () => {
+    const reset = resetClock(crawl({ clock: 9 }));
+    expect([clockLeft(reset, 20), clockLeft(reset, 40)]).toEqual([20, 40]);
     const fresh = crawl();
     expect(resetClock(fresh)).toBe(fresh);
+  });
+});
+
+describe("2d20 clock", () => {
+  it("a fresh clock is 40; a 1d20 clock reads the same map as 20", () => {
+    expect(clockLeft(crawl(), 40)).toBe(40);
+    expect(clockLeft(crawl(), 20)).toBe(20);
+    expect(rollClock(crawl(), dice(6, 4))).toMatchObject({ clock: 16, last: { before: 20, after: 16 } });
+  });
+
+  it("runs down one die and on into the next", () => {
+    expect(rollClock(crawl(), dice(6, 4), 40)).toMatchObject({ clock: 36, last: { before: 40, after: 36, encounter: false } });
+    expect(rollClock(crawl({ clock: 22 }), dice(6, 5), 40)).toMatchObject({ clock: 17, last: { encounter: false } });
+  });
+
+  it("an encounter only when both dice are empty; the overflow carries into a fresh 40", () => {
+    expect(rollClock(crawl({ clock: 3 }), dice(6, 5), 40)).toMatchObject({ clock: 38, last: { encounter: true, before: 3, after: 38 } });
+  });
+
+  it("omens on the last die only", () => {
+    expect(omen(crawl({ clock: 25 }))).toBe(false);
+    expect(omen(crawl({ clock: 5 }))).toBe(true);
+  });
+
+  it("rollFor passes the size", () => {
+    expect(rollFor("clock", 40)(crawl(), dice(6, 2)).clock).toBe(38);
+  });
+});
+
+describe("manual (encounter checks and clock off)", () => {
+  it("due on the standard cadence; its roll is a d6 check", () => {
+    const c = rounds(crawl({ danger: "risky", last: { kind: "clock", dice: [3], sides: 6, before: 20, after: 17, encounter: false } }), 2);
+    expect(due(c, "manual")).toBe(true);
+    expect(due(rounds(crawl({ danger: "risky" }), 1), "manual")).toBe(false);
+    expect(lastFor(c, "manual")).toBeNull();
+    const rolled = rollFor("manual")(c, dice(6, 1));
+    expect(rolled).toMatchObject({ lastCheck: 2, clock: c.clock, last: { kind: "check", dice: [1], encounter: true } });
+    expect(lastFor(rolled, "manual")?.kind).toBe("check");
+  });
+
+  it("checkMade counts a due check; not due keeps the object", () => {
+    const c = rounds(crawl({ danger: "risky" }), 2);
+    expect(checkMade(c)).toMatchObject({ lastCheck: 2, last: null, undo: null });
+    expect(due(checkMade(c), "manual")).toBe(false);
+    const early = rounds(crawl({ danger: "risky" }), 1);
+    expect(checkMade(early)).toBe(early);
   });
 });
 

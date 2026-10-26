@@ -15,13 +15,29 @@
 // encounter, and the overflow carries into the next clock (20 minus it).
 // At 1 to 5: an omen. The GM may roll on the encounter table now to know
 // what's coming and telegraph it; the encounter still happens at 0.
+//
+// A 2d20 clock (Matt, 2026-10-26) is a 40 clock run down one d20 at a time:
+// the front die empties, then the second; the same omen and encounter rules
+// on the total.
+//
+// Manual (Matt, 2026-10-26): no clock and no auto roll. The card says when a
+// check is due on the standard cadence; the GM rolls its d6 or one at the
+// table, and a due check counts as made when ▶ leaves the GM's turn.
 
 export type Danger = "unsafe" | "risky" | "deadly";
-export type EncounterMode = "standard" | "clock";
+export type EncounterMode = "standard" | "clock" | "manual";
+// The Crawling Clock's size: one d20 (20) or two (40).
+export type ClockDice = 1 | 2;
 
 import { intIn, isObject, parseCount } from "./parse";
 
-export const CLOCK_START = 20;
+export const CLOCK_DIE = 20;
+// The clock is stored as what's left, up to two dice; a 1d20 clock reads it
+// capped at 20 (clockLeft). A fresh or reset clock is full for either size,
+// so changing the size in Settings needs no write to every map.
+const CLOCK_FULL = 2 * CLOCK_DIE;
+export const clockStart = (dice: ClockDice) => CLOCK_DIE * dice;
+export const clockLeft = (c: Crawl, start: number) => Math.min(c.clock, start);
 const MAX_DICE = 10;
 const CADENCE: Record<Danger, number> = { unsafe: 3, risky: 2, deadly: 1 };
 // How far lastCheck may run ahead of crawlRounds (◀ back over rolled rounds).
@@ -71,7 +87,7 @@ export const emptyCrawl = (): Crawl => ({
   danger: "unsafe",
   dark: false,
   dangerBeforeDark: null,
-  clock: CLOCK_START,
+  clock: CLOCK_FULL,
   crawlRounds: 0,
   lastCheck: 0,
   last: null,
@@ -90,13 +106,13 @@ const parseRoll = (raw: unknown): CrawlRoll | null => {
     kind,
     dice,
     sides,
-    before: intIn(raw.before, 1, CLOCK_START) ?? CLOCK_START,
-    after: intIn(raw.after, 1, CLOCK_START) ?? CLOCK_START,
+    before: intIn(raw.before, 1, CLOCK_FULL) ?? CLOCK_DIE,
+    after: intIn(raw.after, 1, CLOCK_FULL) ?? CLOCK_DIE,
     encounter: raw.encounter === true,
   };
 };
 
-const parseClock = (v: unknown) => intIn(v, 1, CLOCK_START) ?? CLOCK_START;
+const parseClock = (v: unknown) => intIn(v, 1, CLOCK_FULL) ?? CLOCK_FULL;
 
 // Scene metadata is untrusted: keep only well-formed fields.
 export const parseCrawl = (raw: unknown): Crawl => {
@@ -133,7 +149,7 @@ export const crawlDie = (c: Crawl) => (c.dark ? 8 : 6);
 // Crawl rounds between standard checks.
 export const cadence = (c: Crawl) => CADENCE[c.danger];
 
-// Is a check (standard) or a clock roll due in this crawl round?
+// Is a check (standard or manual) or a clock roll due in this crawl round?
 export const due = (c: Crawl, mode: EncounterMode) =>
   c.crawlRounds > 0 && c.crawlRounds - c.lastCheck >= (mode === "clock" ? 1 : cadence(c));
 
@@ -157,44 +173,51 @@ export const rollCheck = (c: Crawl, rand: Rand): Crawl => {
 };
 
 // Clock: roll the crawling die (exploding on its max), take it off the
-// clock; at 0 or below an encounter and the overflow carries over.
-export const rollClock = (c: Crawl, rand: Rand): Crawl => {
+// clock; at 0 or below an encounter and the overflow carries over. `start`
+// is the clock's size (20, or 40 for 2d20).
+export const rollClock = (c: Crawl, rand: Rand, start = CLOCK_DIE): Crawl => {
   const sides = crawlDie(c);
   const dice = [rollDie(sides, rand)];
   while (dice[dice.length - 1] === sides && dice.length < MAX_DICE) dice.push(rollDie(sides, rand));
   const total = dice.reduce((a, b) => a + b, 0);
-  const left = c.clock - total;
+  const before = clockLeft(c, start);
+  const left = before - total;
   const encounter = left <= 0;
-  const after = encounter ? Math.max(1, CLOCK_START + left) : left;
+  const after = encounter ? Math.max(1, start + left) : left;
   return {
     ...c,
     clock: after,
     lastCheck: c.crawlRounds,
-    last: { kind: "clock", dice, sides, before: c.clock, after, encounter },
+    last: { kind: "clock", dice, sides, before, after, encounter },
     undo: snapshot(c),
   };
 };
 
-// The clock is low (1 to 5): an omen (sheet: "Spoors and Omens"). The GM
+// The clock is low (1 to 5; on a 2d20 clock, the last die): an omen (sheet: "Spoors and Omens"). The GM
 // may roll the encounter on their table now and telegraph it; it still
 // happens when the clock hits 0. (v0.2's encounter roller can do that roll.)
 export const OMEN_AT = 5;
 export const omen = (c: Crawl) => c.clock <= OMEN_AT;
 
-// The card's roll button (and the R hotkey): the mode's roll.
 // The last roll if it belongs to this mode: after switching between
 // standard checks and the clock, the other mode's roll isn't shown (or undone).
 export const lastFor = (c: Crawl, mode: EncounterMode): CrawlRoll | null =>
   c.last && c.last.kind === (mode === "clock" ? "clock" : "check") ? c.last : null;
 
-export const rollFor = (mode: EncounterMode) => (c: Crawl, rand: Rand) => (mode === "clock" ? rollClock(c, rand) : rollCheck(c, rand));
+// The card's roll button (and the R hotkey): the mode's roll (manual: a check).
+export const rollFor = (mode: EncounterMode, start = CLOCK_DIE) => (c: Crawl, rand: Rand) =>
+  mode === "clock" ? rollClock(c, rand, start) : rollCheck(c, rand);
+
+// Manual: the GM may have rolled at the table. A due check counts as made
+// (nothing to undo: no result was recorded).
+export const checkMade = (c: Crawl): Crawl => (due(c, "manual") ? { ...c, lastCheck: c.crawlRounds } : c);
 
 // Entering a new dangerous place: a fresh clock (sheet: "The clock begins at
-// 20 when the party enters a dangerous location"). That and the clock's own
+// 20 when the party enters a dangerous location"; full for either size). That and the clock's own
 // encounter are the only resets: a fight, keyed or not, leaves the clock
 // where it was (decided 2026-10-16, following the sheet).
 export const resetClock = (c: Crawl): Crawl =>
-  c.clock === CLOCK_START && c.last === null ? c : { ...c, clock: CLOCK_START, last: null, undo: snapshot(c) };
+  c.clock === CLOCK_FULL && c.last === null ? c : { ...c, clock: CLOCK_FULL, last: null, undo: snapshot(c) };
 
 export const undoRoll = (c: Crawl): Crawl => (c.undo ? { ...c, ...c.undo, last: null, undo: null } : c);
 

@@ -75,7 +75,13 @@ const Homepage = () => {
             a 1.
           </li>
           <li>
-            <b>Crawling Clock</b>: a d20 clock that the crawling die wears down each crawl round (rules below).
+            <b>Crawling Clock</b>: a d20 clock that the crawling die wears down each crawl round (rules below). Settings
+            can make it two d20s, run down one at a time.
+          </li>
+          <li>
+            <b>Manual rolls</b> (Settings, "Encounter checks and the Crawling Clock" off): no clock and no auto roll. The
+            card keeps the danger level and lights up on the GM's turn when a check is due. Roll its d6, or roll at the
+            table: a due check counts as made when you press ▶.
           </li>
         </Steps>
         <p>
