@@ -40,8 +40,8 @@ const Settings = () => {
 
       <Group title="Encounters">
         <Toggle
-          label="Roll encounters in Crawl Keeper"
-          hint="Off: you roll at the table. The card still shows the danger level and lights up on your turn when a check is due; it counts as made when you move on."
+          label="Encounter checks and the Crawling Clock"
+          hint="Off: manual rolls. No clock and no auto roll; the card shows the danger level and lights up on your turn when a check is due. Roll its d6 or one at the table; a due check counts as made when you move on."
           checked={rolls}
           onChange={(encounterRolls) => set({ encounterRolls })}
         />
@@ -103,18 +103,16 @@ const Settings = () => {
       </Group>
 
       <Group title="What players see">
-        {rolls && (
-          <Toggle
-            label="Show the rolls to players"
-            hint={
-              clock
-                ? "Players see the crawling die's last roll and what it did to the clock."
-                : "Players see the last encounter check and whether it was an encounter."
-            }
-            checked={settings.value.showRolls}
-            onChange={(showRolls) => set({ showRolls })}
-          />
-        )}
+        <Toggle
+          label="Show the rolls to players"
+          hint={
+            clock
+              ? "Players see the crawling die's last roll and what it did to the clock."
+              : "Players see the last encounter check and whether it was an encounter."
+          }
+          checked={settings.value.showRolls}
+          onChange={(showRolls) => set({ showRolls })}
+        />
         <Toggle
           label="Hide rounds from players"
           hint="Players see Crawl or Combat but not the round number."

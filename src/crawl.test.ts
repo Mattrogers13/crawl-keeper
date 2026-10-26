@@ -182,13 +182,15 @@ describe("2d20 clock", () => {
   });
 });
 
-describe("manual (encounter rolls off)", () => {
-  it("due on the standard cadence; no roll, no last roll", () => {
-    const c = rounds(crawl({ danger: "risky", last: { kind: "check", dice: [3], sides: 6, before: 20, after: 20, encounter: false } }), 2);
+describe("manual (encounter checks and clock off)", () => {
+  it("due on the standard cadence; its roll is a d6 check", () => {
+    const c = rounds(crawl({ danger: "risky", last: { kind: "clock", dice: [3], sides: 6, before: 20, after: 17, encounter: false } }), 2);
     expect(due(c, "manual")).toBe(true);
     expect(due(rounds(crawl({ danger: "risky" }), 1), "manual")).toBe(false);
     expect(lastFor(c, "manual")).toBeNull();
-    expect(rollFor("manual")(c, dice(6, 1))).toBe(c);
+    const rolled = rollFor("manual")(c, dice(6, 1));
+    expect(rolled).toMatchObject({ lastCheck: 2, clock: c.clock, last: { kind: "check", dice: [1], encounter: true } });
+    expect(lastFor(rolled, "manual")?.kind).toBe("check");
   });
 
   it("checkMade counts a due check; not due keeps the object", () => {

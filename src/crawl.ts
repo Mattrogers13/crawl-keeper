@@ -20,9 +20,9 @@
 // the front die empties, then the second; the same omen and encounter rules
 // on the total.
 //
-// Manual (encounter rolls off, Matt, 2026-10-26): the GM rolls at the table.
-// The card still says when a check is due on the standard cadence; it counts
-// as made when ▶ leaves the GM's turn.
+// Manual (Matt, 2026-10-26): no clock and no auto roll. The card says when a
+// check is due on the standard cadence; the GM rolls its d6 or one at the
+// table, and a due check counts as made when ▶ leaves the GM's turn.
 
 export type Danger = "unsafe" | "risky" | "deadly";
 export type EncounterMode = "standard" | "clock" | "manual";
@@ -201,16 +201,15 @@ export const omen = (c: Crawl) => c.clock <= OMEN_AT;
 
 // The last roll if it belongs to this mode: after switching between
 // standard checks and the clock, the other mode's roll isn't shown (or undone).
-// Manual mode has none.
 export const lastFor = (c: Crawl, mode: EncounterMode): CrawlRoll | null =>
-  mode !== "manual" && c.last && c.last.kind === (mode === "clock" ? "clock" : "check") ? c.last : null;
+  c.last && c.last.kind === (mode === "clock" ? "clock" : "check") ? c.last : null;
 
-// The card's roll button (and the R hotkey): the mode's roll. Manual: no roll.
+// The card's roll button (and the R hotkey): the mode's roll (manual: a check).
 export const rollFor = (mode: EncounterMode, start = CLOCK_DIE) => (c: Crawl, rand: Rand) =>
-  mode === "clock" ? rollClock(c, rand, start) : mode === "standard" ? rollCheck(c, rand) : c;
+  mode === "clock" ? rollClock(c, rand, start) : rollCheck(c, rand);
 
-// Manual: the GM rolled at the table. A due check counts as made (nothing
-// to undo: no result was recorded).
+// Manual: the GM may have rolled at the table. A due check counts as made
+// (nothing to undo: no result was recorded).
 export const checkMade = (c: Crawl): Crawl => (due(c, "manual") ? { ...c, lastCheck: c.crawlRounds } : c);
 
 // Entering a new dangerous place: a fresh clock (sheet: "The clock begins at
