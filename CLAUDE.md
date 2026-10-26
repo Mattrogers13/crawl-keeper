@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Shadowdark crawl companion for Owlbear Rodeo: initiative tracker (sorted by roll, GM / Monsters row with its monsters, notes, dead, a per-token turn marker on the map, batch row menu), Crawl/Combat with one round count, encounter checks or the Crawling Clock on the GM's turn; v0.2 adds encounter and morale rollers. v0.1.0 released 2026-10-16. **The agreed design, data layout and release plan are in `docs/design.md`; read it before building.** GM is the only writer; players get a read-only view.
+Shadowdark crawl companion for Owlbear Rodeo: initiative tracker (sorted by roll, GM / Monsters row with its monsters, notes, dead, a per-token turn marker on the map, batch row menu), Crawl/Combat with one round count, encounter checks, the Crawling Clock (1d20 or 2d20) or manual rolls on the GM's turn; v0.2 adds encounter and morale rollers. v0.1.0 released 2026-10-16. **The agreed design, data layout and release plan are in `docs/design.md`; read it before building.** GM is the only writer; players get a read-only view.
 
 Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript 5 + Tailwind 4, hosted on Cloudflare Workers static assets.
 
@@ -9,7 +9,7 @@ Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript
 - If `sources/sdk` is missing: `scripts/fetch-sources.sh`. Original ask: `BRIEF.md` (DONE).
 - Installs: live `https://crawl-keeper.editbag.workers.dev/manifest.json`, Dev `https://dev-crawl-keeper.editbag.workers.dev/manifest.json` (`docs/obr/deploy.md`). After a Dev rebuild, reload the Owlbear room: the background page loads once per room.
 - Tracked tasks and undecided review candidates: `docs/design.md` "Releases".
-- Status (2026-10-17): v0.1.1 released (room pass passed, rows 1–50). Next: v0.2 (Follow Torchlight done; Dice+, morale, encounter tables, Time Passes, End tracker) in `docs/design.md`.
+- Status (2026-10-26): v0.1.1 released (room pass passed, rows 1–50). v0.2 on main, unreleased (ships all together): Follow Torchlight, manual rolls, 2d20 clock. Next: Dice+, morale, encounter tables, Time Passes, End tracker (`docs/design.md`).
 
 ## Commands
 
