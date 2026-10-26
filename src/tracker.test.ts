@@ -8,6 +8,7 @@ import {
   emptyTracker,
   moveTo,
   next,
+  nextAfterManualCheck,
   nextWithAutoRoll,
   parseTracker,
   playerView,
@@ -31,7 +32,7 @@ import {
   turnOrder,
   type Tracker,
 } from "./tracker";
-import { DEFAULT_SETTINGS, parseSettings } from "./settings";
+import { DEFAULT_SETTINGS, effectiveMode, parseSettings } from "./settings";
 import { emptyCrawl } from "./crawl";
 
 // Ids starting with "m" are monsters (they take no roll).
@@ -200,6 +201,23 @@ describe("crawl and combat", () => {
     // Due (round 3): rolled.
     const due3 = nextWithAutoRoll({ ...t, crawl: { ...t.crawl, crawlRounds: 3 } }, "standard", four);
     expect(due3.crawl.last).toMatchObject({ kind: "check", dice: [4], encounter: false });
+  });
+
+  it("auto roll: the 2d20 clock's size; never with encounter rolls off", () => {
+    const four = () => 3.5 / 6;
+    const t = tracker({ a: 5, gm: 3 }, "a", 1);
+    const crawl = { ...t.crawl, crawlRounds: 3 };
+    expect(nextWithAutoRoll({ ...t, crawl }, "clock", four, 40).crawl).toMatchObject({ clock: 36, last: { before: 40 } });
+    expect(nextWithAutoRoll({ ...t, crawl }, "manual", four).crawl).toMatchObject({ lastCheck: 0, last: null });
+  });
+
+  it("encounter rolls off: ▶ off the GM turn in a crawl round counts a due check as made", () => {
+    const t = tracker({ a: 5, gm: 3, b: 1 }, GM_ENTRY, 3);
+    const onGm = { ...t, crawl: { ...t.crawl, crawlRounds: 3 } };
+    expect(nextAfterManualCheck(onGm)).toMatchObject({ current: "b", crawl: { lastCheck: 3, last: null } });
+    // Onto the GM turn, or in combat: nothing made.
+    expect(nextAfterManualCheck({ ...onGm, current: "a" })).toMatchObject({ current: GM_ENTRY, crawl: { lastCheck: 0 } });
+    expect(nextAfterManualCheck({ ...onGm, phase: "combat" }).crawl.lastCheck).toBe(0);
   });
 
   it("auto roll: never in combat, never on anyone else's turn", () => {
@@ -497,7 +515,9 @@ describe("parseSettings", () => {
   it("defaults anything malformed", () => {
     expect(parseSettings(undefined)).toEqual(DEFAULT_SETTINGS);
     expect(DEFAULT_SETTINGS).toEqual({
+      encounterRolls: true,
       encounterMode: "standard",
+      clockDice: 1,
       hideClock: false,
       showDanger: false,
       autoRoll: false,
@@ -508,10 +528,16 @@ describe("parseSettings", () => {
       showMarker: true,
       selectOnTurn: true,
     });
-    const off = { encounterMode: "clock", hideClock: true, showDanger: true, autoRoll: true, showRolls: true, followTorchlight: false, hideRound: true, clearRollsOnCombat: false, showMarker: false, selectOnTurn: false };
+    const off = { encounterRolls: false, encounterMode: "clock", clockDice: 2, hideClock: true, showDanger: true, autoRoll: true, showRolls: true, followTorchlight: false, hideRound: true, clearRollsOnCombat: false, showMarker: false, selectOnTurn: false };
     expect(parseSettings(off)).toEqual(off);
     // Rooms saved while Table order existed keep working.
     expect(parseSettings({ orderMode: "table", hideRound: "yes", clearRollsOnCombat: "no", showMarker: 0 })).toEqual(DEFAULT_SETTINGS);
+    expect(parseSettings({ encounterRolls: 0, clockDice: 3 })).toMatchObject({ encounterRolls: true, clockDice: 1 });
+  });
+
+  it("encounter rolls off runs manual, keeping the chosen mode for later", () => {
+    expect(effectiveMode({ ...DEFAULT_SETTINGS, encounterMode: "clock" })).toBe("clock");
+    expect(effectiveMode({ ...DEFAULT_SETTINGS, encounterMode: "clock", encounterRolls: false })).toBe("manual");
   });
 });
 

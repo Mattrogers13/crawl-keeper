@@ -700,7 +700,9 @@ describe("Tracker (GM)", () => {
       expect(saved().crawl.clock).toBe(7);
       fireEvent.contextMenu(within(card).getByTitle("Right-click to reset the clock"));
       fireEvent.click(within(card).getByText("Reset"));
-      await waitFor(() => expect(saved().crawl.clock).toBe(20));
+      // Full for either size (a 1d20 clock reads it as 20).
+      await waitFor(() => expect(saved().crawl.clock).toBe(40));
+      expect(within(card).getByRole("img", { name: "Clock 20 of 20" })).toBeInTheDocument();
     });
 
     it("sits in the top bar with the title, not in the list; not there in Settings", async () => {
@@ -733,6 +735,49 @@ describe("Tracker (GM)", () => {
       await waitFor(() => expect(saved().current).toBe(GM_ENTRY));
       expect(saved().crawl.last).toBeNull();
       expect(screen.getByRole("button", { name: "Roll d6" })).toBeInTheDocument();
+    });
+
+    it("2d20 clock: the d20 shows the front die, +20 while the second is full; rolls come off the 40", async () => {
+      obr.metadata = { [SETTINGS_KEY]: { encounterMode: "clock", clockDice: 2 } };
+      scene([{ id: GM_ENTRY }], GM_ENTRY, 1, { crawl: { crawlRounds: 1, clock: 33 } });
+      render(<App />);
+      const card = await screen.findByRole("region", { name: "Crawling Clock" });
+      const dial = within(card).getByRole("img", { name: "Clock 33 of 40" });
+      expect(dial).toHaveTextContent("13");
+      expect(dial).toHaveTextContent("+20");
+      expect(card).toHaveTextContent("Crawling Clock · 2d20");
+      fireEvent.click(within(card).getByRole("button", { name: "Roll d6" }));
+      await waitFor(() => expect(saved().crawl.last?.before).toBe(33));
+    });
+
+    it("encounter rolls off: no die and no R, the card says when to roll; ▶ off the GM turn counts it made", async () => {
+      obr.metadata = { [SETTINGS_KEY]: { encounterRolls: false, encounterMode: "clock", autoRoll: true } };
+      obr.items = [token("a", { name: "Aria" })];
+      scene([{ id: GM_ENTRY }, { id: "a" }], GM_ENTRY, 3, { crawl: { crawlRounds: 3 } });
+      render(<App />);
+      // The standard cadence (Unsafe: due in crawl round 3), even with the clock chosen.
+      const card = await screen.findByRole("region", { name: "Encounter checks" });
+      expect(card).toHaveTextContent("Roll a d6 at the table");
+      expect(within(card).queryByRole("button", { name: /Roll|Encounter check/ })).not.toBeInTheDocument();
+      fireEvent.keyDown(document.body, { key: "r" });
+      fireEvent.click(screen.getByLabelText("Next turn"));
+      await waitFor(() => expect(saved()).toMatchObject({ current: "a", crawl: { lastCheck: 3, last: null } }));
+      expect(card).toHaveTextContent("Encounter rolls off");
+    });
+
+    it("Settings: encounter rolls off hides the method, auto roll and showing rolls", async () => {
+      scene([{ id: GM_ENTRY }]);
+      render(<App />);
+      fireEvent.click(await screen.findByLabelText("Settings"));
+      fireEvent.click(await screen.findByLabelText(/Crawling Clock/));
+      fireEvent.click(await screen.findByLabelText("2d20"));
+      await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ encounterMode: "clock", clockDice: 2 }));
+      fireEvent.click(screen.getByRole("switch", { name: /Roll encounters in Crawl Keeper/ }));
+      await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ encounterRolls: false, encounterMode: "clock" }));
+      expect(screen.queryByRole("radiogroup", { name: "Encounter checks" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("switch", { name: /Roll automatically/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("switch", { name: /Show the rolls/ })).not.toBeInTheDocument();
+      expect(screen.getByRole("switch", { name: /Show the danger level/ })).toBeInTheDocument();
     });
 
     it("no card in combat, and none for players", async () => {
@@ -857,6 +902,11 @@ describe("Tracker (player)", () => {
     expect(screen.getByRole("img", { name: "Clock 13 of 20" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Crawling Clock" })).not.toBeInTheDocument();
     await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "clock", hideClock: true } });
+    expect(screen.queryByRole("region", { name: "Crawl status" })).not.toBeInTheDocument();
+    await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "clock", clockDice: 2 } });
+    expect(screen.getByRole("img", { name: "Clock 13 of 40" })).toBeInTheDocument();
+    // Encounter rolls off: the GM's clock isn't running, so players don't see it.
+    await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "clock", encounterRolls: false } });
     expect(screen.queryByRole("region", { name: "Crawl status" })).not.toBeInTheDocument();
   });
 

@@ -15,7 +15,7 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 
 import Confirm from "./Confirm";
 import CrawlBar, { ClockDial, FOCUS, PlayerRoll } from "./CrawlBar";
-import { cryptoRand, due, lastFor, rollFor } from "../crawl";
+import { clockLeft, clockStart, cryptoRand, due, lastFor, rollFor } from "../crawl";
 import { ChevronIcon, PlayIcon, SortIcon } from "./icons";
 import Loading from "./Loading";
 import RowMenu from "./RowMenu";
@@ -26,7 +26,7 @@ import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
 import { afterChange } from "../marker";
 import { NO_SELECTION, clickRow, keepRows, menuTargets, type Selection } from "../selection";
-import { parseSettings } from "../settings";
+import { effectiveMode, parseSettings } from "../settings";
 import { readLocal, writeLocal } from "../storage";
 import { errorMessage, notify } from "../utils";
 import {
@@ -34,6 +34,7 @@ import {
   gmEquation,
   moveTo,
   next,
+  nextAfterManualCheck,
   nextWithAutoRoll,
   parseTracker,
   playerView,
@@ -171,18 +172,21 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   // A player's own token (they put it on the map) has the turn.
   const currentToken = !gm && current && current !== GM_ENTRY ? tokenInfo(byId.get(current)) : null;
   const myTurn = currentToken && currentToken.owner === OBR.player.id ? currentToken.name : null;
+  const mode = effectiveMode(settings.value);
+  const start = clockStart(settings.value.clockDice);
   // Players see the Crawling Clock unless the GM hides it; the GM sees it on the card.
-  const showClock = !gm && settings.value.encounterMode === "clock" && !settings.value.hideClock;
-  const showDanger = !gm && !combat && settings.value.encounterMode === "standard" && settings.value.showDanger;
-  const playerRoll = !gm && settings.value.showRolls ? lastFor(tracker.crawl, settings.value.encounterMode) : null;
+  const showClock = !gm && mode === "clock" && !settings.value.hideClock;
+  const showDanger = !gm && !combat && mode !== "clock" && settings.value.showDanger;
+  const playerRoll = !gm && settings.value.showRolls ? lastFor(tracker.crawl, mode) : null;
   const goNext = () =>
-    change((t) => (settings.value.autoRoll ? nextWithAutoRoll(t, settings.value.encounterMode, cryptoRand) : next(t)));
-  const mode = settings.value.encounterMode;
+    change((t) =>
+      mode === "manual" ? nextAfterManualCheck(t) : settings.value.autoRoll ? nextWithAutoRoll(t, mode, cryptoRand, start) : next(t),
+    );
   hotkeys.current = {
     n: goNext,
     b: () => change(previous),
     r: () => {
-      if (!combat && due(tracker.crawl, mode)) change((t) => updateCrawl(t, (c) => rollFor(mode)(c, cryptoRand)));
+      if (!combat && mode !== "manual" && due(tracker.crawl, mode)) change((t) => updateCrawl(t, (c) => rollFor(mode, start)(c, cryptoRand)));
     },
   };
   const drop = ({ active, over }: DragEndEvent) => {
@@ -280,13 +284,13 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
           aria-label="Crawl status"
           className="flex items-center gap-3 rounded-[14px] bg-obr-bg px-3 py-2 ring-1 ring-obr-text/10 ring-inset"
         >
-          {showClock && <ClockDial value={tracker.crawl.clock} size={52} />}
+          {showClock && <ClockDial value={clockLeft(tracker.crawl, start)} of={start} size={52} />}
           <span className="flex flex-col text-xs leading-normal text-obr-text-secondary">
             <span>
               <span className="text-sm font-medium text-obr-text">Crawling</span>
               {showDanger && <span className="capitalize"> · {tracker.crawl.danger}</span>}
             </span>
-            {showClock && <span>The clock is at {tracker.crawl.clock}</span>}
+            {showClock && <span>The clock is at {clockLeft(tracker.crawl, start)}</span>}
           </span>
           {playerRoll && (
             <span className="ml-auto" aria-label="Last roll">
@@ -307,7 +311,8 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
         createPortal(
           <CrawlBar
             crawl={tracker.crawl}
-            mode={settings.value.encounterMode}
+            mode={mode}
+            start={start}
             gmTurn={tracker.current === GM_ENTRY}
             change={(fn) => change((t) => updateCrawl(t, fn))}
           />,

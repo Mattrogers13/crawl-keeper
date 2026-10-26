@@ -1,11 +1,16 @@
 // GM settings, one room metadata key (they follow the party across maps).
 // Later PRs add fields; parse keeps unknown or malformed fields at defaults.
 
-import type { EncounterMode } from "./crawl";
+import type { ClockDice, EncounterMode } from "./crawl";
 
 export type Settings = {
+  // Crawl Keeper rolls encounters; off, the GM rolls at the table and the
+  // card only says when a check is due (encounterMode is kept for later).
+  encounterRolls: boolean;
   // Standard 1-in-6 checks, or the Crawling Clock instead.
-  encounterMode: EncounterMode;
+  encounterMode: "standard" | "clock";
+  // The Crawling Clock's size: 1d20, or 2d20 run down one die at a time.
+  clockDice: ClockDice;
   // Players don't see the Crawling Clock.
   hideClock: boolean;
   // Players see the map's danger level (the book treats it as GM-only).
@@ -29,7 +34,9 @@ export type Settings = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
+  encounterRolls: true,
   encounterMode: "standard",
+  clockDice: 1,
   hideClock: false,
   showDanger: false,
   autoRoll: false,
@@ -44,7 +51,9 @@ export const DEFAULT_SETTINGS: Settings = {
 export const parseSettings = (raw: unknown): Settings => {
   const r = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
   return {
+    encounterRolls: r.encounterRolls !== false,
     encounterMode: r.encounterMode === "clock" ? "clock" : "standard",
+    clockDice: r.clockDice === 2 ? 2 : 1,
     hideClock: r.hideClock === true,
     showDanger: r.showDanger === true,
     autoRoll: r.autoRoll === true,
@@ -56,3 +65,6 @@ export const parseSettings = (raw: unknown): Settings => {
     selectOnTurn: r.selectOnTurn !== false,
   };
 };
+
+// The mode the panel runs: the chosen one, or manual with encounter rolls off.
+export const effectiveMode = (s: Settings): EncounterMode => (s.encounterRolls ? s.encounterMode : "manual");
