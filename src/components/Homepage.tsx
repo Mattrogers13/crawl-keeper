@@ -79,8 +79,9 @@ const Homepage = () => {
             can make it two d20s, run down one at a time.
           </li>
           <li>
-            <b>Encounter rolls off</b>: you roll at the table. The card keeps the danger level and lights up on the GM's
-            turn when a check is due; it counts as made when you press ▶.
+            <b>Manual rolls</b> (Settings, "Encounter checks and the Crawling Clock" off): no clock and no auto roll. The
+            card keeps the danger level and lights up on the GM's turn when a check is due. Roll its d6, or roll at the
+            table: a due check counts as made when you press ▶.
           </li>
         </Steps>
         <p>

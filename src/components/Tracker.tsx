@@ -186,7 +186,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
     n: goNext,
     b: () => change(previous),
     r: () => {
-      if (!combat && mode !== "manual" && due(tracker.crawl, mode)) change((t) => updateCrawl(t, (c) => rollFor(mode, start)(c, cryptoRand)));
+      if (!combat && due(tracker.crawl, mode)) change((t) => updateCrawl(t, (c) => rollFor(mode, start)(c, cryptoRand)));
     },
   };
   const drop = ({ active, over }: DragEndEvent) => {

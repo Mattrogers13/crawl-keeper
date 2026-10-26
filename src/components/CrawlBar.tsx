@@ -28,8 +28,8 @@ import {
 // (what's left before the next roll), the place (danger level; darkness for
 // the clock), and the d6, which is both the roll button and its last result. The card
 // and the die light up when a roll is due; the die can always be rolled (an
-// extra check when the GM wants one). Manual (encounter rolls off): no die,
-// the card only says when to roll at the table. `start` is the clock's size.
+// extra check when the GM wants one). Manual: the same d6 check, or the GM
+// rolls at the table; no auto roll. `start` is the clock's size.
 const CrawlBar = (props: {
   crawl: Crawl;
   mode: EncounterMode;
@@ -51,7 +51,7 @@ const CrawlBar = (props: {
   return (
     <section
       aria-label={clock ? "Crawling Clock" : "Encounter checks"}
-      className={`grid ${manual ? "grid-cols-[76px_minmax(0,1fr)]" : "grid-cols-[76px_minmax(0,1fr)_76px]"} items-start gap-3 rounded-[14px] bg-obr-bg p-2.5 ring-1 ring-inset ${
+      className={`grid grid-cols-[76px_minmax(0,1fr)_76px] items-start gap-3 rounded-[14px] bg-obr-bg p-2.5 ring-1 ring-inset ${
         callForRoll ? "shadow-[0_0_0_3px_color-mix(in_srgb,var(--obr-primary)_18%,transparent)] ring-obr-primary" : "ring-obr-text/10"
       }`}
     >
@@ -91,7 +91,7 @@ const CrawlBar = (props: {
             : `A check every ${every === 1 ? "crawl round" : `${every} crawl rounds`}`}
           {manual && (
             <span className={`block ${isDue ? "font-medium text-obr-text" : ""}`}>
-              {isDue ? "Roll a d6 at the table: an encounter on a 1" : "Encounter rolls off: you roll at the table"}
+              {isDue ? "Check due: roll the d6, here or at the table" : "Manual rolls"}
             </span>
           )}
           {clock && omen(crawl) && !crawl.last?.encounter && (
@@ -133,29 +133,27 @@ const CrawlBar = (props: {
         )}
       </div>
 
-      {!manual && (
-        <div className="flex flex-col items-center gap-1">
-          <D6
-            roll={last}
-            label={clock ? `Roll d${crawlDie(crawl)}` : "Encounter check (d6)"}
-            due={isDue}
-            onClick={() => change((c) => rollFor(mode, start)(c, cryptoRand))}
-          />
-          {/* A live region that stays mounted, so a new result is announced. */}
-          <div role="status" aria-label="Last roll" className="flex flex-col items-center">
-            {last ? (
-              <Outcome roll={last} />
-            ) : (
-              <span className="text-center text-[11px] leading-tight text-obr-text-secondary">{clock ? "Crawling die" : "Encounter check"}</span>
-            )}
-          </div>
-          {last && crawl.undo && (
-            <button type="button" className="text-[11px] text-obr-text-secondary underline hover:text-obr-text" onClick={() => change(undoRoll)}>
-              Undo
-            </button>
+      <div className="flex flex-col items-center gap-1">
+        <D6
+          roll={last}
+          label={clock ? `Roll d${crawlDie(crawl)}` : "Encounter check (d6)"}
+          due={isDue}
+          onClick={() => change((c) => rollFor(mode, start)(c, cryptoRand))}
+        />
+        {/* A live region that stays mounted, so a new result is announced. */}
+        <div role="status" aria-label="Last roll" className="flex flex-col items-center">
+          {last ? (
+            <Outcome roll={last} />
+          ) : (
+            <span className="text-center text-[11px] leading-tight text-obr-text-secondary">{clock ? "Crawling die" : "Encounter check"}</span>
           )}
         </div>
-      )}
+        {last && crawl.undo && (
+          <button type="button" className="text-[11px] text-obr-text-secondary underline hover:text-obr-text" onClick={() => change(undoRoll)}>
+            Undo
+          </button>
+        )}
+      </div>
     </section>
   );
 };
