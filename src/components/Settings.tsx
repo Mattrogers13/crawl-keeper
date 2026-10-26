@@ -16,7 +16,8 @@ const Settings = () => {
   const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   if (!settings.loaded) return <Loading />;
   const set = (s: Partial<SettingsDoc>) => void settings.write({ ...settings.value, ...s });
-  const clock = settings.value.encounterMode === "clock";
+  const rolls = settings.value.encounterRolls;
+  const clock = rolls && settings.value.encounterMode === "clock";
 
   return (
     <div className="flex flex-col gap-4 pb-3 text-sm">
@@ -38,70 +39,82 @@ const Settings = () => {
       </a>
 
       <Group title="Encounters">
-        <div className="flex flex-col gap-2 px-4 py-3">
-          <div role="radiogroup" aria-label="Encounter checks" className="flex rounded-full bg-obr-paper p-[3px]">
-            {(
-              [
+        <Toggle
+          label="Roll encounters in Crawl Keeper"
+          hint="Off: you roll at the table. The card still shows the danger level and lights up on your turn when a check is due; it counts as made when you move on."
+          checked={rolls}
+          onChange={(encounterRolls) => set({ encounterRolls })}
+        />
+        {rolls && (
+          <div className="flex flex-col gap-2 px-4 py-3">
+            <Segmented
+              label="Encounter checks"
+              name="encounter-mode"
+              value={settings.value.encounterMode}
+              options={[
                 ["standard", "Standard checks"],
                 ["clock", "Crawling Clock"],
-              ] as const
-            ).map(([mode, label]) => (
-              <label
-                key={mode}
-                className={`flex h-8 flex-1 cursor-pointer items-center justify-center rounded-full font-medium has-focus-visible:ring-2 has-focus-visible:ring-obr-primary ${
-                  settings.value.encounterMode === mode ? "bg-obr-primary text-obr-primary-contrast" : "hover:bg-obr-text/10"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="encounter-mode"
-                  className="sr-only"
-                  checked={settings.value.encounterMode === mode}
-                  onChange={() => set({ encounterMode: mode })}
+              ]}
+              onChange={(encounterMode) => set({ encounterMode })}
+            />
+            <p className="text-xs text-obr-text-secondary">
+              {clock
+                ? settings.value.clockDice === 2
+                  ? "Two d20s (40) that the crawling die wears down one die at a time, each crawl round; an encounter when both are empty."
+                  : "A d20 clock from 20 that the crawling die wears down each crawl round; an encounter at 0."
+                : "A d6 every few crawl rounds by danger level; an encounter on a 1 (core p. 112)."}
+            </p>
+            {clock && (
+              <>
+                <Segmented
+                  label="Clock size"
+                  name="clock-dice"
+                  value={settings.value.clockDice}
+                  options={[
+                    [1, "1d20"],
+                    [2, "2d20"],
+                  ]}
+                  onChange={(clockDice) => set({ clockDice })}
                 />
-                {label}
-              </label>
-            ))}
+                <details className="rounded-lg bg-obr-paper px-3 py-2">
+                  <summary className="cursor-pointer font-medium">Crawling Clock rules</summary>
+                  <div className="pt-2">
+                    <ClockRules />
+                  </div>
+                </details>
+              </>
+            )}
           </div>
-          <p className="text-xs text-obr-text-secondary">
-            {clock
-              ? "A d20 clock from 20 that the crawling die wears down each crawl round; an encounter at 0."
-              : "A d6 every few crawl rounds by danger level; an encounter on a 1 (core p. 112)."}
-          </p>
-          {clock && (
-            <details className="rounded-lg bg-obr-paper px-3 py-2">
-              <summary className="cursor-pointer font-medium">Crawling Clock rules</summary>
-              <div className="pt-2">
-                <ClockRules />
-              </div>
-            </details>
-          )}
-        </div>
+        )}
         <Toggle
           label="Follow Torchlight"
           hint="When the last light on a tracked token goes out in Torchlight, it's total darkness: Deadly, a d8 crawling die, and a 3 ft light on the party's tokens so players still see themselves. The first light back undoes it. Off: set danger and darkness yourself."
           checked={settings.value.followTorchlight}
           onChange={(followTorchlight) => set({ followTorchlight })}
         />
-        <Toggle
-          label="Roll automatically on the GM turn"
-          hint="When ▶ reaches GM / Monsters in a crawl round and a roll is due, Crawl Keeper rolls it for you. Undo still works."
-          checked={settings.value.autoRoll}
-          onChange={(autoRoll) => set({ autoRoll })}
-        />
+        {rolls && (
+          <Toggle
+            label="Roll automatically on the GM turn"
+            hint="When ▶ reaches GM / Monsters in a crawl round and a roll is due, Crawl Keeper rolls it for you. Undo still works."
+            checked={settings.value.autoRoll}
+            onChange={(autoRoll) => set({ autoRoll })}
+          />
+        )}
       </Group>
 
       <Group title="What players see">
-        <Toggle
-          label="Show the rolls to players"
-          hint={
-            clock
-              ? "Players see the crawling die's last roll and what it did to the clock."
-              : "Players see the last encounter check and whether it was an encounter."
-          }
-          checked={settings.value.showRolls}
-          onChange={(showRolls) => set({ showRolls })}
-        />
+        {rolls && (
+          <Toggle
+            label="Show the rolls to players"
+            hint={
+              clock
+                ? "Players see the crawling die's last roll and what it did to the clock."
+                : "Players see the last encounter check and whether it was an encounter."
+            }
+            checked={settings.value.showRolls}
+            onChange={(showRolls) => set({ showRolls })}
+          />
+        )}
         <Toggle
           label="Hide rounds from players"
           hint="Players see Crawl or Combat but not the round number."
@@ -240,6 +253,30 @@ const InstallLink = () => {
     </div>
   );
 };
+
+// A segmented pill of choices (radios underneath, for the keyboard and
+// screen readers).
+const Segmented = <T extends string | number>(props: {
+  label: string;
+  name: string;
+  value: T;
+  options: [T, string][];
+  onChange: (v: T) => void;
+}) => (
+  <div role="radiogroup" aria-label={props.label} className="flex rounded-full bg-obr-paper p-[3px]">
+    {props.options.map(([value, label]) => (
+      <label
+        key={value}
+        className={`flex h-8 flex-1 cursor-pointer items-center justify-center rounded-full font-medium has-focus-visible:ring-2 has-focus-visible:ring-obr-primary ${
+          props.value === value ? "bg-obr-primary text-obr-primary-contrast" : "hover:bg-obr-text/10"
+        }`}
+      >
+        <input type="radio" name={props.name} className="sr-only" checked={props.value === value} onChange={() => props.onChange(value)} />
+        {label}
+      </label>
+    ))}
+  </div>
+);
 
 // One setting: label and hint on the left, a switch on the right (a real
 // checkbox underneath, so the label, keyboard and screen readers work).

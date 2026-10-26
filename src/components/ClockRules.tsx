@@ -27,6 +27,11 @@ const ClockRules = () => (
     <ul className="flex list-disc flex-col gap-1.5 pl-5">
       <li>Darkness: if the party's light goes out, the crawling die steps up to a d8.</li>
       <li>Hidden clock: if players start playing around the clock, hide it from them (a setting).</li>
+      <li>
+        Longer clock (Crawl Keeper's own, not on the sheet): two d20s, 40 in all. The crawling die wears down one d20,
+        then the other; the omen and the encounter come on the last die, as above, and the overflow carries into a fresh
+        40 (a setting).
+      </li>
     </ul>
     <p className="text-xs text-obr-text-secondary">
       An alternative to Shadowdark's 1-in-6 check, from the Crawling Clock rules sheet, based on Goblin Punch's “The

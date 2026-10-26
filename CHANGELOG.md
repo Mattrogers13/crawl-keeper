@@ -5,6 +5,8 @@ Versions follow semver; the same number is in `package.json` and `public/manifes
 ## Unreleased
 
 - Follow Torchlight (setting, on): a flame beside tokens with a lit Torchlight light; when the last one goes out, total darkness (Deadly, d8 crawling die) and a 3 ft light on the party's tokens; the first light back undoes it.
+- Encounter rolls can be switched off (Settings): you roll at the table. The card keeps the danger level and lights up on the GM's turn when a check is due; ▶ off that turn counts it made.
+- A 2d20 Crawling Clock (Settings, Clock size): 40, run down one d20 at a time; the omen and encounter on the last die, the overflow carries into a fresh 40.
 
 ## v0.1.1 (2026-10-17)
 

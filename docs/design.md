@@ -13,7 +13,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 | Where | Key | Contents | Writer |
 |---|---|---|---|
 | Scene metadata | `${ID}/tracker` | entries `[{ id: itemId \| "gm", roll, note, dead, monster, marker }]` (players and GM row in turn order, then monsters), phase (`crawl` \| `combat`), current turn id, round, crawl `{ danger, dark, clock, crawlRounds, lastCheck, last roll, undo }` (per map: each dungeon has its own clock), gmMod (the monsters' DEX modifier, -9 to +9) | GM |
-| Room metadata | `${ID}/settings` | encounter mode (`standard` \| `clock`), roll automatically, hide clock, show danger level, hide rounds, clear rolls on combat, select on turn | GM |
+| Room metadata | `${ID}/settings` | encounter rolls on/off, encounter mode (`standard` \| `clock`), clock size (1 \| 2 d20s), roll automatically, hide clock, show danger level, hide rounds, clear rolls on combat, select on turn | GM |
 | Room metadata (v0.2) | `${ID}/tables` | custom encounter tables | GM |
 
 - Caps: 40 entries, notes 200 chars. Worst case about 12.4 kB in the scene doc (with a full crawl roll). Settings shows the live size (tracker, whole scene, whole room). The undocumented scene limit: a full tracker (about 12 kB) saved fine in a real room, 2026-10-16.
@@ -69,6 +69,8 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 - Roll automatically (setting, default off): ▶ onto the GM / Monsters turn in a crawl round with a roll due rolls it (check or crawling die) in the same write; Undo still works.
 - The roll button is always there while crawling (2026-10-16, reversing the earlier "only when due"): plain when no roll is due, outlined when one is due, filled when it's due on the GM's turn. A roll that isn't due is an extra check (p. 112: "The GM might also check for an encounter if the characters create a loud disturbance") and leaves the schedule alone; a due one counts as that round's check. One-level undo of the last roll. "Reset clock" (asks first; also right-click the clock) resets to 20 for a new dangerous place.
 - Rolls use `crypto.getRandomValues`.
+- **Encounter rolls off (Matt, 2026-10-26):** a Settings switch (on by default) for GMs who roll at the table. Off: no die, no R, no auto roll, no rolls shown to players, no clock for players; the chosen mode is kept for when it's back on. The card keeps the standard reminder (dial, danger level, Darkness chip) whatever the mode, and lights up on the GM turn when a check is due; ▶ off the GM / Monsters turn in a crawl round counts it made (no undo: nothing was recorded). A GM running a physical clock picks Deadly for a reminder every round.
+- **2d20 clock (Matt, 2026-10-26; ours, not on the sheet):** Settings' Clock size, 1d20 or 2d20. 40 run down one d20 at a time; the omen (1 to 5) and the encounter on the last die, the overflow carries into a fresh 40. The clock is stored as what's left, up to 40; a fresh or reset clock is 40 and a 1d20 clock reads it capped at 20, so changing the size writes nothing to the maps (a clock already below 20 stays there going to 2d20; Reset fills it). The dial's d20 shows the front die, a "+20" badge while the second is full, and a notch at the halfway point.
 
 ## Releases
 
