@@ -17,3 +17,24 @@ export const writeLocal = (key: string, value: string) => {
     // Not remembered; still works for this session.
   }
 };
+
+// sessionStorage, same rules: this tab only, gone on reload or close (the
+// GM's undo history, src/undo.ts). Panel and background page share it (same
+// origin, same tab). Returns false when the write didn't stick (blocked or
+// full), so the caller can trim and retry.
+export const readSession = (key: string): string | null => {
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+export const writeSession = (key: string, value: string): boolean => {
+  try {
+    sessionStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+};

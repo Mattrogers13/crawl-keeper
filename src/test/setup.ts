@@ -13,6 +13,8 @@ beforeEach(() => {
   resetObr();
   // Per-browser conveniences (src/storage.ts), e.g. the folded monsters.
   localStorage.clear();
+  // The GM's undo history (src/undo.ts).
+  sessionStorage.clear();
   document.documentElement.className = "";
   document.documentElement.removeAttribute("style");
 });

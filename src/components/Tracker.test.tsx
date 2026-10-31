@@ -240,7 +240,7 @@ describe("Tracker (GM)", () => {
     fireEvent.click(screen.getByText("Remove monsters"));
     fireEvent.click(screen.getByText("Remove"));
     await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["p", GM_ENTRY]));
-    expect(screen.queryByText("Remove monsters")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove monsters" })).not.toBeInTheDocument();
   });
 
   it("turning the marker off in Settings removes the ring now", async () => {
@@ -614,7 +614,8 @@ describe("Tracker (GM)", () => {
       expect(within(card).getByRole("button", { name: "Encounter check (d6)" })).toHaveTextContent(String(saved().crawl.last?.dice[0]));
       expect(within(card).getByLabelText("Last roll")).toHaveTextContent(/^(No encounter|Encounter!)$/);
       expect(within(card).getByText("3 rounds left")).toBeInTheDocument();
-      fireEvent.click(within(card).getByText("Undo"));
+      // The global undo takes the roll back.
+      fireEvent.click(await screen.findByRole("button", { name: "Undo: Encounter check" }));
       await waitFor(() => expect(saved().crawl).toMatchObject({ lastCheck: 0, last: null }));
     });
 
@@ -639,7 +640,7 @@ describe("Tracker (GM)", () => {
 
     it("after switching modes the die doesn't show the other mode's roll (or offer to undo it)", async () => {
       scene([{ id: GM_ENTRY }], GM_ENTRY, 1, {
-        crawl: { crawlRounds: 1, lastCheck: 1, clock: 15, last: { kind: "clock", dice: [5], sides: 6, before: 20, after: 15, encounter: false }, undo: { clock: 20, lastCheck: 0 } },
+        crawl: { crawlRounds: 1, lastCheck: 1, clock: 15, last: { kind: "clock", dice: [5], sides: 6, before: 20, after: 15, encounter: false } },
       });
       render(<App />);
       const card = await screen.findByRole("region", { name: "Encounter checks" });
@@ -767,7 +768,7 @@ describe("Tracker (GM)", () => {
       expect(saved().crawl.last).toBeNull();
       fireEvent.click(within(card).getByRole("button", { name: "Encounter check (d6)" }));
       await waitFor(() => expect(saved().crawl.last).toMatchObject({ kind: "check" }));
-      expect(within(card).getByText("Undo")).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Undo: Encounter check" })).toBeInTheDocument();
     });
 
     it("Settings: checks and clock off hides the method and auto roll", async () => {

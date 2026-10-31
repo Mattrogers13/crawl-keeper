@@ -6,6 +6,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 import { cryptoRand } from "../crawl";
+import type { Change } from "./Tracker";
 import { D20Icon, FlameIcon, GmPortrait, GripIcon, MoreIcon, SkullIcon } from "./icons";
 import { SOURCE_LABEL, lightOn, type LightSource } from "../torchlight";
 import {
@@ -19,7 +20,6 @@ import {
   setRoll,
   type Entry,
   type GmDie,
-  type Tracker as TrackerDoc,
 } from "../tracker";
 
 // `owner`: the player who put the token on the map. `light`: what
@@ -44,7 +44,7 @@ const Row = (props: {
   token: Token | null;
   current: boolean;
   gm: boolean;
-  change: (fn: (t: TrackerDoc) => TrackerDoc) => void;
+  change: Change;
   show: (id: string) => void;
   openMenu: (id: string, x: number, y: number) => void;
   select: (id: string, mods: { shift: boolean; toggle: boolean }) => void;
@@ -160,7 +160,7 @@ const Row = (props: {
           {gm ? (
             <span className="flex min-w-0 items-baseline gap-1.5">
               {!token && props.gmDie && <Equation die={props.gmDie} />}
-              <NoteInput key={entry.note} name={name} value={entry.note} save={(n) => change((t) => setNote(t, entry.id, n))} />
+              <NoteInput key={entry.note} name={name} value={entry.note} save={(n) => change("Note", (t) => setNote(t, entry.id, n))} />
             </span>
           ) : (
             entry.note && <span className="text-xs whitespace-pre-wrap text-obr-text-secondary">{entry.note}</span>
@@ -186,7 +186,7 @@ const Row = (props: {
               )}
               {/* Monsters act on the GM / Monsters roll. */}
               {!entry.monster && (
-                <RollInput key={entry.roll ?? ""} name={name} value={entry.roll} save={(r) => change((t) => setRoll(t, entry.id, r))} />
+                <RollInput key={entry.roll ?? ""} name={name} value={entry.roll} save={(r) => change("Initiative roll", (t) => setRoll(t, entry.id, r))} />
               )}
             </span>
             {/* The row menu (also on right-click). The GM row has none: a gap keeps the columns lined up. */}
@@ -213,9 +213,9 @@ const Row = (props: {
       {gm && !token && rolling && (
         <GmRoll
           mod={props.gmMod}
-          setMod={(m) => change((t) => setGmMod(t, m))}
+          setMod={(m) => change("Monsters' DEX", (t) => setGmMod(t, m))}
           roll={() => {
-            change((t) => rollGmInitiative(t, cryptoRand));
+            change("Monsters' initiative roll", (t) => rollGmInitiative(t, cryptoRand));
             setRolling(false);
           }}
           close={() => setRolling(false)}
