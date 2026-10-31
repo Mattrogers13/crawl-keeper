@@ -543,7 +543,7 @@ describe("Tracker (GM)", () => {
     fireEvent.click(await screen.findByLabelText("Settings"));
     expect(await screen.findByRole("link", { name: /How to use Crawl Keeper/ })).toHaveAttribute("target", "_blank");
     expect(screen.queryByText("Crawling Clock rules")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("radio", { name: "Crawling Clock" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Clock 1d20" }));
     expect(await screen.findByText("Crawling Clock rules")).toBeInTheDocument();
   });
 
@@ -771,19 +771,23 @@ describe("Tracker (GM)", () => {
       expect(await screen.findByRole("button", { name: "Undo: Encounter check" })).toBeInTheDocument();
     });
 
-    it("Settings: checks and clock off hides the method and auto roll", async () => {
+    it("Settings: one choice of four sets the method; Manual keeps the clock size and hides auto roll and rolls", async () => {
       scene([{ id: GM_ENTRY }]);
       render(<App />);
       fireEvent.click(await screen.findByLabelText("Settings"));
-      fireEvent.click(await screen.findByRole("radio", { name: "Crawling Clock" }));
-      fireEvent.click(await screen.findByLabelText("2d20"));
-      await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ encounterMode: "clock", clockDice: 2 }));
-      fireEvent.click(screen.getByRole("switch", { name: /Encounter checks and the Crawling Clock/ }));
-      await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ encounterRolls: false, encounterMode: "clock" }));
-      expect(screen.queryByRole("radiogroup", { name: "Encounter checks" })).not.toBeInTheDocument();
+      fireEvent.click(await screen.findByRole("radio", { name: "Clock 2d20" }));
+      await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ encounterRolls: true, encounterMode: "clock", clockDice: 2 }));
+      expect(screen.getByRole("switch", { name: /Roll automatically/ })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("radio", { name: "Manual" }));
+      await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ encounterRolls: false, encounterMode: "clock", clockDice: 2 }));
+      expect(screen.getByRole("radio", { name: "Manual" })).toBeChecked();
       expect(screen.queryByRole("switch", { name: /Roll automatically/ })).not.toBeInTheDocument();
-      expect(screen.getByRole("switch", { name: /Show the rolls/ })).toBeInTheDocument();
+      expect(screen.queryByRole("switch", { name: /Show the rolls/ })).not.toBeInTheDocument();
       expect(screen.getByRole("switch", { name: /Show the danger level/ })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("radio", { name: "Interval" }));
+      await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ encounterRolls: true, encounterMode: "standard" }));
+      // One undo step, named for the method.
+      expect(screen.getByRole("button", { name: "Undo: Setting: encounter method" })).toBeInTheDocument();
     });
 
     it("no card in combat, and none for players", async () => {
@@ -905,6 +909,7 @@ describe("Tracker (player)", () => {
     scene([{ id: GM_ENTRY }], null, 0, { crawl: { clock: 13 } });
     render(<App />);
     expect(await screen.findByRole("region", { name: "Crawl status" })).toHaveTextContent("The clock is at 13");
+    expect(screen.getByRole("region", { name: "Crawl status" })).toHaveTextContent("Crawling Clock");
     expect(screen.getByRole("img", { name: "Clock 13 of 20" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Crawling Clock" })).not.toBeInTheDocument();
     await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "clock", hideClock: true } });
@@ -950,6 +955,20 @@ describe("Tracker (player)", () => {
     // Hidden clock, rolls shown: the card still shows the roll.
     await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "clock", showRolls: true, hideClock: true } });
     expect(screen.getByRole("region", { name: "Crawl status" })).not.toHaveTextContent("The clock is at");
+    expect(screen.getByLabelText("Last roll")).toBeInTheDocument();
+  });
+
+  it("never sees the GM's roll in manual mode, even with the rolls shown", async () => {
+    obr.role = "PLAYER";
+    obr.metadata = { [SETTINGS_KEY]: { encounterRolls: false, showRolls: true, showDanger: true } };
+    scene([{ id: GM_ENTRY }], GM_ENTRY, 1, {
+      crawl: { crawlRounds: 3, lastCheck: 3, last: { kind: "check", dice: [1], sides: 6, encounter: true } },
+    });
+    render(<App />);
+    expect(await screen.findByRole("region", { name: "Crawl status" })).toHaveTextContent("Crawling · unsafe");
+    expect(screen.queryByLabelText("Last roll")).not.toBeInTheDocument();
+    // The same roll in Interval mode shows.
+    await writeFromElsewhere({ [SETTINGS_KEY]: { showRolls: true, showDanger: true } });
     expect(screen.getByLabelText("Last roll")).toBeInTheDocument();
   });
 
