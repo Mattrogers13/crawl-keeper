@@ -151,6 +151,19 @@ describe("the Light Tracker", () => {
     await waitFor(() => expect(saved().lights.map((l) => l.status)).toEqual(["lit", "lit"]));
   });
 
+  it("Remove all lights asks first, then offers Undo", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a"), lit("l2", "b", "lightSpell")] } };
+    scene(["a", "b"]);
+    render(<App />);
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Remove all lights" }));
+    fireEvent.click(within(screen.getByRole("alertdialog", { name: "Remove all 2 lights?" })).getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(saved().lights).toHaveLength(0));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(saved().lights).toHaveLength(2));
+  });
+
   it("clicking the time corrects it", async () => {
     obr.items = [token("a", { name: "Aria" })];
     obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a")] } };

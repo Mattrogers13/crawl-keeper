@@ -271,6 +271,18 @@ describe("tokens, notes, limits", () => {
     expect(t.s).toBe(same);
   });
 
+  it("remove all keeps the rules and Pause", () => {
+    const t = setup("separate");
+    t.add("torch");
+    t.add("lantern");
+    t.do(L.pause);
+    t.do(L.removeAll);
+    expect(t.s).toMatchObject({ lights: [], lightingRule: "separate", paused: true });
+    const empty = t.s;
+    t.do(L.removeAll);
+    expect(t.s).toBe(empty);
+  });
+
   it("remove; unknown ids throw; Time passes takes 1 ms to 24 h", () => {
     const t = setup();
     t.add("torch");

@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 
+import Confirm from "./Confirm";
 import { FOCUS } from "./CrawlBar";
 import Loading from "./Loading";
 import Segmented from "./Segmented";
@@ -21,6 +22,7 @@ import {
   refillOil,
   relight,
   remaining,
+  removeAll,
   removeLight,
   resume,
   setLightingRule,
@@ -73,6 +75,16 @@ const LightTracker = ({ names }: { names: Map<string, string> }) => {
       {s.lights.map((l) => (
         <LightCard key={l.id} light={l} name={names.get(l.tokenId) ?? l.carrier} now={now} paused={s.paused} change={change} />
       ))}
+      {s.lights.length > 0 && (
+        <div className="-mt-1">
+          <Confirm
+            label="Remove all lights"
+            question={`Remove all ${s.lights.length} lights?`}
+            action="Remove"
+            onConfirm={() => change("Remove all lights", removeAll, { toast: true })}
+          />
+        </div>
+      )}
 
       <section className="flex flex-col gap-2 rounded-xl bg-obr-bg px-3 py-3 ring-1 ring-obr-text/10 ring-inset">
         <h3 className="text-[11px] font-medium tracking-[0.06em] text-obr-text-secondary uppercase">Lighting a second light (p. 84)</h3>

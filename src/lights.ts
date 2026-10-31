@@ -263,6 +263,9 @@ export const removeLight = (state: Lights, now: number, id: string): Lights => {
   return { ...s, lights: s.lights.filter((l) => l.id !== id) };
 };
 
+// Every light gone (the end of a session); the two rules and Pause stay.
+export const removeAll = (s: Lights): Lights => (s.lights.length === 0 ? s : { ...s, lights: [] });
+
 export const editNote = (state: Lights, now: number, id: string, note: string): Lights => {
   const s = settle(state, now);
   const text = cleanText(note, MAX_NOTE);
