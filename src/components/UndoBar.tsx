@@ -59,8 +59,8 @@ const UndoBar = () => {
   if (!lastUndo && !lastRedo && !toast) return null;
 
   return (
-    <>
-      <div className="flex shrink-0 items-center gap-2 text-xs">
+    <div className="relative shrink-0">
+      <div className="flex items-center gap-2 text-xs">
         <StepButton label={lastUndo && `Undo: ${lastUndo.label}`} idle="Nothing to undo" hint="⌘Z" onClick={() => void undo()}>
           <UndoIcon />
           <span className="truncate">{lastUndo ? `Undo: ${lastUndo.label}` : "Undo"}</span>
@@ -73,9 +73,9 @@ const UndoBar = () => {
       {toast && lastUndo && (
         <div
           role="status"
-          className="fixed inset-x-3 bottom-24 z-20 flex items-center gap-3 rounded-xl bg-obr-paper px-3 py-2 text-sm shadow-lg ring-1 ring-obr-text/15"
+          className="absolute inset-x-0 bottom-full z-20 mb-2 flex items-center gap-3 rounded-xl bg-obr-paper px-3 py-2 text-sm shadow-lg ring-1 ring-obr-text/15"
         >
-          {/* Above the Undo bar and the resize grip, over the list. */}
+          {/* Just above the Undo bar, over the list. */}
           <span className="min-w-0 flex-1 truncate">
             <span className="text-obr-text-secondary">Done: </span>
             {toast}
@@ -89,7 +89,7 @@ const UndoBar = () => {
           </button>
         </div>
       )}
-    </>
+    </div>
   );
 };
 
