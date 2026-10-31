@@ -186,7 +186,8 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   // Players see the Crawling Clock unless the GM hides it; the GM sees it on the card.
   const showClock = !gm && mode === "clock" && !settings.value.hideClock;
   const showDanger = !gm && !combat && mode !== "clock" && settings.value.showDanger;
-  const playerRoll = !gm && settings.value.showRolls ? lastFor(tracker.crawl, mode) : null;
+  // Manual: the GM's rolls stay the GM's.
+  const playerRoll = !gm && mode !== "manual" && settings.value.showRolls ? lastFor(tracker.crawl, mode) : null;
   const goNext = () =>
     change("Next turn", (t) =>
       mode === "manual" ? nextAfterManualCheck(t) : settings.value.autoRoll ? nextWithAutoRoll(t, mode, cryptoRand, start) : next(t),
@@ -296,7 +297,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
           {showClock && <ClockDial value={clockLeft(tracker.crawl, start)} of={start} size={52} />}
           <span className="flex flex-col text-xs leading-normal text-obr-text-secondary">
             <span>
-              <span className="text-sm font-medium text-obr-text">Crawling</span>
+              <span className="text-sm font-medium text-obr-text">{showClock ? "Crawling Clock" : "Crawling"}</span>
               {showDanger && <span className="capitalize"> · {tracker.crawl.danger}</span>}
             </span>
             {showClock && <span>The clock is at {clockLeft(tracker.crawl, start)}</span>}
