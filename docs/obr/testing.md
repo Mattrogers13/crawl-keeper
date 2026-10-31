@@ -27,6 +27,7 @@ Add SDK APIs to the mock as you use them. Every mock function must return a prom
 - A `setState` updater that returns the same state can still re-render the component. If "doesn't re-render" matters, don't call `setState` at all.
 - Tests that pass alone but fail in the full run = state leaking between tests. Run the single test (`npx vitest run file -t "name"`) to confirm, then find the leak; don't add waits.
 - Fake timers: wrap advances in `act(async () => { await vi.advanceTimersByTimeAsync(ms); })` and restore real timers in `finally`.
+- **No `waitFor` / `findBy` while Vitest's fake timers are on**: Testing Library sees a fake clock and tries to drive Jest's timers, which don't exist under Vitest, so its polling stalls. It passes locally when the first check succeeds and fails on slower CI (2026-10-30, `UndoBar.test.tsx`). Poll by hand with the `act` + `advanceTimersByTimeAsync(0)` loop.
 
 ## Regression tests must fail on the old code
 
