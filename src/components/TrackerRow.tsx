@@ -7,7 +7,7 @@ import { CSS } from "@dnd-kit/utilities";
 
 import { cryptoRand } from "../crawl";
 import type { Change } from "./Tracker";
-import LightBadges from "./LightBadges";
+import LightBadge from "./LightBadge";
 import { D20Icon, FlameIcon, GmPortrait, GripIcon, MoreIcon, SkullIcon } from "./icons";
 import type { LightChange } from "../hooks/useLights";
 import type { Light } from "../lights";
@@ -185,7 +185,7 @@ const Row = (props: {
             entry.note && <span className="text-xs whitespace-pre-wrap text-obr-text-secondary">{entry.note}</span>
           )}
         </div>
-        {props.lights && props.lights.length > 0 && <LightBadges lights={props.lights} change={props.lightChange} />}
+        {props.lights && <LightBadge lights={props.lights} change={props.lightChange} />}
         {props.dis && (
           <span title="Total darkness: disadvantage on tasks that need sight (p. 84)" className="shrink-0 rounded bg-red-600/15 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-red-700 dark:text-red-300">
             DIS

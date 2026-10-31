@@ -102,14 +102,6 @@ describe("lighting rule (p. 84)", () => {
     expect(t.left(1)).toBe(480 * MIN);
   });
 
-  it("a shuttered lantern is no timer to ride", () => {
-    const t = setup("rideAlong");
-    t.add("lantern");
-    t.do((s, now) => L.toggleShutter(s, now, "light-1"));
-    t.add("torch");
-    expect(t.left(1)).toBe(60 * MIN);
-  });
-
   it("separate timers: every light gets its own", () => {
     const t = setup("separate");
     t.add("torch");
@@ -136,13 +128,12 @@ describe("global controls", () => {
     expect([0, 1, 2].map(t.left)).toEqual([50 * MIN, 50 * MIN, 55 * MIN]);
   });
 
-  it("Time passes takes time off lit lights only, shuttered lanterns included; 0 spends them", () => {
+  it("Time passes takes time off lit lights only; 0 spends them", () => {
     const t = setup("separate");
     t.add("torch");
-    t.add("torch");
-    t.do((s, now) => L.putOut(s, now, "light-2"));
     t.add("lantern");
-    t.do((s, now) => L.toggleShutter(s, now, "light-3"));
+    t.do((s, now) => L.putOut(s, now, "light-2"));
+    t.add("lightSpell");
     t.advance(30 * MIN);
     t.do((s, now) => L.timePasses(s, now, 20 * MIN));
     expect([t.left(0), t.left(1), t.left(2)]).toEqual([10 * MIN, 60 * MIN, 10 * MIN]);
@@ -169,31 +160,50 @@ describe("global controls", () => {
     expect(t.s).toBe(before);
   });
 
-  it("Put lights out keeps the time; relight continues", () => {
+  it("Put lights out spends the torches; lanterns keep their oil, rounded down", () => {
     const t = setup("separate");
     t.add("torch");
     t.add("lantern");
     t.advance(20 * MIN);
     t.do(L.putAllOut);
     expect(t.status()).toBe("dark");
+    expect(t.statuses()).toEqual(["spent", "out"]);
     t.advance(60 * MIN);
-    expect([t.left(0), t.left(1)]).toEqual([40 * MIN, 40 * MIN]);
-    t.do((s, now) => L.relight(s, now, "light-1"));
+    expect(t.left(1)).toBe(30 * MIN);
+    t.do((s, now) => L.relight(s, now, "light-2"));
     expect(t.status()).toBe("lit");
   });
 });
 
 describe("lanterns", () => {
-  it("the shutter makes it dark while the oil burns; refill gives an hour", () => {
-    const t = setup();
-    t.add("lantern");
-    t.advance(45 * MIN);
-    t.do((s, now) => L.toggleShutter(s, now, "light-1"));
-    expect(t.status()).toBe("dark");
+  it("put out, the oil rounds down to the quarter hour; under 15 minutes it's empty", () => {
+    const cases: [number, L.Status, number][] = [
+      [1 * MIN, "out", 45 * MIN],
+      [15 * MIN, "out", 45 * MIN],
+      [22 * MIN, "out", 30 * MIN],
+      [44 * MIN + 59_000, "out", 15 * MIN],
+      [46 * MIN, "spent", 0],
+    ];
+    for (const [burned, status, oil] of cases) {
+      const t = setup();
+      t.add("lantern");
+      t.advance(burned);
+      t.do((s, now) => L.putOut(s, now, "light-1"));
+      expect(t.light(0), `${burned / MIN} min`).toMatchObject({ status, remainingMs: oil });
+    }
+  });
+
+  it("lit again, it burns its own oil (not the Ride along timer); refill gives an hour", () => {
+    const t = setup("rideAlong");
+    t.add("lantern", "a");
+    t.advance(20 * MIN);
+    t.do((s, now) => L.putOut(s, now, "light-1"));
+    t.add("torch", "b");
+    t.advance(50 * MIN);
+    t.do((s, now) => L.relight(s, now, "light-1"));
+    expect(t.left(0)).toBe(30 * MIN);
     t.do((s, now) => L.refillOil(s, now, "light-1"));
     expect(t.left(0)).toBe(60 * MIN);
-    t.do((s, now) => L.toggleShutter(s, now, "light-1"));
-    expect(t.status()).toBe("lit");
   });
 
   it("a spent lantern can be refilled and relit", () => {
@@ -207,10 +217,9 @@ describe("lanterns", () => {
     expect(t.status()).toBe("lit");
   });
 
-  it("only lanterns shutter or take oil", () => {
+  it("only lanterns take oil", () => {
     const t = setup();
     t.add("torch");
-    expect(() => t.do((s, now) => L.toggleShutter(s, now, "light-1"))).toThrow(/lanterns/);
     expect(() => t.do((s, now) => L.refillOil(s, now, "light-1"))).toThrow(/lanterns/);
   });
 });
@@ -232,24 +241,63 @@ describe("tokens, notes, limits", () => {
     expect(() => t.add("lantern", "aria")).toThrow(L.AlreadyLitError);
     expect(() => t.add("lantern", "aria")).toThrow("Aria already carries a lit torch");
     expect(t.s.lights).toHaveLength(1);
+    t.add("lantern", "borin");
+    t.do((s, now) => L.putOut(s, now, "light-2"));
     t.add("torch", "borin");
+    expect(L.litOn(t.s, "borin")?.kind).toBe("torch");
+    // Turning the old lantern back on is checked too.
+    expect(() => t.do((s, now) => L.relight(s, now, "light-2"))).toThrow(L.AlreadyLitError);
+  });
+
+  it("a new light clears the token's spent lights, and a new lantern its old one", () => {
+    const t = setup();
+    t.add("torch", "aria");
     t.do((s, now) => L.putOut(s, now, "light-1"));
+    t.add("torch", "borin");
+    t.do((s, now) => L.putOut(s, now, "light-2"));
     t.add("lantern", "aria");
-    expect(L.litOn(t.s, "aria")?.kind).toBe("lantern");
-    // Turning the old torch back on is checked too.
-    expect(() => t.do((s, now) => L.relight(s, now, "light-1"))).toThrow(L.AlreadyLitError);
+    expect(t.s.lights.map((l) => [l.id, l.status])).toEqual([
+      ["light-2", "spent"],
+      ["light-3", "lit"],
+    ]);
+    t.do((s, now) => L.putOut(s, now, "light-3"));
+    t.add("torch", "aria");
+    // The lantern waits out with its oil beside the new torch.
+    expect(t.s.lights.map((l) => [l.id, l.status])).toEqual([
+      ["light-2", "spent"],
+      ["light-3", "out"],
+      ["light-4", "lit"],
+    ]);
+    t.do((s, now) => L.putOut(s, now, "light-4"));
+    t.add("lantern", "aria");
+    expect(t.s.lights.map((l) => [l.id, l.status])).toEqual([
+      ["light-2", "spent"],
+      ["light-5", "lit"],
+    ]);
+  });
+
+  it("a row shows one light: lit, else the lantern out, else the last spent", () => {
+    const light = (id: string, status: L.Status, spentAt: number | null = null) =>
+      ({ id, kind: "torch", tokenId: "t", status, spentAt }) as L.Light;
+    expect(L.shownLight([])).toBeNull();
+    expect(L.shownLight([light("a", "spent", 1), light("b", "out"), light("c", "lit")])?.id).toBe("c");
+    expect(L.shownLight([light("a", "spent", 1), light("b", "out")])?.id).toBe("b");
+    expect(L.shownLight([light("a", "spent", 1), light("b", "spent", 5), light("c", "spent", 3)])?.id).toBe("b");
   });
 
   it("swap puts out the token's light and lights the new one, in one change", () => {
     let n = 0;
     const newId = () => `l${++n}`;
-    let s = L.addLight(L.emptyLights(), T0, newId, { kind: "torch", tokenId: "aria" });
-    s = L.swapLight(s, T0 + 10 * MIN, newId, { kind: "lantern", tokenId: "aria" });
-    expect(s.lights.map((l) => [l.kind, l.status])).toEqual([
-      ["torch", "out"],
-      ["lantern", "lit"],
+    let s = L.addLight(L.emptyLights(), T0, newId, { kind: "lantern", tokenId: "aria" });
+    s = L.swapLight(s, T0 + 10 * MIN, newId, { kind: "torch", tokenId: "aria" });
+    expect(s.lights.map((l) => [l.kind, l.status, l.remainingMs])).toEqual([
+      ["lantern", "out", 45 * MIN],
+      ["torch", "lit", 60 * MIN],
     ]);
-    expect(L.remaining(s.lights[0], T0 + 10 * MIN)).toBe(50 * MIN);
+    // Back to the lantern: the torch is used, the lantern burns its oil.
+    s = L.swapLight(s, T0 + 20 * MIN, newId, { kind: "lantern", tokenId: "aria" });
+    expect(s.lights.map((l) => [l.id, l.status])).toEqual([["l1", "lit"]]);
+    expect(L.remaining(s.lights[0], T0 + 20 * MIN)).toBe(45 * MIN);
   });
 
   it(`stops at ${L.MAX_LIGHTS} lights`, () => {
@@ -260,9 +308,9 @@ describe("tokens, notes, limits", () => {
 
   it("renaming the token renames its lights", () => {
     const t = setup();
-    t.add("torch", "aria", "Aria");
-    t.do((s, now) => L.putOut(s, now, "light-1"));
     t.add("lantern", "aria", "Aria");
+    t.do((s, now) => L.putOut(s, now, "light-1"));
+    t.add("torch", "aria", "Aria");
     t.add("torch", "borin", "Borin");
     t.do((s) => L.renameCarrier(s, "aria", "Brother Aldo"));
     expect(t.s.lights.map((l) => l.carrier)).toEqual(["Brother Aldo", "Brother Aldo", "Borin"]);
@@ -295,40 +343,30 @@ describe("tokens, notes, limits", () => {
 });
 
 describe("manual fixes", () => {
-  it("Resume (default): a put-out light continues its own time, even with Ride along", () => {
-    const t = setup("rideAlong");
-    t.add("torch", "a");
-    t.advance(10 * MIN);
-    t.do((s, now) => L.putOut(s, now, "light-1"));
-    t.add("torch", "b");
-    t.advance(30 * MIN);
-    t.do((s, now) => L.relight(s, now, "light-1"));
-    expect(t.left(0)).toBe(50 * MIN);
-  });
-
-  it("Treat as newly lit: a put-out light rides along like a new one", () => {
-    const t = setup("rideAlong");
-    t.do((s) => L.setRelightRule(s, "lightingRule"));
-    t.add("torch", "a");
-    t.advance(10 * MIN);
-    t.do((s, now) => L.putOut(s, now, "light-1"));
-    t.add("torch", "b");
-    t.advance(30 * MIN);
-    t.do((s, now) => L.relight(s, now, "light-1"));
-    expect(t.left(0)).toBe(30 * MIN);
-  });
-
-  it("a burned-out light relights as the same light, keeping carrier and note", () => {
+  it("a torch burns once: it can't be lit again, only replaced by a new one keeping carrier and note", () => {
     const t = setup();
     t.add("torch", "aria", "Aria", "blessed");
-    t.do((s, now) => L.timePasses(s, now, 60 * MIN));
-    t.do((s, now) => L.relight(s, now, "light-1"));
-    expect(t.light(0)).toMatchObject({ status: "lit", carrier: "Aria", note: "blessed", spentAt: null });
-    expect(t.left(0)).toBe(60 * MIN);
+    t.advance(10 * MIN);
+    t.do((s, now) => L.putOut(s, now, "light-1"));
+    expect(t.light(0).status).toBe("spent");
+    expect(() => t.do((s, now) => L.relight(s, now, "light-1"))).toThrow(/burns once/);
+    t.do((s, now) => L.renew(s, now, () => "light-2", "light-1"));
     expect(t.s.lights).toHaveLength(1);
+    expect(t.light(0)).toMatchObject({ id: "light-2", status: "lit", carrier: "Aria", note: "blessed", spentAt: null });
+    expect(t.left(0)).toBe(60 * MIN);
   });
 
-  it("setting the time corrects any light; a spent one comes back out", () => {
+  it("refill and light: a lantern that's out comes back full", () => {
+    const t = setup();
+    t.add("lantern", "aria");
+    t.advance(40 * MIN);
+    t.do((s, now) => L.putOut(s, now, "light-1"));
+    t.do((s, now) => L.renew(s, now, () => "light-2", "light-1"));
+    expect(t.s.lights.map((l) => [l.id, l.status])).toEqual([["light-2", "lit"]]);
+    expect(t.left(0)).toBe(60 * MIN);
+  });
+
+  it("setting the time corrects any light; a spent one comes back lit", () => {
     const t = setup();
     t.add("torch");
     t.advance(20 * MIN);
@@ -338,10 +376,22 @@ describe("manual fixes", () => {
     expect(t.left(0)).toBe(50 * MIN);
     t.do((s, now) => L.timePasses(s, now, 50 * MIN));
     t.do((s, now) => L.setRemaining(s, now, "light-1", 12 * MIN));
-    expect(t.light(0).status).toBe("out");
+    expect(t.light(0)).toMatchObject({ status: "lit", spentAt: null });
     expect(t.left(0)).toBe(12 * MIN);
     expect(() => t.do((s, now) => L.setRemaining(s, now, "light-1", 61 * MIN))).toThrow(RangeError);
     expect(() => t.do((s, now) => L.setRemaining(s, now, "light-1", 0))).toThrow(RangeError);
+  });
+
+  it("setting the time: a lantern that's out keeps it exactly; a spent light can't light beside a lit one", () => {
+    const t = setup();
+    t.add("lantern", "aria");
+    t.do((s, now) => L.putOut(s, now, "light-1"));
+    t.do((s, now) => L.setRemaining(s, now, "light-1", 42 * MIN + 15_000));
+    expect(t.light(0)).toMatchObject({ status: "out", remainingMs: 42 * MIN + 15_000 });
+    t.add("torch", "borin");
+    t.do((s, now) => L.putOut(s, now, "light-2"));
+    t.add("torch", "borin");
+    expect(() => t.do((s, now) => L.setRemaining(s, now, "light-2", 10 * MIN))).toThrow();
   });
 
   it("msToNextBurnOut: the soonest lit light; none while paused", () => {
@@ -394,33 +444,43 @@ describe("time entry", () => {
 
 describe("parsing the room's copy", () => {
   it("keeps what's valid and drops the rest", () => {
-    const good = { id: "a", kind: "torch", tokenId: "t", status: "lit", remainingMs: 30 * MIN, endsAt: T0, carrier: "Aria", note: "", shuttered: false, spentAt: null };
+    const good = { id: "a", kind: "torch", tokenId: "t", status: "lit", remainingMs: 30 * MIN, endsAt: T0, carrier: "Aria", note: "", spentAt: null };
     const s = L.parseLights({
       paused: true,
       lightingRule: "separate",
-      relightRule: "lightingRule",
       lights: [good, { ...good, id: "a" }, { ...good, id: "b", kind: "candle" }, { ...good, id: "c", tokenId: "" }, "junk", null],
     });
-    expect(s).toMatchObject({ paused: true, lightingRule: "separate", relightRule: "lightingRule" });
+    expect(s).toMatchObject({ paused: true, lightingRule: "separate" });
     expect(s.lights.map((l) => l.id)).toEqual(["a"]);
   });
 
-  it("clamps times, drops a shutter on anything but a lantern, and reads garbage as empty", () => {
+  it("clamps times, caps text, and reads garbage as empty", () => {
     const s = L.parseLights({
-      lights: [{ id: "a", kind: "torch", tokenId: "t", status: "out", remainingMs: 999 * MIN, shuttered: true, carrier: "x".repeat(99), note: 7 }],
+      lights: [{ id: "a", kind: "lantern", tokenId: "t", status: "out", remainingMs: 999 * MIN, carrier: "x".repeat(99), note: 7 }],
     });
-    expect(s.lights[0]).toMatchObject({ remainingMs: 60 * MIN, shuttered: false, note: "" });
+    expect(s.lights[0]).toMatchObject({ status: "out", remainingMs: 60 * MIN, note: "" });
     expect(s.lights[0].carrier).toHaveLength(L.MAX_CARRIER);
     expect(L.parseLights("nope")).toEqual(L.emptyLights());
   });
 
-  it("a second lit light on one token reads as out", () => {
+  it("only a lantern with oil reads as out; anything else out is spent", () => {
+    const out = (id: string, kind: string, remainingMs: number) => ({ id, kind, tokenId: id, status: "out", remainingMs });
+    const s = L.parseLights({ lights: [out("a", "torch", 30 * MIN), out("b", "lantern", 0), out("c", "lantern", 30 * MIN)] });
+    expect(s.lights.map((l) => [l.status, l.remainingMs])).toEqual([
+      ["spent", 0],
+      ["spent", 0],
+      ["out", 30 * MIN],
+    ]);
+  });
+
+  it("a second lit or out light on one token reads as spent", () => {
     const lit = (id: string) => ({ id, kind: "torch", tokenId: "t", status: "lit", remainingMs: 60 * MIN, endsAt: T0 + 60 * MIN });
-    expect(L.parseLights({ lights: [lit("a"), lit("b")] }).lights.map((l) => l.status)).toEqual(["lit", "out"]);
+    const out = (id: string) => ({ id, kind: "lantern", tokenId: "t", status: "out", remainingMs: 30 * MIN });
+    expect(L.parseLights({ lights: [lit("a"), lit("b"), out("c"), out("d")] }).lights.map((l) => l.status)).toEqual(["lit", "spent", "out", "spent"]);
   });
 
   it(`reads at most ${L.MAX_LIGHTS} lights`, () => {
-    const lights = Array.from({ length: 20 }, (_, i) => ({ id: `l${i}`, kind: "torch", tokenId: `t${i}`, status: "out" }));
+    const lights = Array.from({ length: 20 }, (_, i) => ({ id: `l${i}`, kind: "torch", tokenId: `t${i}`, status: "spent" }));
     expect(L.parseLights({ lights }).lights).toHaveLength(L.MAX_LIGHTS);
   });
 });
