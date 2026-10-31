@@ -11,10 +11,11 @@ import { useRoomValue } from "./useRoomValue";
 // undo step named `label`. A change the rules refuse (they throw) is told,
 // not saved.
 //
-// One writer for now: the GM's panel. The background page's burn-outs and
-// the right-click menu (docs/design.md, Torchlight merge) make it three, and
-// then this moves to the stamp sync (useRoomState).
-export type LightChange = (label: string, fn: (s: Lights, now: number) => Lights, opts?: { toast?: boolean }) => void;
+// Writers: this panel, the right-click menu and undo, all the GM's own
+// clicks reading fresh (like the tracker's right-click Add / Remove), so
+// they don't overlap in practice. Burn-outs write nothing. `saved` runs once
+// the write lands.
+export type LightChange = (label: string, fn: (s: Lights, now: number) => Lights, opts?: { toast?: boolean; saved?: () => void }) => void;
 
 export const useLights = () => {
   const doc = useRoomValue(LIGHTS_KEY, parseLights);
@@ -29,7 +30,9 @@ export const useLights = () => {
     }
     if (after === before) return;
     void doc.write(after).then((saved) => {
-      if (saved) void record(label, [{ store: "room", key: LIGHTS_KEY, before, after }], opts);
+      if (!saved) return;
+      void record(label, [{ store: "room", key: LIGHTS_KEY, before, after }], opts);
+      opts?.saved?.();
     });
   };
   return { loaded: doc.loaded, lights: doc.value, change };

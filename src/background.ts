@@ -1,61 +1,41 @@
 // Background page: runs in every client while the extension is enabled.
-// Registers the GM's right-click "Add / Remove Initiative" on tokens, and
-// shows everyone the combat alert (it runs with the panel closed too).
+// Registers the GM's right-click Crawl Keeper menu on tokens, keeps the
+// lights on the map, and shows everyone the combat alert and light notices
+// (it runs with the panel closed too).
 import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 
 import { MENU_ID, TRACKER_KEY } from "./constants";
-import { afterChange, fixMarkerVisibility, readSettings } from "./marker";
-import { watchDimLights } from "./torchlight";
-import { clearHistory, record } from "./undo";
-import { MAX_ENTRIES, parseTracker, toggle, type Phase } from "./tracker";
+import { MENU_ROWS } from "./mapMenu";
+import { watchLightNotices } from "./lightNotices";
+import { fixMarkerVisibility } from "./marker";
+import { watchTokenLights } from "./tokenLights";
+import { clearHistory } from "./undo";
+import { parseTracker, type Phase } from "./tracker";
 import { errorMessage, notify } from "./utils";
 
-// Read the doc fresh at click time, so a click never writes a stale copy.
-// The panel may also be writing; both are the GM's own clicks, so they don't
-// overlap in practice (docs/design.md: GM is the only writer).
-export const toggleInitiative = async (ids: string[]) => {
-  const [scene, settings] = await Promise.all([OBR.scene.getMetadata(), readSettings()]);
-  const tracker = parseTracker(scene[TRACKER_KEY]);
-  const updated = toggle(tracker, ids);
-  // Adding stops at the cap: say which didn't fit rather than drop them
-  // quietly, once the rest are saved (a failed save reports on its own).
-  const tracked = new Set(updated.entries.map((e) => e.id));
-  const removing = updated.entries.length < tracker.entries.length;
-  const left = removing ? 0 : ids.filter((id) => !tracked.has(id)).length;
-  const full = () => left > 0 && notify(`Initiative is full (${MAX_ENTRIES} rows): ${left} token${left === 1 ? "" : "s"} not added.`, "WARNING");
-  if (updated === tracker) return full();
-  await OBR.scene.setMetadata({ [TRACKER_KEY]: updated });
-  // An undo step in the GM's history, shared with the panel (same tab).
-  await record(removing ? "Remove from initiative" : "Add to initiative", [{ store: "scene", key: TRACKER_KEY, before: scene[TRACKER_KEY], after: updated }], { toast: removing });
-  full();
-  // Removing the current token passed the turn on (the marker moves with it);
-  // removing a dead one takes its skull off.
-  await afterChange(tracker, updated, settings);
-};
-
-// Players and monsters alike; the GM marks monsters in the tracker.
+// One Crawl Keeper item on a token's right-click menu, opening a submenu
+// (menu.html, rows in mapMenu.ts): Add / Remove initiative and the lights.
+// Props too, for a campfire. GM only until players own their lights.
+// The embed's height is fixed here: MENU_ROWS rows of 36 px plus padding.
 export const createMenu = () =>
   OBR.contextMenu.create({
     id: MENU_ID,
     icons: [
       {
         icon: "/img/initiative.svg",
-        label: "Add / Remove Initiative",
+        label: "Crawl Keeper",
         filter: {
           roles: ["GM"],
           every: [
             { key: "layer", value: "CHARACTER", coordinator: "||" },
-            { key: "layer", value: "MOUNT" },
+            { key: "layer", value: "MOUNT", coordinator: "||" },
+            { key: "layer", value: "PROP" },
             { key: "type", value: "IMAGE" },
           ],
         },
       },
     ],
-    onClick: (context) => {
-      toggleInitiative(context.items.map((i) => i.id)).catch((err) =>
-        notify(`Couldn't update initiative: ${errorMessage(err)}`, "ERROR"),
-      );
-    },
+    embed: { url: "/menu", height: MENU_ROWS * 36 + 8 },
   });
 
 export const COMBAT_ALERT = "ROLL FOR COMBAT INITIATIVE";
@@ -124,5 +104,6 @@ OBR.onReady(() => {
   createMenu().catch((err) => console.error(`Couldn't add the initiative menu: ${errorMessage(err)}`));
   watchCombat();
   watchMarkerVisibility();
-  watchDimLights();
+  watchTokenLights();
+  watchLightNotices();
 });
