@@ -388,7 +388,7 @@ describe("the strip, badges and DIS", () => {
     expect(screen.getByRole("button", { name: "Undo: Darkness" })).toBeInTheDocument();
   });
 
-  it("Follow light off: lights out isn't darkness unless the switch says so; the clock's die follows it", async () => {
+  it("Follow light off: lights out isn't darkness unless the switch says so; the clock's die follows it, d8 face and all", async () => {
     obr.items = [token("a", { name: "Aria" })];
     obr.metadata = {
       [LIGHTS_KEY]: { lights: [{ ...lit("l1", "a"), status: "spent", endsAt: null, remainingMs: 0 }] },
@@ -400,8 +400,15 @@ describe("the strip, badges and DIS", () => {
     expect(card).toHaveTextContent("Crawling die d6");
     expect(screen.queryByText("DIS")).not.toBeInTheDocument();
     expect(strip()).not.toHaveTextContent("total darkness");
+    // The die is drawn as a d6 (no diamond) until it's dark.
+    expect(within(card).getByRole("button", { name: "Roll d6" }).querySelector("svg")).toBeNull();
     fireEvent.click(within(card).getByRole("button", { name: "Darkness" }));
     await waitFor(() => expect(card).toHaveTextContent("Crawling die d8 (darkness)"));
+    expect(within(card).getByRole("button", { name: "Roll d8" }).querySelector("svg polygon")).not.toBeNull();
+    // The Light Tracker doesn't call it darkness either.
+    fireEvent.click(screen.getByRole("button", { name: "Light Tracker" }));
+    await waitFor(() => expect(screen.getAllByRole("status").some((el) => /Follow light is off/.test(el.textContent ?? ""))).toBe(true));
+    expect(screen.queryByText(/No light: total darkness/)).not.toBeInTheDocument();
   });
 
   it("Time passes from the strip", async () => {
