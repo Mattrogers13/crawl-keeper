@@ -6,6 +6,9 @@ import Loading from "./Loading";
 import Segmented from "./Segmented";
 import { useLights, type LightChange } from "../hooks/useLights";
 import { useNow } from "../hooks/useNow";
+import { useRoomValue } from "../hooks/useRoomValue";
+import { SETTINGS_KEY } from "../constants";
+import { parseSettings } from "../settings";
 import {
   LIGHT_KINDS,
   MAX_NOTE,
@@ -43,6 +46,9 @@ import {
 // the name it was lit with).
 const LightTracker = ({ names }: { names: Map<string, string> }) => {
   const { loaded, lights: s, change } = useLights();
+  // Read only (Settings writes it): with Follow light off, no light shining
+  // isn't darkness; the crawl card's switch decides.
+  const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   const now = useNow();
   if (!loaded) return <Loading />;
   const status = lightStatus(s, now);
@@ -51,7 +57,7 @@ const LightTracker = ({ names }: { names: Map<string, string> }) => {
   return (
     <div className="flex flex-col gap-3 pb-3 text-sm">
       <div className="flex items-stretch gap-2">
-        <Banner status={status} count={shiningCount(s, now)} paused={s.paused} />
+        <Banner status={status} count={shiningCount(s, now)} paused={s.paused} followLight={settings.value.followLight} />
         <button
           type="button"
           className={`shrink-0 rounded-[10px] px-3 font-medium ring-1 ring-obr-text/15 ring-inset hover:bg-obr-text/10 ${FOCUS}`}
@@ -117,7 +123,8 @@ const LightTracker = ({ names }: { names: Map<string, string> }) => {
   );
 };
 
-const Banner = ({ status, count, paused }: { status: "none" | "lit" | "dark"; count: number; paused: boolean }) => {
+const Banner = (props: { status: "none" | "lit" | "dark"; count: number; paused: boolean; followLight: boolean }) => {
+  const { status, count, paused } = props;
   const pausedNote = paused ? " · paused" : "";
   if (status === "none")
     return (
@@ -129,6 +136,12 @@ const Banner = ({ status, count, paused }: { status: "none" | "lit" | "dark"; co
     return (
       <p role="status" className="flex flex-1 items-center rounded-[10px] bg-amber-500/15 px-3 py-2 font-medium text-amber-800 dark:text-amber-300">
         Party has light · {count} shining{pausedNote}
+      </p>
+    );
+  if (!props.followLight)
+    return (
+      <p role="status" className="flex flex-1 items-center rounded-[10px] bg-obr-bg px-3 py-2 text-obr-text-secondary">
+        No light shining. Follow light is off: the crawl card's switch sets darkness.{pausedNote}
       </p>
     );
   return (
