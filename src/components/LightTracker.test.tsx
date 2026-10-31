@@ -161,6 +161,8 @@ describe("the Light Tracker", () => {
     render(<App />);
     await screen.findByText("Aria");
     expect(screen.queryByRole("region", { name: "Lights" })).not.toBeInTheDocument();
+    // Dim, but there.
+    expect(screen.getByRole("button", { name: "Light Tracker" })).toHaveAttribute("title", "Light Tracker (no lights yet)");
     fireEvent.click(screen.getByRole("button", { name: "Light Tracker" }));
     expect(await screen.findByText(/No lights yet/)).toBeInTheDocument();
   });
