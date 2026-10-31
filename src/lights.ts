@@ -8,6 +8,12 @@
 // holds at most one lit light (p. 84: lighting a new source puts out the
 // old; Torchlight's rule too).
 //
+// Our ruling (p. 84 lets the GM rule to keep timers simple): once lit, a
+// torch, Light spell or campfire is used; putting it out spends it. Only a
+// lantern goes back on: put out, its oil rounds down to the quarter hour
+// (45, 30, 15 min, then empty), so the one light a token can hold out is a
+// lantern. Lighting a new light clears the token's spent ones.
+//
 // Time model: a burning light stores `endsAt`, when it runs out, so every
 // client counts down alike from the same document. `remainingMs` is the time
 // it had when it last started burning (a cap: a clock set backwards never
@@ -36,9 +42,8 @@ const fullMs = (kind: LightKind) => LIGHT_KINDS[kind].minutes * MINUTE;
 // Lighting a second light (p. 84): it joins the timer already burning, or
 // keeps its own.
 export type LightingRule = "rideAlong" | "separate";
-// Putting a light back on: it continues its own time, or follows the
-// lighting rule like a newly lit one.
-export type RelightRule = "resume" | "lightingRule";
+// A lantern put out keeps its oil in whole quarter hours.
+export const OIL_STEP_MS = 15 * MINUTE;
 
 export const LOW_MS = 10 * MINUTE;
 // Room metadata is 16 kB for every extension together (docs/design.md, room
@@ -62,8 +67,6 @@ export type Light = {
   remainingMs: number;
   // Burning: when it runs out (epoch ms). Null when out, spent or paused.
   endsAt: number | null;
-  // A lantern's shutter: dark, but the oil keeps burning.
-  shuttered: boolean;
   // When it burned out (epoch ms), for spent lights.
   spentAt: number | null;
 };
@@ -71,18 +74,17 @@ export type Light = {
 export type Lights = {
   paused: boolean;
   lightingRule: LightingRule;
-  relightRule: RelightRule;
   lights: Light[];
 };
 
-export const emptyLights = (): Lights => ({ paused: false, lightingRule: "rideAlong", relightRule: "resume", lights: [] });
+export const emptyLights = (): Lights => ({ paused: false, lightingRule: "rideAlong", lights: [] });
 
 // --- Reading -------------------------------------------------------------
 
 export const remaining = (l: Light, now: number) =>
   l.status !== "lit" || l.endsAt === null ? l.remainingMs : Math.min(l.remainingMs, Math.max(0, l.endsAt - now));
 
-export const shining = (l: Light, now: number) => l.status === "lit" && !l.shuttered && remaining(l, now) > 0;
+export const shining = (l: Light, now: number) => l.status === "lit" && remaining(l, now) > 0;
 export const low = (l: Light, now: number) => l.status === "lit" && remaining(l, now) <= LOW_MS;
 // Lit but at 0, not settled yet: shows as burned out.
 export const burnedOut = (l: Light, now: number) => l.status === "spent" || (l.status === "lit" && remaining(l, now) === 0);
@@ -97,6 +99,17 @@ export const shiningCount = (s: Lights, now: number) => s.lights.filter((l) => s
 // The lit light a token already holds (other than `except`).
 export const litOn = (s: Lights, tokenId: string, except?: string) =>
   s.lights.find((l) => l.tokenId === tokenId && l.status === "lit" && l.id !== except) ?? null;
+
+// The one light a token's row shows: its lit light, else its lantern that's
+// out, else the last one spent.
+export const shownLight = (lights: Light[]): Light | null =>
+  lights.find((l) => l.status === "lit") ??
+  lights.find((l) => l.status === "out") ??
+  lights.filter((l) => l.status === "spent").sort((a, b) => (b.spentAt ?? 0) - (a.spentAt ?? 0))[0] ??
+  null;
+
+// The token's lantern that's out (oil left, ready to light again).
+export const outOn = (s: Lights, tokenId: string) => s.lights.find((l) => l.tokenId === tokenId && l.status === "out") ?? null;
 
 // Milliseconds until the next lit light burns out; null when none burns (or
 // paused).
@@ -131,6 +144,14 @@ const find = (s: Lights, id: string) => {
 };
 
 const freeze = (l: Light, now: number): Light => ({ ...l, remainingMs: remaining(l, now), endsAt: null });
+const spend = (l: Light, at: number): Light => ({ ...l, status: "spent", remainingMs: 0, endsAt: null, spentAt: at });
+// Put out: a lantern keeps its oil, rounded down to the quarter hour (none
+// left: spent); anything else is used up.
+const extinguish = (l: Light, now: number): Light => {
+  if (l.kind !== "lantern") return spend(l, now);
+  const oil = Math.floor(remaining(l, now) / OIL_STEP_MS) * OIL_STEP_MS;
+  return oil > 0 ? { ...l, status: "out", remainingMs: oil, endsAt: null } : spend(l, now);
+};
 // Starts (or restarts) `l` burning with `ms` left; paused, it waits frozen.
 const burn = (l: Light, ms: number, now: number, paused: boolean): Light => ({
   ...l,
@@ -145,7 +166,7 @@ export const settle = (s: Lights, now: number): Lights => {
   const lights = s.lights.map((l) => {
     if (l.status !== "lit" || l.endsAt === null || remaining(l, now) > 0) return l;
     changed = true;
-    return { ...l, status: "spent" as const, remainingMs: 0, endsAt: null, spentAt: Math.min(l.endsAt, now) };
+    return spend(l, Math.min(l.endsAt, now));
   });
   return changed ? { ...s, lights } : s;
 };
@@ -161,6 +182,8 @@ const lightUnderRule = (s: Lights, id: string, now: number): Lights => {
   });
 };
 
+export const newLightId = () => crypto.randomUUID();
+
 const cleanText = (text: string, max: number) => text.trim().slice(0, max);
 
 export const addLight = (
@@ -174,7 +197,10 @@ export const addLight = (
   const s = settle(state, now);
   const held = litOn(s, tokenId);
   if (held) throw new AlreadyLitError(held);
-  if (s.lights.length >= MAX_LIGHTS) throw new RangeError(`Up to ${MAX_LIGHTS} lights; remove a spent one first`);
+  // A fresh light replaces the token's spent ones, and a fresh lantern its
+  // old one (one light out per token).
+  const kept = s.lights.filter((l) => l.tokenId !== tokenId || (l.status === "out" && l.kind !== kind));
+  if (kept.length >= MAX_LIGHTS) throw new RangeError(`Up to ${MAX_LIGHTS} lights; remove a spent one first`);
   const light: Light = {
     id: newId(),
     kind,
@@ -184,14 +210,14 @@ export const addLight = (
     status: "out",
     remainingMs: fullMs(kind),
     endsAt: null,
-    shuttered: false,
     spentAt: null,
   };
-  return lightUnderRule({ ...s, lights: [...s.lights, light] }, light.id, now);
+  return lightUnderRule({ ...s, lights: [...kept, light] }, light.id, now);
 };
 
 // Puts out the token's lit light and lights `kind` instead, as one change
-// (the answer to "Put out the torch, light the lantern").
+// (the answer to "Put out the torch, light the lantern"). A lantern the
+// token has out goes back on with its oil.
 export const swapLight = (
   state: Lights,
   now: number,
@@ -200,51 +226,59 @@ export const swapLight = (
 ): Lights => {
   const s = settle(state, now);
   const held = litOn(s, light.tokenId);
-  return addLight(held ? putOut(s, now, held.id) : s, now, newId, light);
+  const next = held ? putOut(s, now, held.id) : s;
+  const waiting = outOn(next, light.tokenId);
+  return waiting?.kind === light.kind ? relight(next, now, waiting.id) : addLight(next, now, newId, light);
 };
 
-// Back on, keeping carrier and note. Put out: Resume continues its own time;
-// "Treat as newly lit" follows the lighting rule. Spent: back with a full
-// timer, then the same.
+// A lantern that's out goes back on with the oil it kept (its own time, not
+// the lighting rule: the oil is its own), clearing the token's spent lights
+// like any new light.
 export const relight = (state: Lights, now: number, id: string): Lights => {
   const s = settle(state, now);
   const light = find(s, id);
   if (light.status === "lit") return s;
+  if (light.status !== "out") throw new Error(`A ${LIGHT_KINDS[light.kind].label.toLowerCase()} burns once; light a new one`);
   const held = litOn(s, light.tokenId, id);
   if (held) throw new AlreadyLitError(held);
-  const restored =
-    light.status === "spent" ? mapLight(s, id, (l) => ({ ...l, status: "out", remainingMs: fullMs(l.kind), spentAt: null })) : s;
-  if (s.relightRule === "lightingRule") return lightUnderRule(restored, id, now);
-  return mapLight(restored, id, (l) => burn(l, l.remainingMs, now, s.paused));
+  const kept = s.lights.filter((l) => l.tokenId !== light.tokenId || l.status !== "spent");
+  return mapLight({ ...s, lights: kept }, id, (l) => burn(l, l.remainingMs, now, s.paused));
+};
+
+// A fresh one in place of a spent light (or a lantern that's out: refill
+// and light), keeping its note; lit under the lighting rule.
+export const renew = (state: Lights, now: number, newId: () => string, id: string): Lights => {
+  const s = settle(state, now);
+  const light = find(s, id);
+  if (light.status === "lit") return s;
+  return addLight(s, now, newId, light);
 };
 
 export const putOut = (state: Lights, now: number, id: string): Lights => {
   const s = settle(state, now);
   if (find(s, id).status !== "lit") return s;
-  return mapLight(s, id, (l) => ({ ...freeze(l, now), status: "out" }));
+  return mapLight(s, id, (l) => extinguish(l, now));
 };
 
-// Every lit light goes out, keeping its time.
+// Every lit light goes out: lanterns keep their oil, the rest are used.
 export const putAllOut = (state: Lights, now: number): Lights => {
   const s = settle(state, now);
   if (!s.lights.some((l) => l.status === "lit")) return s;
-  return { ...s, lights: s.lights.map((l) => (l.status === "lit" ? { ...freeze(l, now), status: "out" } : l)) };
+  return { ...s, lights: s.lights.map((l) => (l.status === "lit" ? extinguish(l, now) : l)) };
 };
 
-// A manual fix: 1 s up to the light's full time. A spent light comes back
-// out with that time, ready to relight; a lit one burns on from it.
+// A manual fix, exactly as typed: 1 s up to the light's full time. A lit
+// light burns on from it; a lantern that's out keeps it as oil; a spent
+// light comes back lit (the GM undoing a mistake).
 export const setRemaining = (state: Lights, now: number, id: string, ms: number): Lights => {
   const s = settle(state, now);
   const light = find(s, id);
   const full = fullMs(light.kind);
   if (!Number.isInteger(ms) || ms < 1000 || ms > full) throw new RangeError(`Set between 0:01 and ${full / MINUTE} minutes`);
-  return mapLight(s, id, (l) => (l.status === "lit" ? burn(l, ms, now, s.paused) : { ...l, status: "out", remainingMs: ms, spentAt: null }));
-};
-
-export const toggleShutter = (state: Lights, now: number, id: string): Lights => {
-  const s = settle(state, now);
-  if (find(s, id).kind !== "lantern") throw new Error("Only lanterns have a shutter");
-  return mapLight(s, id, (l) => ({ ...l, shuttered: !l.shuttered }));
+  if (light.status === "out") return mapLight(s, id, (l) => ({ ...l, remainingMs: ms }));
+  const held = litOn(s, light.tokenId, id);
+  if (held) throw new AlreadyLitError(held);
+  return mapLight(s, id, (l) => ({ ...burn(l, ms, now, s.paused), spentAt: null }));
 };
 
 // A fresh flask (1 hour). A spent lantern comes back out, ready to light.
@@ -291,8 +325,7 @@ export const resume = (state: Lights, now: number): Lights => {
   return { ...state, paused: false, lights: state.lights.map((l) => (l.status === "lit" ? burn(l, l.remainingMs, now, false) : l)) };
 };
 
-// "Time passes": `ms` off every lit light, shuttered lanterns included (the
-// oil burns). Lights reaching 0 are spent; out ones are untouched. Works
+// "Time passes": `ms` off every lit light. Lights reaching 0 are spent; out ones are untouched. Works
 // while paused.
 export const timePasses = (state: Lights, now: number, ms: number): Lights => {
   if (!Number.isInteger(ms) || ms <= 0 || ms > MAX_PASS_MS) throw new RangeError("Time passes takes up to 24 hours");
@@ -303,14 +336,13 @@ export const timePasses = (state: Lights, now: number, ms: number): Lights => {
     lights: s.lights.map((l) => {
       if (l.status !== "lit") return l;
       const left = remaining(l, now) - ms;
-      if (left <= 0) return { ...l, status: "spent" as const, remainingMs: 0, endsAt: null, spentAt: now };
+      if (left <= 0) return spend(l, now);
       return burn(l, left, now, s.paused);
     }),
   };
 };
 
 export const setLightingRule = (s: Lights, rule: LightingRule): Lights => (s.lightingRule === rule ? s : { ...s, lightingRule: rule });
-export const setRelightRule = (s: Lights, rule: RelightRule): Lights => (s.relightRule === rule ? s : { ...s, relightRule: rule });
 
 // --- Time entry ----------------------------------------------------------
 
@@ -365,18 +397,18 @@ export const parseLight = (raw: unknown): Light | null => {
   if (status !== "lit" && status !== "out" && status !== "spent") return null;
   const k = kind as LightKind;
   const remainingMs = intIn(raw.remainingMs, 0, fullMs(k)) ?? (status === "spent" ? 0 : fullMs(k));
-  const endsAt = status === "lit" ? time(raw.endsAt) : null;
+  // Only a lantern waits out; anything else out (an older doc) is used.
+  const st = status === "out" && (k !== "lantern" || remainingMs === 0) ? "spent" : status;
   return {
     id,
     kind: k,
     tokenId,
     carrier: text(raw.carrier, MAX_CARRIER),
     note: text(raw.note, MAX_NOTE),
-    status,
-    remainingMs: status === "spent" ? 0 : remainingMs,
-    endsAt,
-    shuttered: k === "lantern" && raw.shuttered === true,
-    spentAt: status === "spent" ? time(raw.spentAt) : null,
+    status: st,
+    remainingMs: st === "spent" ? 0 : remainingMs,
+    endsAt: st === "lit" ? time(raw.endsAt) : null,
+    spentAt: st === "spent" ? time(raw.spentAt) : null,
   };
 };
 
@@ -385,17 +417,16 @@ export const parseLights = (raw: unknown): Lights => {
   if (!isObject(raw)) return s;
   s.paused = raw.paused === true;
   if (raw.lightingRule === "separate") s.lightingRule = "separate";
-  if (raw.relightRule === "lightingRule") s.relightRule = "lightingRule";
   if (Array.isArray(raw.lights)) {
     const seen = new Set<string>();
     for (const item of raw.lights) {
       const light = parseLight(item);
       if (!light || seen.has(light.id)) continue;
-      // One lit light per token: a second one reads as out (with the time
-      // it was lit with; no clock here to say what's left).
-      const doubled = light.status === "lit" && s.lights.some((l) => l.tokenId === light.tokenId && l.status === "lit");
+      // One lit light and one out per token: a second one reads as spent.
+      const doubled =
+        (light.status === "lit" || light.status === "out") && s.lights.some((l) => l.tokenId === light.tokenId && l.status === light.status);
       seen.add(light.id);
-      s.lights.push(doubled ? { ...light, status: "out", endsAt: null } : light);
+      s.lights.push(doubled ? { ...light, status: "spent", remainingMs: 0, endsAt: null, spentAt: null } : light);
       if (s.lights.length >= MAX_LIGHTS) break;
     }
   }

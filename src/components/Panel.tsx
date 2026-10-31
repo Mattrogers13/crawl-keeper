@@ -7,6 +7,7 @@ import ResizeGrip from "./ResizeGrip";
 import Settings from "./Settings";
 import Tracker from "./Tracker";
 import UndoBar from "./UndoBar";
+import { useLights } from "../hooks/useLights";
 import type { Role } from "../hooks/useRole";
 import { useSceneItems, useSceneReady } from "../hooks/useScene";
 import { VERSION } from "../version";
@@ -45,15 +46,7 @@ const Panel = ({ role }: { role: Role }) => {
           {!away && <span ref={setTitleSlot} className="min-w-0 truncate text-xs text-obr-text-secondary empty:hidden" />}
           {role === "GM" && !away && (
             <div className="ml-auto flex">
-              <button
-                type="button"
-                aria-label="Light Tracker"
-                title="Light Tracker"
-                className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-obr-bg"
-                onClick={() => setView("lights")}
-              >
-                <FlameIcon />
-              </button>
+              <LightsButton open={() => setView("lights")} />
               <button
                 type="button"
                 aria-label="Settings"
@@ -66,7 +59,7 @@ const Panel = ({ role }: { role: Role }) => {
             </div>
           )}
         </div>
-        {!away && <div ref={setHeaderSlot} className="empty:hidden" />}
+        {!away && <div ref={setHeaderSlot} className="flex flex-col gap-2.5 empty:hidden" />}
       </header>
       <main className="flex min-h-0 flex-1 flex-col">
         {shown === "lights" ? (
@@ -93,6 +86,26 @@ const Panel = ({ role }: { role: Role }) => {
       <Footer />
       <ResizeGrip />
     </div>
+  );
+};
+
+// The way into the Light Tracker, always here; dim while no lights are
+// tracked.
+const LightsButton = ({ open }: { open: () => void }) => {
+  const { loaded, lights } = useLights();
+  const none = !loaded || lights.lights.length === 0;
+  return (
+    <button
+      type="button"
+      aria-label="Light Tracker"
+      title={none ? "Light Tracker (no lights yet)" : "Light Tracker"}
+      className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-obr-bg"
+      onClick={open}
+    >
+      <span className={none ? "opacity-40 grayscale" : ""}>
+        <FlameIcon className="block h-5 w-4" />
+      </span>
+    </button>
   );
 };
 

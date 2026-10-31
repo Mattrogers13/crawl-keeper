@@ -7,7 +7,10 @@ import { CSS } from "@dnd-kit/utilities";
 
 import { cryptoRand } from "../crawl";
 import type { Change } from "./Tracker";
+import LightBadge from "./LightBadge";
 import { D20Icon, FlameIcon, GmPortrait, GripIcon, MoreIcon, SkullIcon } from "./icons";
+import type { LightChange } from "../hooks/useLights";
+import type { Light } from "../lights";
 import { SOURCE_LABEL, lightOn, type LightSource } from "../torchlight";
 import {
   MOD_MAX,
@@ -47,6 +50,11 @@ const Row = (props: {
   change: Change;
   show: (id: string) => void;
   focus: (id: string) => void;
+  // The token's lights, and the GM's way to put one out or on (players: null).
+  lights?: Light[];
+  lightChange: LightChange | null;
+  // Disadvantage: total darkness, on a living player's row (p. 84).
+  dis?: boolean;
   openMenu: (id: string, x: number, y: number) => void;
   select: (id: string, mods: { shift: boolean; toggle: boolean }) => void;
   selected: boolean;
@@ -177,6 +185,12 @@ const Row = (props: {
             entry.note && <span className="text-xs whitespace-pre-wrap text-obr-text-secondary">{entry.note}</span>
           )}
         </div>
+        {props.lights && <LightBadge lights={props.lights} change={props.lightChange} />}
+        {props.dis && (
+          <span title="Total darkness: disadvantage on tasks that need sight (p. 84)" className="shrink-0 rounded bg-red-600/15 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-red-700 dark:text-red-300">
+            DIS
+          </span>
+        )}
         {gm ? (
           <>
             <span className={`${INIT_SLOT} flex items-center justify-end gap-1`}>

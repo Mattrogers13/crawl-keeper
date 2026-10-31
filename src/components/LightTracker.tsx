@@ -22,22 +22,22 @@ import {
   refillOil,
   relight,
   remaining,
+  newLightId,
+  renew,
   removeAll,
   removeLight,
   resume,
   setLightingRule,
-  setRelightRule,
   setRemaining,
   shiningCount,
   timePasses,
-  toggleShutter,
   type Light,
   type LightKind,
 } from "../lights";
 
 // The Light Tracker (docs/design.md, Torchlight merge; mockups lt-*): every
 // light timer, the party's light, Time passes, Put lights out, Pause, and
-// the two p. 84 rules. GM only, inside the panel like Settings. Lights start
+// the p. 84 lighting rule. GM only, inside the panel like Settings. Lights start
 // on tokens (a row's menu: Give torch), so there are no + buttons here.
 // `names`: token id → its name on the open map (a light off the map shows
 // the name it was lit with).
@@ -104,27 +104,14 @@ const LightTracker = ({ names }: { names: Map<string, string> }) => {
             ["Separate timers", "Every light keeps its own full timer."],
           ]}
         />
-        <h3 className="pt-1 text-[11px] font-medium tracking-[0.06em] text-obr-text-secondary uppercase">Putting a light back on</h3>
-        <Segmented
-          label="Putting a light back on"
-          name="relight-rule"
-          value={s.relightRule}
-          options={[
-            ["resume", "Resume its time"],
-            ["lightingRule", "Treat as newly lit"],
-          ]}
-          onChange={(rule) => change("Relight rule", (x) => setRelightRule(x, rule))}
-        />
+        <h3 className="pt-1 text-[11px] font-medium tracking-[0.06em] text-obr-text-secondary uppercase">Putting a light out</h3>
         <Rules
           rows={[
-            ["Resume its time", "A light that was put out picks up where it left off: 31:00 left stays 31:00."],
-            [
-              "Treat as newly lit",
-              "It follows the lighting rule above, like any light being lit. With Ride along and another light burning it joins that timer, so 31:00 left could become 12:00.",
-            ],
+            ["Lantern", "Keeps its oil, rounded down to the quarter hour: 38:00 left becomes 30:00. Under 15:00, it's empty."],
+            ["The rest", "A torch, Light spell or campfire is used once lit; putting it out spends it."],
           ]}
         />
-        <p className="text-xs text-obr-text-secondary">Manual fixes: click a light's time to correct it; burned-out lights relight as the same light.</p>
+        <p className="text-xs text-obr-text-secondary">Manual fixes: Undo, or click a light's time to set it; a spent light comes back lit.</p>
       </section>
     </div>
   );
@@ -152,7 +139,7 @@ const Banner = ({ status, count, paused }: { status: "none" | "lit" | "dark"; co
 };
 
 // A text field only (the toolkit's way): 10m, 1h, 1:30, 90.
-const TimePasses = ({ change }: { change: LightChange }) => {
+export const TimePasses = ({ change, compact = false }: { change: LightChange; compact?: boolean }) => {
   const [text, setText] = useState("");
   const [said, setSaid] = useState("");
   const submit = (e: FormEvent) => {
@@ -169,7 +156,7 @@ const TimePasses = ({ change }: { change: LightChange }) => {
         <input
           aria-label="Time passes"
           value={text}
-          placeholder="10m, 1h, 1:30"
+          placeholder={compact ? "10m" : "10m, 1h, 1:30"}
           onChange={(e) => {
             setText(e.target.value);
             setSaid("");
@@ -189,7 +176,7 @@ const TimePasses = ({ change }: { change: LightChange }) => {
   );
 };
 
-const ICONS: Record<LightKind, string> = { torch: "🔥", lantern: "🏮", lightSpell: "✨", campfire: "🏕️" };
+export const ICONS: Record<LightKind, string> = { torch: "🔥", lantern: "🏮", lightSpell: "✨", campfire: "🏕️" };
 
 const LightCard = (props: { light: Light; name: string; now: number; paused: boolean; change: LightChange }) => {
   const { light: l, name, now, change } = props;
@@ -202,7 +189,7 @@ const LightCard = (props: { light: Light; name: string; now: number; paused: boo
   const left = remaining(l, now);
   const full = kind.minutes * 60_000;
   const lantern = l.kind === "lantern";
-  const state = out ? "burned out" : !lit ? "out" : l.shuttered ? "shuttered" : props.paused ? "paused" : kind.range;
+  const state = out ? (lantern ? "empty" : "spent") : !lit ? "out · oil kept" : props.paused ? "paused" : kind.range;
   const on = (what: string, fn: Parameters<LightChange>[1], opts?: { toast?: boolean }) => () => change(`${what} ${label}`, fn, opts);
 
   return (
@@ -211,7 +198,7 @@ const LightCard = (props: { light: Light; name: string; now: number; paused: boo
       className="flex flex-col gap-2 rounded-xl bg-obr-bg px-3 py-3 ring-1 ring-obr-text/10 ring-inset"
     >
       <div className="flex items-center gap-3">
-        <span className={`text-lg ${lit && !l.shuttered ? "" : "opacity-50 grayscale"}`} aria-hidden>
+        <span className={`text-lg ${lit ? "" : "opacity-50 grayscale"}`} aria-hidden>
           {ICONS[l.kind]}
         </span>
         <span className={`flex min-w-0 flex-1 flex-col ${lit ? "" : "text-obr-text-secondary"}`}>
@@ -254,13 +241,17 @@ const LightCard = (props: { light: Light; name: string; now: number; paused: boo
       ) : (
         <div className="flex flex-wrap gap-1.5">
           {lit && <Small onClick={on("Put out", (s, t) => putOut(s, t, l.id))}>Put out</Small>}
-          {!lit && (
-            <Small primary onClick={on(out ? "Relight" : "Resume", (s, t) => relight(s, t, l.id))}>
-              {out ? "Relight" : "Resume"}
+          {!lit && !out && (
+            <Small primary onClick={on("Light", (s, t) => relight(s, t, l.id))}>
+              Light
             </Small>
           )}
-          {lantern && !out && <Small onClick={on(l.shuttered ? "Open" : "Shutter", (s, t) => toggleShutter(s, t, l.id))}>{l.shuttered ? "Open shutter" : "Shutter"}</Small>}
-          {lantern && <Small onClick={on("Refill", (s, t) => refillOil(s, t, l.id))}>Refill oil</Small>}
+          {out && (
+            <Small primary onClick={on(lantern ? "Refill and light" : "New", (s, t) => renew(s, t, newLightId, l.id))}>
+              {lantern ? "Refill and light" : `New ${label}`}
+            </Small>
+          )}
+          {lantern && !out && <Small onClick={on("Refill", (s, t) => refillOil(s, t, l.id))}>Refill oil</Small>}
           <Small onClick={() => setEditing(true)}>Edit</Small>
           {!lit && <Small onClick={on("Remove", (s, t) => removeLight(s, t, l.id), { toast: true })}>Remove</Small>}
         </div>
