@@ -117,7 +117,7 @@ const Settings = () => {
       <Group title="Darkness (p. 84)">
         <Toggle
           label="Follow light"
-          hint="When the Light Tracker has no light lit, it's total darkness: a check every crawl round in Interval mode, a d8 crawling die in clock modes, DIS on the party's rows, and a 3 ft light on their tokens so players still see themselves. The danger level stays. With no lights tracked, or off: set darkness yourself."
+          hint="When the Light Tracker has no light lit, it's total darkness: a check every crawl round in Interval mode, a d8 crawling die in clock modes, and DIS on the party's rows. The danger level stays. With no lights tracked, or off: set darkness yourself."
           checked={settings.value.followLight}
           onChange={(followLight) => set({ followLight })}
         />
