@@ -6,7 +6,7 @@ Automated tests run against an in-memory SDK; these checks need real Owlbear. On
 
 The per-PR checklists for v0.1 (PRs 1–4) are in git history (`git log -p -- TESTING.md`).
 
-## Release checklist (current as of v0.1.1)
+## Release checklist (current as of v0.2.0)
 
 v0.1.0 was room-tested PR by PR (the old lists in git history plus checks on #7–#9), not with this list as a whole. First full end-to-end pass: 2026-10-17 (Dev, GM + player), all rows passed.
 
@@ -116,3 +116,17 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 | 54 | Crawling Clock: lights out, then back | The torch toggle flips to Darkness (Roll d8) and back | |
 | 55 | Settings → Follow Torchlight off; put out the lights | Nothing changes on its own; the 3 ft lights come off | |
 | 56 | A room without Torchlight | Never goes dark on its own | |
+
+### New in v0.2.0
+
+| # | Steps | Expect | Last pass |
+|---|---|---|---|
+| 57 | GM: ▶, then "Undo: Next turn", Redo; Cmd+Z, Shift+Cmd+Z (not while typing in a note) | The bar names the step; the turn and ring go back and forward | 2026-10-31 |
+| 58 | GM: close the panel, right-click a token → Add / Remove Initiative, reopen | "Undo: Add to initiative" in the bar; Undo takes it out | |
+| 59 | GM: Remove monsters (or Reset rounds, Reset clock) | A "Done: …" toast with Undo just above the bar, never over it, gone after 8 s; its Undo brings them back | 2026-10-31 |
+| 60 | GM: a step on map A, open map B, Undo | "… on another map. Skipped."; map B unchanged | |
+| 61 | Player: the panel | No Undo bar or toast | |
+| 62 | GM: Settings → Manual; ▶ to the GM turn when a check is due; roll the d6; ▶ past it once without rolling | The card shows the danger level and lights up; the d6 rolls a check; ▶ counts a due check made. Player (Show the danger level on): "Crawling · <danger>", never the roll; "Show the rolls" isn't offered | |
+| 63 | GM: Settings → Clock 2d20; roll until the clock passes 20 and 0 | Starts at 40, worn down one d20 at a time; the omen and the encounter on the last die; the overflow carries into a fresh 40. Player: "Crawling Clock", "The clock is at N" of 40 | |
+| 64 | GM: Settings at a short and a tall panel height; pick each of Interval / Clock 1d20 / Clock 2d20 / Manual | Cards like the web toolkit (Encounters, Darkness, What players see, Turns and combat, About); one scrollbar only; each choice is one undo step | 2026-10-31 |
+| 65 | Player: a clock mode with the clock shown | The card's title reads "Crawling Clock" | 2026-10-31 |
