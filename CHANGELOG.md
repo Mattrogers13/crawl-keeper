@@ -10,6 +10,7 @@ Versions follow semver; the same number is in `package.json` and `public/manifes
 - A 2d20 Crawling Clock (Settings, Clock size): 40, run down one d20 at a time; the omen and encounter on the last die, the overflow carries into a fresh 40.
 - Settings laid out like the web toolkit: one choice of Interval, Clock 1d20, Clock 2d20 or Manual, and a Darkness card for Follow Torchlight.
 - Players: the card says "Crawling Clock" when it shows the clock; in Manual mode they never see the GM's encounter roll.
+- A failed check for an open map retries, instead of leaving the panel waiting until it's reopened.
 
 ## v0.1.1 (2026-10-17)
 

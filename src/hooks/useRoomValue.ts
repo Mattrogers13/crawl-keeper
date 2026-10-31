@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 
+import { readAndFollow } from "./readAndFollow";
 import { errorMessage, notify } from "../utils";
-
-const FIRST_RETRY_MS = 2000;
-const MAX_RETRY_MS = 30_000;
 
 // Where a value lives: OBR.room (the whole room) or OBR.scene (the open
 // map; only usable while a scene is ready, so mount under useSceneReady).
@@ -71,35 +69,15 @@ export const useMetadataValue = <T>(store: MetadataStore, key: string, parse: (r
     // New key: nothing is known about it until its first read lands.
     loaded.current = false;
     lastRaw.current = null;
-    let alive = true;
-    // An event is newer than the initial read's answer.
-    let fromEvent = false;
-    // Until a read lands nothing can be saved, so a failed read retries
-    // (backing off) and reports once.
-    let retry: ReturnType<typeof setTimeout> | undefined;
-    let wait = FIRST_RETRY_MS;
-    let reported = false;
-    const read = () =>
-      store
-        .getMetadata()
-        .then((m) => alive && !fromEvent && take(m))
-        .catch((err) => {
-          if (!alive || fromEvent) return;
-          if (!reported) notify(`Couldn't read Owlbear's data, retrying: ${errorMessage(err)}`, "ERROR");
-          reported = true;
-          retry = setTimeout(read, wait);
-          wait = Math.min(wait * 2, MAX_RETRY_MS);
-        });
-    read();
-    const off = store.onMetadataChange((m) => {
-      fromEvent = true;
-      take(m);
+    // Until a read lands nothing can be saved, so a failed read retries and
+    // reports at once.
+    return readAndFollow({
+      read: () => store.getMetadata(),
+      follow: (take) => store.onMetadataChange(take),
+      take,
+      what: "Owlbear's data",
+      notify: { after: 1, message: "Couldn't read Owlbear's data, retrying" },
     });
-    return () => {
-      alive = false;
-      clearTimeout(retry);
-      off();
-    };
   }, [store, take]);
 
   const write = useCallback(
