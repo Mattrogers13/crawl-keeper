@@ -17,3 +17,9 @@ export const MARKER_KEY = `${ID}/marker`;
 export const SKULL_KEY = `${ID}/skull`;
 // localStorage (this browser only): the monsters folded under the GM row.
 export const MONSTERS_FOLDED_KEY = `${ID}/monsters-folded`;
+// Scene metadata: a random id for this map, written by the GM the first time
+// an undo step touches it, so undo can tell which map a step belongs to (the
+// SDK gives scenes no id).
+export const SCENE_ID_KEY = `${ID}/scene-id`;
+// sessionStorage (this tab only): the GM's undo history (see undo.ts).
+export const HISTORY_KEY = `${ID}/history`;

@@ -74,14 +74,9 @@ type CrawlCore = {
   last: CrawlRoll | null;
 };
 
-// What a roll changes, kept for a one-level undo (nothing else: danger,
-// darkness and rounds are the GM's since).
-type Undo = { clock: number; lastCheck: number };
-
-export type Crawl = CrawlCore & {
-  // Undoing clears the result shown.
-  undo: Undo | null;
-};
+// (A one-level roll undo lived here until the global undo, src/undo.ts,
+// replaced it; an old doc's `undo` field is ignored.)
+export type Crawl = CrawlCore;
 
 export const emptyCrawl = (): Crawl => ({
   danger: "unsafe",
@@ -91,7 +86,6 @@ export const emptyCrawl = (): Crawl => ({
   crawlRounds: 0,
   lastCheck: 0,
   last: null,
-  undo: null,
 });
 
 const parseDanger = (v: unknown): Danger => (v === "risky" || v === "deadly" ? v : "unsafe");
@@ -126,9 +120,6 @@ export const parseCrawl = (raw: unknown): Crawl => {
     crawlRounds,
     lastCheck: ahead(crawlRounds, parseCount(raw.lastCheck)),
     last: parseRoll(raw.last),
-    undo: isObject(raw.undo)
-      ? { clock: parseClock(raw.undo.clock), lastCheck: ahead(crawlRounds, parseCount(raw.undo.lastCheck)) }
-      : null,
   };
 };
 
@@ -156,8 +147,6 @@ export const due = (c: Crawl, mode: EncounterMode) =>
 // Crawl rounds until the next standard check (0 = due now).
 export const roundsToCheck = (c: Crawl) => Math.max(0, cadence(c) - (c.crawlRounds - c.lastCheck));
 
-const snapshot = (c: Crawl): Undo => ({ clock: c.clock, lastCheck: c.lastCheck });
-
 // Standard: roll 1d6, an encounter on 1. A due roll counts as this round's
 // check; an extra one (a loud noise, p. 112: "The GM might also check for an
 // encounter if the characters create a loud disturbance") leaves the schedule
@@ -168,7 +157,6 @@ export const rollCheck = (c: Crawl, rand: Rand): Crawl => {
     ...c,
     lastCheck: due(c, "standard") ? c.crawlRounds : c.lastCheck,
     last: { kind: "check", dice: [d], sides: 6, before: c.clock, after: c.clock, encounter: d === 1 },
-    undo: snapshot(c),
   };
 };
 
@@ -189,7 +177,6 @@ export const rollClock = (c: Crawl, rand: Rand, start = CLOCK_DIE): Crawl => {
     clock: after,
     lastCheck: c.crawlRounds,
     last: { kind: "clock", dice, sides, before, after, encounter },
-    undo: snapshot(c),
   };
 };
 
@@ -200,7 +187,7 @@ export const OMEN_AT = 5;
 export const omen = (c: Crawl) => c.clock <= OMEN_AT;
 
 // The last roll if it belongs to this mode: after switching between
-// standard checks and the clock, the other mode's roll isn't shown (or undone).
+// standard checks and the clock, the other mode's roll isn't shown.
 export const lastFor = (c: Crawl, mode: EncounterMode): CrawlRoll | null =>
   c.last && c.last.kind === (mode === "clock" ? "clock" : "check") ? c.last : null;
 
@@ -217,9 +204,7 @@ export const checkMade = (c: Crawl): Crawl => (due(c, "manual") ? { ...c, lastCh
 // encounter are the only resets: a fight, keyed or not, leaves the clock
 // where it was (decided 2026-10-16, following the sheet).
 export const resetClock = (c: Crawl): Crawl =>
-  c.clock === CLOCK_FULL && c.last === null ? c : { ...c, clock: CLOCK_FULL, last: null, undo: snapshot(c) };
-
-export const undoRoll = (c: Crawl): Crawl => (c.undo ? { ...c, ...c.undo, last: null, undo: null } : c);
+  c.clock === CLOCK_FULL && c.last === null ? c : { ...c, clock: CLOCK_FULL, last: null };
 
 export const setDanger = (c: Crawl, danger: Danger): Crawl => (c.danger === danger ? c : { ...c, danger });
 
@@ -254,4 +239,4 @@ export const crawlRoundUndone = (c: Crawl): Crawl => {
   return { ...c, crawlRounds, lastCheck: ahead(crawlRounds, c.lastCheck) };
 };
 export const resetCrawlRounds = (c: Crawl): Crawl =>
-  c.crawlRounds === 0 && c.lastCheck === 0 && c.undo === null ? c : { ...c, crawlRounds: 0, lastCheck: 0, undo: null };
+  c.crawlRounds === 0 && c.lastCheck === 0 ? c : { ...c, crawlRounds: 0, lastCheck: 0 };

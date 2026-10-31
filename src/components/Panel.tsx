@@ -4,6 +4,7 @@ import Loading from "./Loading";
 import ResizeGrip from "./ResizeGrip";
 import Settings from "./Settings";
 import Tracker from "./Tracker";
+import UndoBar from "./UndoBar";
 import type { Role } from "../hooks/useRole";
 import { useSceneReady } from "../hooks/useScene";
 import { VERSION } from "../version";
@@ -66,6 +67,7 @@ const Panel = ({ role }: { role: Role }) => {
           <p className="text-sm text-obr-text-secondary">Open a scene to use the tracker.</p>
         )}
       </main>
+      {role === "GM" && <UndoBar />}
       <Footer />
       <ResizeGrip />
     </div>

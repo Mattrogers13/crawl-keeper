@@ -86,7 +86,7 @@ const Homepage = () => {
         </Steps>
         <p>
           The roll button is always there for an extra check (a loud noise, p. 112), which doesn't change the schedule.
-          It's outlined when a roll is due and filled when it's due on the GM's turn. Undo takes back the last roll.
+          It's outlined when a roll is due and filled when it's due on the GM's turn. Undo (under the list, or Cmd/Ctrl+Z) takes back the last roll, or any other change you made.
           Settings can roll it for you when ▶ reaches the GM's turn.
         </p>
       </Section>

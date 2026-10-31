@@ -25,6 +25,7 @@ import type { Role } from "../hooks/useRole";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
 import { afterChange } from "../marker";
+import { record } from "../undo";
 import { NO_SELECTION, clickRow, keepRows, menuTargets, type Selection } from "../selection";
 import { effectiveMode, parseSettings } from "../settings";
 import { readLocal, writeLocal } from "../storage";
@@ -49,6 +50,11 @@ import {
   type Entry,
   type Tracker as TrackerDoc,
 } from "../tracker";
+
+// A GM edit to the tracker: a pure change, saved, and an undo step named
+// `label` ("Undo: Next turn"); `toast` offers Undo for a few seconds after
+// bigger actions.
+export type Change<T = TrackerDoc> = (label: string, fn: (t: T) => T, opts?: { toast?: boolean }) => void;
 
 // headerSlot: where the crawl controls go (the panel's top bar); titleSlot:
 // beside the title, for the round count.
@@ -133,12 +139,15 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   // Every GM edit: apply a pure change and save it if anything changed. A
   // new turn also moves the marker and the selection once it's saved (GM
   // clicks only; see marker.ts). A failed save reverts the doc and leaves the
-  // marker where it was.
-  const change = (fn: (t: TrackerDoc) => TrackerDoc) => {
+  // marker where it was. Saved, it's an undo step named `label`.
+  const change: Change = (label, fn, opts) => {
+    const before = doc.value;
     const updated = fn(tracker);
-    if (updated === doc.value) return;
+    if (updated === before) return;
     void doc.write(updated).then((saved) => {
-      if (saved) return afterChange(tracker, updated, settings.value);
+      if (!saved) return;
+      void record(label, [{ store: "scene", key: TRACKER_KEY, before, after: updated }], opts);
+      return afterChange(tracker, updated, settings.value);
     });
   };
 
@@ -179,18 +188,18 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   const showDanger = !gm && !combat && mode !== "clock" && settings.value.showDanger;
   const playerRoll = !gm && settings.value.showRolls ? lastFor(tracker.crawl, mode) : null;
   const goNext = () =>
-    change((t) =>
+    change("Next turn", (t) =>
       mode === "manual" ? nextAfterManualCheck(t) : settings.value.autoRoll ? nextWithAutoRoll(t, mode, cryptoRand, start) : next(t),
     );
   hotkeys.current = {
     n: goNext,
-    b: () => change(previous),
+    b: () => change("Back", previous),
     r: () => {
-      if (!combat && due(tracker.crawl, mode)) change((t) => updateCrawl(t, (c) => rollFor(mode, start)(c, cryptoRand)));
+      if (!combat && due(tracker.crawl, mode)) change("Encounter roll", (t) => updateCrawl(t, (c) => rollFor(mode, start)(c, cryptoRand)));
     },
   };
   const drop = ({ active, over }: DragEndEvent) => {
-    if (over) change((t) => moveTo(t, String(active.id), String(over.id)));
+    if (over) change("Move row", (t) => moveTo(t, String(active.id), String(over.id)));
   };
 
   return (
@@ -210,7 +219,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
               type="button"
               aria-pressed={!combat}
               className={`h-8 rounded-full px-4 ${combat ? "hover:bg-obr-text/10" : "bg-obr-primary text-obr-primary-contrast"}`}
-              onClick={() => change(toCrawl)}
+              onClick={() => change("Crawl", toCrawl)}
             >
               Crawl
             </button>
@@ -218,16 +227,16 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
               type="button"
               aria-pressed={combat}
               className={`h-8 rounded-full px-4 ${combat ? "bg-red-700 text-white" : "hover:bg-obr-text/10"}`}
-              onClick={() => change((t) => toCombat(t, settings.value.clearRollsOnCombat))}
+              onClick={() => change("Combat", (t) => toCombat(t, settings.value.clearRollsOnCombat))}
             >
               Combat
             </button>
           </div>
-          <RoundButton label="Sort by roll" onClick={() => change(sortByRoll)}>
+          <RoundButton label="Sort by roll" onClick={() => change("Sort by roll", sortByRoll)}>
             <SortIcon />
           </RoundButton>
           <div className="ml-auto flex gap-1.5">
-            <RoundButton label="Previous turn" hint="B" wide disabled={tracker.current === null} onClick={() => change(previous)}>
+            <RoundButton label="Previous turn" hint="B" wide disabled={tracker.current === null} onClick={() => change("Back", previous)}>
               <PlayIcon back />
             </RoundButton>
             <RoundButton label="Next turn" hint="N" primary wide onClick={goNext}>
@@ -244,7 +253,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
             label="Reset rounds"
             question="Reset the round count to 0? Encounter checks start over too."
             action="Reset"
-            onConfirm={() => change(resetRounds)}
+            onConfirm={() => change("Reset rounds", resetRounds, { toast: true })}
           />
           {/* After a fight: clear the monsters out (kept until then, so a fight can resume). */}
           {!combat && tracker.entries.some((e) => e.monster) && (
@@ -252,7 +261,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
               label="Remove monsters"
               question="Remove every monster from the tracker?"
               action="Remove"
-              onConfirm={() => change(removeMonsters)}
+              onConfirm={() => change("Remove monsters", removeMonsters, { toast: true })}
             />
           )}
         </div>
@@ -314,7 +323,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
             mode={mode}
             start={start}
             gmTurn={tracker.current === GM_ENTRY}
-            change={(fn) => change((t) => updateCrawl(t, fn))}
+            change={(label, fn, opts) => change(label, (t) => updateCrawl(t, fn), opts)}
           />,
           headerSlot,
         )}

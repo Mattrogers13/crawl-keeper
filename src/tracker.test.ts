@@ -482,7 +482,7 @@ describe("toggle (right-click)", () => {
 
 describe("size", () => {
   // About 12 kB passed in a real room (PR 1); this worst case, with a full
-  // crawl (10 exploded dice and an undo), is about 12.4 kB.
+  // crawl (10 exploded dice), is about 12.3 kB.
   it("a full tracker in combat stays under 12.5 kB", () => {
     const id = (i: number) => `${"x".repeat(30)}-${i}`; // Owlbear ids are shorter
     const full = parseTracker({
@@ -503,7 +503,6 @@ describe("size", () => {
         crawlRounds: 9999,
         lastCheck: 9999,
         last: { kind: "clock", dice: Array(10).fill(8), sides: 8, before: 20, after: 20, encounter: true },
-        undo: { danger: "deadly", dark: true, clock: 20, crawlRounds: 9999, lastCheck: 9999 },
       },
     });
     expect(full.crawl.last?.dice).toHaveLength(10);
