@@ -1,0 +1,123 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Crawl Keeper: players' lights (mockup)</title>
+<style>
+:root{--paper:#262a3d;--bg:#1d2030;--text:#fff;--text2:#b9bccb;--dis:#7d8194;--primary:#bb99ff;--line:rgba(255,255,255,.08);--amber:#f2b84b;--amberbg:rgba(242,184,75,.14);--red:#e0453a;--redbg:rgba(224,69,58,.14)}
+*{box-sizing:border-box}
+body{margin:0;background:#14161f;color:var(--text);font-family:Roboto,system-ui,sans-serif;padding:24px}
+h1{font-size:16px;margin:0 0 4px}.lead{font-size:12.5px;color:var(--text2);margin:0 0 18px;max-width:1200px;line-height:1.5}
+.wrap{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+.cap{font-size:12px;color:var(--text2);width:380px;margin:0 2px 8px;min-height:64px;line-height:1.45}.cap b{color:var(--text)}
+.pn{background:var(--bg);border:1px solid var(--line);border-radius:16px;width:380px;padding:16px;font-size:13px}
+.h{display:flex;align-items:center;gap:8px;margin-bottom:12px}.h b{font-size:17px}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px 3px 8px;font-size:12px;background:rgba(187,153,255,.14);color:#d9c8ff}.pill i{width:6px;height:6px;border-radius:50%;background:var(--primary)}.pill b{font-size:12px;color:#fff}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.card.dark{background:var(--redbg);border-color:rgba(224,69,58,.35)}
+.banner{border-radius:8px;padding:7px 10px;font-weight:600;font-size:12.5px;background:var(--amberbg);color:var(--amber)}
+.banner.dark{background:var(--redbg);color:#ff9d95;font-weight:500}.banner.dark b{color:#ffb3ad}
+.chip{display:inline-block;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;background:var(--red);color:#fff;margin-top:6px}
+.sec{font-size:10.5px;letter-spacing:.1em;color:var(--text2);font-weight:700;margin:2px 0 8px}
+.light{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:8px;background:rgba(0,0,0,.12)}
+.light .top{display:flex;align-items:flex-start;gap:8px}.light .ic{font-size:17px;width:22px}
+.light .nm{flex:1;line-height:1.2}.light .nm b{font-size:14px}.light .nm small{display:block;color:var(--text2);font-size:11.5px}
+.light .t{font-family:ui-monospace,Menlo,monospace;font-size:20px;font-weight:700}
+.light.out .nm b,.light.out .t{color:#a8a9b3}
+.bar{height:4px;border-radius:2px;background:rgba(255,255,255,.08);margin:6px 0 7px}.bar i{display:block;height:100%;border-radius:2px;background:linear-gradient(90deg,#e8913a,var(--amber))}
+.light.out .bar i{background:#9b7f4a}
+.btns{display:flex;gap:6px;flex-wrap:wrap;padding-left:30px}
+.btn{border:1px solid rgba(255,255,255,.14);border-radius:6px;padding:3px 8px;font-size:11.5px;font-weight:600}
+.btn.p{background:rgba(187,153,255,.55);border-color:transparent;color:#fff}
+.adds{display:flex;gap:6px;flex-wrap:wrap}.adds .btn{padding:6px 10px;font-size:12.5px;border-radius:8px}
+.muted{font-size:11.5px;color:var(--dis);margin-top:6px;line-height:1.4}
+table{width:100%;border-collapse:collapse}
+th{font-size:10px;letter-spacing:.1em;color:var(--dis);text-align:left;padding:4px 6px;border-bottom:1px solid var(--line)}
+td{padding:6px;border-bottom:1px solid var(--line);height:44px;vertical-align:middle}
+tr.cur td{background:rgba(187,153,255,.16)}tr.cur td:first-child{box-shadow:inset 3px 0 0 var(--primary)}
+td.av{width:34px}td.av i{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#3a3e52;font-size:11px;font-style:normal;font-weight:700}
+td.nm b{font-size:15px}
+td.bd{text-align:right;white-space:nowrap}
+.badge{display:inline-flex;gap:5px;align-items:center;border-radius:999px;padding:2px 9px;font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;background:var(--amberbg);color:var(--amber)}
+.badge.out{background:rgba(255,255,255,.07);color:#c8c9d2}
+.badge.me{outline:1.5px solid rgba(187,153,255,.6)}
+.dis{display:inline-block;margin-left:6px;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:800;background:var(--redbg);color:#ff8b82}
+td.in{width:40px;text-align:center;color:var(--dis)}
+.yt{border-radius:10px;padding:8px 12px;background:rgba(187,153,255,.16);color:#e6dcff;font-weight:600;margin-bottom:10px;font-size:12.5px}
+.tg{display:flex;align-items:flex-start;gap:12px;padding:8px 0;border-top:1px solid var(--line)}.tg:first-of-type{border-top:0}
+.tg div{flex:1}.tg b{font-size:13px}.tg small{display:block;color:var(--text2);font-size:11.5px;line-height:1.35}
+.sw{width:38px;height:22px;border-radius:999px;background:#454a60;position:relative;flex:none;margin-top:2px}.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#bfc2cf}
+.sw.on{background:var(--primary)}.sw.on::after{left:19px;background:#fff}
+.notes{margin-top:30px;max-width:1200px;font-size:12.5px;color:var(--text2);line-height:1.6}.notes b{color:var(--text)}
+</style></head><body>
+<h1>Players' lights, mockup for approval (2026-10-30)</h1>
+<p class="lead">What a player sees in the merged Crawl Keeper. The toolkit has no player view, so this is new, in the style of <code>docs/mockups/ck-*.png</code> and <code>lt-*.png</code>. Players own their own lights (from Torchlight); everything else is read-only, as today. Example: the player is Greg.</p>
+
+<div class="wrap">
+
+<div>
+<p class="cap"><b>1. Greg, crawling, party lit.</b> The strip is read-only: the party's light status, no Time passes or Manage. "Your light" holds only Greg's lights: Put out on his own, and + buttons when the GM lets players light their own. Badges on every row as on the GM's panel (Greg's own outlined, the only one he can click).</p>
+<div class="pn">
+ <div class="h"><b>Crawl Keeper</b><span class="pill"><i></i>Crawl · <b>Round 4</b></span></div>
+ <div class="card"><div class="banner">Party has light · 3 shining</div></div>
+ <div class="card">
+  <div class="sec">YOUR LIGHT</div>
+  <div class="light"><div class="top"><span class="ic">🔥</span><div class="nm"><b>Torch</b><small>near</small></div><span class="t">42:15</span></div><div class="bar"><i style="width:70%"></i></div><div class="btns"><span class="btn">Put out</span></div></div>
+  <div class="adds"><span class="btn">+ Torch</span><span class="btn">+ Lantern</span><span class="btn">+ Light spell</span></div>
+  <p class="muted">You carry one lit light. Lighting another puts this one out first (asks).</p>
+ </div>
+ <table><tr><th></th><th>NAME</th><th></th><th>INIT</th></tr>
+  <tr class="cur"><td class="av"><i>J</i></td><td class="nm"><b>Joe</b></td><td class="bd"><span class="badge">🏮 42:20</span></td><td class="in">–</td></tr>
+  <tr><td class="av"><i>G</i></td><td class="nm"><b>Greg</b></td><td class="bd"><span class="badge me">🔥 42:15</span></td><td class="in">–</td></tr>
+  <tr><td class="av"><i>S</i></td><td class="nm"><b>Steve</b></td><td class="bd"><span class="badge">✨ 42:15</span></td><td class="in">–</td></tr>
+  <tr><td class="av"><i style="background:var(--primary);color:#000">GM</i></td><td class="nm"><b>GM / Monsters</b></td><td></td><td class="in">–</td></tr>
+ </table>
+</div>
+</div>
+
+<div>
+<p class="cap"><b>2. Greg, total darkness, his turn.</b> Red strip and the p. 84 reminder, DIS tags on every player row, "out" badges. Greg's put-out torch shows Resume (and Remove if the GM allows). The "Your turn" strip is today's.</p>
+<div class="pn">
+ <div class="h"><b>Crawl Keeper</b><span class="pill"><i></i>Crawl · <b>Round 9</b></span></div>
+ <div class="card dark"><div class="banner dark"><b>No light: total darkness</b> (p. 84). Disadvantage on tasks that need sight.</div></div>
+ <div class="yt">Your turn, Greg</div>
+ <div class="card">
+  <div class="sec">YOUR LIGHT</div>
+  <div class="light out"><div class="top"><span class="ic">🔥</span><div class="nm"><b>Torch</b><small>out</small></div><span class="t">18:02</span></div><div class="bar"><i style="width:30%"></i></div><div class="btns"><span class="btn p">Resume</span><span class="btn">Remove</span></div></div>
+  <div class="adds"><span class="btn">+ Torch</span><span class="btn">+ Lantern</span><span class="btn">+ Light spell</span></div>
+ </div>
+ <table><tr><th></th><th>NAME</th><th></th><th>INIT</th></tr>
+  <tr><td class="av"><i>J</i></td><td class="nm"><b>Joe</b></td><td class="bd"><span class="badge out">🏮 out</span><span class="dis">DIS</span></td><td class="in">–</td></tr>
+  <tr class="cur"><td class="av"><i>G</i></td><td class="nm"><b>Greg</b></td><td class="bd"><span class="badge out me">🔥 out</span><span class="dis">DIS</span></td><td class="in">–</td></tr>
+  <tr><td class="av"><i>S</i></td><td class="nm"><b>Steve</b></td><td class="bd"><span class="badge out">✨ out</span><span class="dis">DIS</span></td><td class="in">–</td></tr>
+ </table>
+</div>
+</div>
+
+<div>
+<p class="cap"><b>3. Greg, the GM keeps lights to themselves.</b> Players can't light their own: no + buttons. A light the GM gave Greg still shows, with no buttons. With "Show lights to players" off, the strip and badges are hidden too, and this card says the GM is tracking light.</p>
+<div class="pn">
+ <div class="h"><b>Crawl Keeper</b><span class="pill"><i></i>Crawl · <b>Round 4</b></span></div>
+ <div class="card"><div class="banner">Party has light · 2 shining</div></div>
+ <div class="card">
+  <div class="sec">YOUR LIGHT</div>
+  <div class="light"><div class="top"><span class="ic">🏮</span><div class="nm"><b>Lantern</b><small>double near · from the GM</small></div><span class="t">55:40</span></div><div class="bar"><i style="width:92%"></i></div></div>
+  <p class="muted">The GM lights and puts out lights at this table.</p>
+ </div>
+</div>
+<p class="cap" style="margin-top:18px"><b>4. GM: Settings, new "Players' lights" card</b> (Torchlight's permissions, under Darkness).</p>
+<div class="pn">
+ <div class="sec" style="margin-bottom:6px">PLAYERS' LIGHTS</div>
+ <div class="card">
+  <div class="tg"><div><b>Show lights to players</b><small>Players see the strip, the badges and DIS tags. Off: only their own lights.</small></div><span class="sw on"></span></div>
+  <div class="tg"><div><b>Players light their own</b><small>Torch, Lantern or Light spell on their own token, one lit at a time.</small></div><span class="sw on"></span></div>
+  <div class="tg"><div><b>Players remove their own</b><small>Off: they can put lights out and back on, but only you remove them.</small></div><span class="sw"></span></div>
+ </div>
+</div>
+</div>
+
+</div>
+
+<div class="notes">
+<p><b>Which token is Greg's?</b> A player's lights go on the token they put on the map (<code>createdUserId</code>, the same rule as "Your turn"). A player with no token of their own can't light one (every timer belongs to a token); the + buttons are hidden for them.</p>
+<p><b>Not for players:</b> Time passes, Pause, Put lights out, the p. 84 settings, carrier and note, Shutter and Refill oil, the Light Tracker view. Shutter and Refill could be added for players later if wanted.</p>
+<p><b>Undo:</b> players' actions aren't on the GM's undo (their lights are in their own data). A player's mistake is fixed with Put out / Resume.</p>
+</div>
+</body></html>
