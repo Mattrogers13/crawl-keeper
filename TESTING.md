@@ -117,18 +117,18 @@ Rows 51–55 retired (Matt, 2026-10-31): the Torchlight merge (v0.3) replaces Fo
 | 53 | Light one torch again | Back to Risky, chip gone, the 3 ft lights come off (the lit token keeps its torch) | Retired (v0.3) |
 | 54 | Crawling Clock: lights out, then back | The torch toggle flips to Darkness (Roll d8) and back | Retired (v0.3) |
 | 55 | Settings → Follow Torchlight off; put out the lights | Nothing changes on its own; the 3 ft lights come off | Retired (v0.3) |
-| 56 | A room without Torchlight | Never goes dark on its own | |
+| 56 | A room without Torchlight | Never goes dark on its own | 2026-10-31 |
 
 ### New in v0.2.0
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
 | 57 | GM: ▶, then "Undo: Next turn", Redo; Cmd+Z, Shift+Cmd+Z (not while typing in a note) | The bar names the step; the turn and ring go back and forward | 2026-10-31 |
-| 58 | GM: close the panel, right-click a token → Add / Remove Initiative, reopen | "Undo: Add to initiative" in the bar; Undo takes it out | |
+| 58 | GM: close the panel, right-click a token → Add / Remove Initiative, reopen | "Undo: Add to initiative" in the bar; Undo takes it out | 2026-10-31 |
 | 59 | GM: Remove monsters (or Reset rounds, Reset clock) | A "Done: …" toast with Undo just above the bar, never over it, gone after 8 s; its Undo brings them back | 2026-10-31 |
-| 60 | GM: a step on map A, open map B, Undo | "… on another map. Skipped."; map B unchanged | |
-| 61 | Player: the panel | No Undo bar or toast | |
-| 62 | GM: Settings → Manual; ▶ to the GM turn when a check is due; roll the d6; ▶ past it once without rolling | The card shows the danger level and lights up; the d6 rolls a check; ▶ counts a due check made. Player (Show the danger level on): "Crawling · <danger>", never the roll; "Show the rolls" isn't offered | |
-| 63 | GM: Settings → Clock 2d20; roll until the clock passes 20 and 0 | Starts at 40, worn down one d20 at a time; the omen and the encounter on the last die; the overflow carries into a fresh 40. Player: "Crawling Clock", "The clock is at N" of 40 | |
+| 60 | GM: a step on map A, open map B, Undo | "… on another map. Skipped."; map B unchanged | 2026-10-31 |
+| 61 | Player: the panel | No Undo bar or toast | 2026-10-31 |
+| 62 | GM: Settings → Manual; ▶ to the GM turn when a check is due; roll the d6; ▶ past it once without rolling | The card shows the danger level and lights up; the d6 rolls a check; ▶ counts a due check made. Player (Show the danger level on): "Crawling · <danger>", never the roll; "Show the rolls" isn't offered | 2026-10-31 |
+| 63 | GM: Settings → Clock 2d20; roll until the clock passes 20 and 0 | Starts at 40, worn down one d20 at a time; the omen and the encounter on the last die; the overflow carries into a fresh 40. Player: "Crawling Clock", "The clock is at N" of 40 | 2026-10-31 |
 | 64 | GM: Settings at a short and a tall panel height; pick each of Interval / Clock 1d20 / Clock 2d20 / Manual | Cards like the web toolkit (Encounters, Darkness, What players see, Turns and combat, About); one scrollbar only; each choice is one undo step | 2026-10-31 |
 | 65 | Player: a clock mode with the clock shown | The card's title reads "Crawling Clock" | 2026-10-31 |
