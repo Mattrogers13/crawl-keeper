@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 
 import Confirm from "./Confirm";
+import type { Change } from "./Tracker";
 import {
   CLOCK_DIE,
   OMEN_AT,
@@ -16,7 +17,6 @@ import {
   roundsToCheck,
   setDanger,
   setDark,
-  undoRoll,
   type Crawl,
   type CrawlRoll,
   type Danger,
@@ -35,7 +35,7 @@ const CrawlBar = (props: {
   mode: EncounterMode;
   start: number;
   gmTurn: boolean;
-  change: (fn: (c: Crawl) => Crawl) => void;
+  change: Change<Crawl>;
 }) => {
   const { crawl, mode, start, change } = props;
   const [askingReset, setAskingReset] = useState(false);
@@ -83,7 +83,7 @@ const CrawlBar = (props: {
         {clock ? (
           <span className="text-sm font-medium">Crawling Clock{start > CLOCK_DIE && <span className="text-obr-text-secondary"> · 2d20</span>}</span>
         ) : (
-          <DangerSelect value={crawl.danger} onChange={(d) => change((c) => setDanger(c, d))} />
+          <DangerSelect value={crawl.danger} onChange={(d) => change("Danger level", (c) => setDanger(c, d))} />
         )}
         <span className="text-xs leading-snug text-obr-text-secondary">
           {clock
@@ -109,7 +109,7 @@ const CrawlBar = (props: {
         {/* Standard checks have no darkness switch: total darkness is Deadly (p. 84).
             Following Torchlight, a chip says why it went Deadly. */}
         {clock ? (
-          <TorchToggle dark={crawl.dark} onClick={() => change((c) => setDark(c, !c.dark))} />
+          <TorchToggle dark={crawl.dark} onClick={() => change(crawl.dark ? "Torchlit" : "Darkness", (c) => setDark(c, !c.dark))} />
         ) : (
           crawl.dark && (
             <span
@@ -126,7 +126,7 @@ const CrawlBar = (props: {
             label="Reset clock"
             question={`Reset the clock to ${start}?`}
             action="Reset"
-            onConfirm={() => change(resetClock)}
+            onConfirm={() => change("Reset clock", resetClock, { toast: true })}
             asking={askingReset}
             setAsking={setAskingReset}
           />
@@ -138,7 +138,7 @@ const CrawlBar = (props: {
           roll={last}
           label={clock ? `Roll d${crawlDie(crawl)}` : "Encounter check (d6)"}
           due={isDue}
-          onClick={() => change((c) => rollFor(mode, start)(c, cryptoRand))}
+          onClick={() => change(clock ? "Crawling die" : "Encounter check", (c) => rollFor(mode, start)(c, cryptoRand))}
         />
         {/* A live region that stays mounted, so a new result is announced. */}
         <div role="status" aria-label="Last roll" className="flex flex-col items-center">
@@ -148,11 +148,6 @@ const CrawlBar = (props: {
             <span className="text-center text-[11px] leading-tight text-obr-text-secondary">{clock ? "Crawling die" : "Encounter check"}</span>
           )}
         </div>
-        {last && crawl.undo && (
-          <button type="button" className="text-[11px] text-obr-text-secondary underline hover:text-obr-text" onClick={() => change(undoRoll)}>
-            Undo
-          </button>
-        )}
       </div>
     </section>
   );

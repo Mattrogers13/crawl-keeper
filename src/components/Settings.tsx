@@ -6,16 +6,40 @@ import Loading from "./Loading";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import { useRoomValue } from "../hooks/useRoomValue";
 import { syncTurnFromScene } from "../marker";
+import { record } from "../undo";
 import { errorMessage } from "../utils";
 import { parseSettings, type Settings as SettingsDoc } from "../settings";
 
 // The GM's settings (room metadata, so they follow the party across maps),
 // grouped into cards like Owlbear's own settings: a segmented pill for the
 // encounter method, switches for the rest.
+// The undo step's name for each setting (short forms of the switches' labels).
+const SETTING_LABELS: Partial<Record<keyof SettingsDoc, string>> = {
+  encounterRolls: "encounter checks",
+  encounterMode: "encounter method",
+  clockDice: "clock size",
+  followTorchlight: "Follow Torchlight",
+  autoRoll: "roll automatically",
+  showRolls: "show rolls",
+  hideRound: "hide rounds",
+  hideClock: "hide the clock",
+  showDanger: "show danger",
+  clearRollsOnCombat: "clear rolls on combat",
+  showMarker: "turn marker",
+  selectOnTurn: "select token",
+};
+
 const Settings = () => {
   const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   if (!settings.loaded) return <Loading />;
-  const set = (s: Partial<SettingsDoc>) => void settings.write({ ...settings.value, ...s });
+  // Each change is an undo step named for the setting.
+  const set = (s: Partial<SettingsDoc>) => {
+    const before = settings.value;
+    const after = { ...before, ...s };
+    void settings.write(after).then((saved) => {
+      if (saved) void record(`Setting: ${SETTING_LABELS[Object.keys(s)[0] as keyof SettingsDoc] ?? "settings"}`, [{ store: "room", key: SETTINGS_KEY, before, after }]);
+    });
+  };
   const rolls = settings.value.encounterRolls;
   const clock = rolls && settings.value.encounterMode === "clock";
 

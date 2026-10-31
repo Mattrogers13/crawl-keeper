@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 
-import { remove, setDead, setMarker, setMonster, type Entry, type Tracker as TrackerDoc } from "../tracker";
+import type { Change } from "./Tracker";
+import { remove, setDead, setMarker, setMonster, type Entry } from "../tracker";
 
 // The GM's actions for the selected token rows (one or many). Opened by
 // right-clicking a row or its ⋯ button (touch has no right-click). Closes on
@@ -11,7 +12,7 @@ const RowMenu = (props: {
   x: number;
   y: number;
   close: () => void;
-  change: (fn: (t: TrackerDoc) => TrackerDoc) => void;
+  change: Change;
   show: (id: string) => void;
   clear: () => void;
 }) => {
@@ -39,18 +40,18 @@ const RowMenu = (props: {
   // [label, shown?, action]
   const some = (f: (e: Entry) => boolean) => entries.some(f);
   const items: [string, boolean, () => void][] = [
-    ["Mark as monster", some((e) => !e.monster), () => change((t) => setMonster(t, ids, true))],
-    ["Mark as player or ally", some((e) => e.monster), () => change((t) => setMonster(t, ids, false))],
-    ["Mark dead", some((e) => !e.dead), () => change((t) => setDead(t, ids, true))],
-    ["Mark alive", some((e) => e.dead), () => change((t) => setDead(t, ids, false))],
-    ["Turn marker on", some((e) => !e.marker), () => change((t) => setMarker(t, ids, true))],
-    ["Turn marker off", some((e) => e.marker), () => change((t) => setMarker(t, ids, false))],
+    ["Mark as monster", some((e) => !e.monster), () => change("Mark as monster", (t) => setMonster(t, ids, true))],
+    ["Mark as player or ally", some((e) => e.monster), () => change("Mark as player or ally", (t) => setMonster(t, ids, false))],
+    ["Mark dead", some((e) => !e.dead), () => change("Mark dead", (t) => setDead(t, ids, true))],
+    ["Mark alive", some((e) => e.dead), () => change("Mark alive", (t) => setDead(t, ids, false))],
+    ["Turn marker on", some((e) => !e.marker), () => change("Turn marker on", (t) => setMarker(t, ids, true))],
+    ["Turn marker off", some((e) => e.marker), () => change("Turn marker off", (t) => setMarker(t, ids, false))],
     ["Show on map", ids.length === 1, () => props.show(ids[0])],
     [
       ids.length === 1 ? "Remove from initiative" : `Remove ${ids.length} from initiative`,
       true,
       () => {
-        change((t) => remove(t, ids));
+        change("Remove from initiative", (t) => remove(t, ids), { toast: true });
         props.clear();
       },
     ],

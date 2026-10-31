@@ -6,6 +6,7 @@ import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 import { MENU_ID, TRACKER_KEY } from "./constants";
 import { afterChange, fixMarkerVisibility, readSettings } from "./marker";
 import { watchTorchlight } from "./torchlight";
+import { clearHistory, record } from "./undo";
 import { MAX_ENTRIES, parseTracker, toggle, type Phase } from "./tracker";
 import { errorMessage, notify } from "./utils";
 
@@ -24,6 +25,8 @@ export const toggleInitiative = async (ids: string[]) => {
   const full = () => left > 0 && notify(`Initiative is full (${MAX_ENTRIES} rows): ${left} token${left === 1 ? "" : "s"} not added.`, "WARNING");
   if (updated === tracker) return full();
   await OBR.scene.setMetadata({ [TRACKER_KEY]: updated });
+  // An undo step in the GM's history, shared with the panel (same tab).
+  await record(removing ? "Remove from initiative" : "Add to initiative", [{ store: "scene", key: TRACKER_KEY, before: scene[TRACKER_KEY], after: updated }], { toast: removing });
   full();
   // Removing the current token passed the turn on (the marker moves with it);
   // removing a dead one takes its skull off.
@@ -111,6 +114,11 @@ export const watchMarkerVisibility = () => {
     offItems();
   };
 };
+
+// The background page loads once per load of the room, so this is a reload
+// (sessionStorage outlives one): undo starts empty, as designed. Reopening
+// the panel doesn't come through here, so its history survives that.
+clearHistory();
 
 OBR.onReady(() => {
   createMenu().catch((err) => console.error(`Couldn't add the initiative menu: ${errorMessage(err)}`));

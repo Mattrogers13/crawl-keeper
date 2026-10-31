@@ -18,7 +18,6 @@ import {
   rollClock,
   rollFor,
   roundsToCheck,
-  undoRoll,
   type Crawl,
 } from "./crawl";
 
@@ -45,8 +44,8 @@ describe("parseCrawl", () => {
   });
 
   it("lastCheck runs at most the longest cadence ahead, so bad data can't switch checks off", () => {
-    const c = parseCrawl({ crawlRounds: 2, lastCheck: 9999, undo: { clock: 20, lastCheck: 9999 } });
-    expect([c.lastCheck, c.undo?.lastCheck]).toEqual([5, 5]);
+    const c = parseCrawl({ crawlRounds: 2, lastCheck: 9999 });
+    expect(c.lastCheck).toBe(5);
     expect(due(rounds(c, 4), "clock")).toBe(true);
   });
 
@@ -195,26 +194,16 @@ describe("manual (encounter checks and clock off)", () => {
 
   it("checkMade counts a due check; not due keeps the object", () => {
     const c = rounds(crawl({ danger: "risky" }), 2);
-    expect(checkMade(c)).toMatchObject({ lastCheck: 2, last: null, undo: null });
+    expect(checkMade(c)).toMatchObject({ lastCheck: 2, last: null });
     expect(due(checkMade(c), "manual")).toBe(false);
     const early = rounds(crawl({ danger: "risky" }), 1);
     expect(checkMade(early)).toBe(early);
   });
 });
 
-describe("undo, rounds", () => {
-  it("undo puts back only what the roll changed: not danger, darkness or rounds since", () => {
-    let c = rollCheck(rounds(crawl({ danger: "unsafe" }), 3), dice(6, 4));
-    c = rounds({ ...c, danger: "risky", dark: true }, 3);
-    expect(undoRoll(c)).toMatchObject({ danger: "risky", dark: true, crawlRounds: 6, lastCheck: 0, last: null });
-  });
-
-  it("one-level undo of the last roll", () => {
-    const before = rounds(crawl({ clock: 12 }), 1);
-    const after = rollClock(before, dice(6, 5));
-    const undone = undoRoll(after);
-    expect(undone).toMatchObject({ clock: 12, lastCheck: before.lastCheck, last: null, undo: null });
-    expect(undoRoll(undone)).toBe(undone);
+describe("rounds", () => {
+  it("an old doc's one-level roll undo is dropped on read (the global undo replaced it)", () => {
+    expect(parseCrawl({ undo: { clock: 20, lastCheck: 0 } })).not.toHaveProperty("undo");
   });
 
   it("◀ back over many rolled rounds keeps lastCheck within the longest cadence", () => {
@@ -230,7 +219,7 @@ describe("undo, rounds", () => {
     expect(due(back, "clock")).toBe(false);
     expect(due(crawlRoundStarted(back), "clock")).toBe(false);
     expect(due(crawlRoundStarted(crawlRoundStarted(back)), "clock")).toBe(true);
-    expect(resetCrawlRounds(c)).toMatchObject({ crawlRounds: 0, lastCheck: 0, undo: null });
+    expect(resetCrawlRounds(c)).toMatchObject({ crawlRounds: 0, lastCheck: 0 });
     const zero = crawl();
     expect(resetCrawlRounds(zero)).toBe(zero);
   });

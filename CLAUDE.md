@@ -40,7 +40,8 @@ Node 24 (`.node-version`; fnm auto-switches). Non-interactive shells: `eval "$(f
 - `src/background.ts` (every client, panel open or not): the GM's right-click "Add / Remove Initiative", the combat alert, the GM's ring-visibility fix.
 - `src/torchlight.ts` (started by background, GM only): Follow Torchlight. Reads Torchlight's token key (`io.github.mattrogers13.torchlight/token`, must match obr-torchlight's `TOKEN_KEY`), changes darkness/Deadly only on a lit-state transition, adds/removes our 3 ft Dynamic Fog dim light (tagged `${ID}/dim`).
 - `src/constants.ts`: extension `ID` (prefixes every metadata key and broadcast channel) and keys. No React imports (background pages use it).
-- `src/storage.ts`: the only way to touch localStorage (it throws in Owlbear's iframe under strict privacy).
+- `src/undo.ts` + `src/history.ts` (pure): the GM's undo / redo for every action (`record` after a saved write; tracker edits through `Tracker`'s `change(label, fn)`), in sessionStorage shared with the background page; steps on another map are skipped. Automatic writes (prune, Follow Torchlight) aren't steps.
+- `src/storage.ts`: the only way to touch localStorage / sessionStorage (it throws in Owlbear's iframe under strict privacy).
 - `src/devManifest.ts` + `vite.config.ts`: non-main Cloudflare builds rename the manifest "(Dev)" and show `DEV · branch · sha` in the footer.
 - Testing drag (dnd-kit) in jsdom: stub `getBoundingClientRect` per row and give the list a tall box, then press Space / arrows / Space with a pause between (`Tracker.test.tsx`, "drag to move").
 - Styling: Owlbear's theme colors as CSS vars (`--obr-*`) → Tailwind classes `bg-obr-paper`, `text-obr-text`, `bg-obr-primary`, etc. (`src/index.css`).
