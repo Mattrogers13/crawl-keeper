@@ -22,6 +22,7 @@ import RowMenu from "./RowMenu";
 import Row, { INIT_SLOT, tokenInfo, type ButtonProps, type Token } from "./TrackerRow";
 import { MONSTERS_FOLDED_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
+import { useLights } from "../hooks/useLights";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
 import { afterChange } from "../marker";
@@ -62,6 +63,8 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   const { role, headerSlot = null, titleSlot = null } = props;
   const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   const doc = useSceneValue(TRACKER_KEY, parseTracker);
+  // The GM gives lights from the row menu.
+  const lights = useLights();
   const items = useSceneItems();
   // Drag rows by the grip (mouse, touch), or focus the grip and use Space +
   // arrow keys.
@@ -432,6 +435,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
           y={menu.y}
           close={() => setMenu(null)}
           change={change}
+          lights={lights.loaded ? lights : null}
           show={show}
           clear={() => setPicked(NO_SELECTION)}
         />

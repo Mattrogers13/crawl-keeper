@@ -2,6 +2,10 @@
 
 Versions follow semver; the same number is in `package.json` and `public/manifest.json`.
 
+## Unreleased (v0.3, on `torchlight-merge`)
+
+- Light Tracker (flame button, GM): every light's timer, the party's light, Time passes (10m, 1h, 1:30), Put lights out, Pause, Ride along or Separate timers, Resume its time or Treat as newly lit; lanterns shutter and take oil; click a time to correct it; burned-out lights relight. Lights start on tokens: a row's menu → Give torch, lantern or Light spell (one lit light per token). Every change can be undone.
+
 ## v0.2.0 (2026-10-31)
 
 - Undo and Redo for every GM action (turns, rolls, edits, row menu, right-click Add / Remove, settings), up to 50 steps, under the list on every screen; Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z. Bigger actions (Remove monsters, Remove from initiative, Reset rounds, Reset clock) offer Undo in a toast. Kept while the panel is closed, gone on reload. Replaces the roll-only Undo.

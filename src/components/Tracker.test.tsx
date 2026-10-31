@@ -211,6 +211,9 @@ describe("Tracker (GM)", () => {
       "Mark dead",
       "Turn marker off",
       "Show on map",
+      "Give torch",
+      "Give lantern",
+      "Give Light spell",
       "Remove from initiative",
     ]);
     expect(within(menu).getByRole("menuitem", { name: "Mark as monster" })).toHaveFocus();

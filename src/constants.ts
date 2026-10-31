@@ -23,3 +23,6 @@ export const MONSTERS_FOLDED_KEY = `${ID}/monsters-folded`;
 export const SCENE_ID_KEY = `${ID}/scene-id`;
 // sessionStorage (this tab only): the GM's undo history (see undo.ts).
 export const HISTORY_KEY = `${ID}/history`;
+// Room metadata: the GM's light timers (see lights.ts); they cross maps with
+// the party.
+export const LIGHTS_KEY = `${ID}/lights`;
