@@ -4,7 +4,7 @@
 // reacting to the same change would add a marker each.
 import OBR, { buildImage, type Image, type Item } from "@owlbear-rodeo/sdk";
 
-import { MARKER_KEY, SETTINGS_KEY, SKULL_KEY, TRACKER_KEY } from "./constants";
+import { BADGE_KEY, MARKER_KEY, SETTINGS_KEY, SKULL_KEY, TRACKER_KEY } from "./constants";
 import { parseSettings, type Settings } from "./settings";
 import { GM_ENTRY, parseTracker, type Tracker } from "./tracker";
 import { errorMessage, notify } from "./utils";
@@ -49,13 +49,14 @@ const isOurs = (key: string) => (item: Item): item is Image =>
   item.image.url.startsWith(`${window.location.origin}/img/`);
 export const isOurMarker = isOurs(MARKER_KEY);
 export const isOurSkull = isOurs(SKULL_KEY);
+export const isOurBadge = isOurs(BADGE_KEY);
 
-// Pure: rings whose visibility differs from their token's (Owlbear doesn't
+// Pure: rings, skulls and light badges whose visibility differs from their token's (Owlbear doesn't
 // hide an attachment with its token, verified 2026-10-16).
 export const markerVisibilityFixes = (items: Item[]) => {
   const visible = new Map(items.map((i) => [i.id, i.visible]));
   return items
-    .filter((i) => (isOurMarker(i) || isOurSkull(i)) && i.attachedTo && visible.has(i.attachedTo))
+    .filter((i) => (isOurMarker(i) || isOurSkull(i) || isOurBadge(i)) && i.attachedTo && visible.has(i.attachedTo))
     .filter((m) => m.visible !== visible.get(m.attachedTo!))
     .map((m) => ({ id: m.id, visible: visible.get(m.attachedTo!)! }));
 };
@@ -76,7 +77,7 @@ const isImage = (item: Item | undefined): item is Image => item?.type === "IMAGE
 
 // A token's width in grid cells. Item shapes come from Owlbear and other
 // extensions: a broken size falls back to one cell.
-const tokenCells = (token: Image) => {
+export const tokenCells = (token: Image) => {
   const raw = (token.image?.width / token.grid?.dpi) * Math.max(Math.abs(token.scale?.x), Math.abs(token.scale?.y));
   return Number.isFinite(raw) && raw > 0 ? Math.min(raw, 100) : 1;
 };

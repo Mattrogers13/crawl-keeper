@@ -10,12 +10,17 @@
 //   (Matt, 2026-10-31: "When a token doesn't have a torch it should be 3ft
 //   min"), so players see their own tokens through the fog.
 //
+// - A carried light (torch, lantern, Light spell) also gets a badge on the
+//   token, its icon at the top right. A campfire is a stationary light: no
+//   badge (the fire is the token) and never a row in the initiative list.
+//
 // Paused lights still shine (a table break). Burn-outs need no write: a
 // timer re-syncs when the next light runs out. Tokens Torchlight lights are
 // left to Torchlight while both are installed.
-import OBR, { type Item, type Metadata } from "@owlbear-rodeo/sdk";
+import OBR, { buildImage, type Image, type Item, type Metadata } from "@owlbear-rodeo/sdk";
 
-import { ID, LIGHTS_KEY, TRACKER_KEY } from "./constants";
+import { BADGE_KEY, ID, LIGHTS_KEY, TRACKER_KEY } from "./constants";
+import { isOurBadge, tokenCells } from "./marker";
 import { msToNextBurnOut, parseLights, shining, type LightKind, type Lights } from "./lights";
 import { isObject } from "./parse";
 import { lightOn } from "./torchlight";
@@ -109,6 +114,72 @@ export const planTokenLights = (t: Tracker, items: Item[], s: Lights, now: numbe
   return changes;
 };
 
+// WebP, never SVG on the map (black square). Sources: art/badges/*.svg.
+const BADGE_FILE: Partial<Record<LightKind, string>> = { torch: "torch", lantern: "lantern", lightSpell: "light-spell" };
+export const badgeImage = (kind: LightKind) => {
+  const file = BADGE_FILE[kind];
+  return file ? `${window.location.origin}/img/badge-${file}.webp` : null;
+};
+
+export type BadgeState = { id: string; attachedTo: string | undefined; image: string | undefined; visible: boolean };
+
+// Pure: one up-to-date badge per token holding a shining carried light
+// (current art, the token's visibility); anything else goes: strays,
+// duplicates, the wrong light, old art.
+export const planBadges = (badges: BadgeState[], items: Item[], s: Lights, now: number) => {
+  const want = new Map<string, { image: string; visible: boolean }>();
+  const present = new Map(items.map((i) => [i.id, i]));
+  for (const l of s.lights) {
+    const image = badgeImage(l.kind);
+    const token = present.get(l.tokenId);
+    if (image && token && token.type === "IMAGE" && shining(l, now)) want.set(l.tokenId, { image, visible: token.visible });
+  }
+  const kept = new Set<string>();
+  const remove: string[] = [];
+  for (const b of badges) {
+    const on = b.attachedTo;
+    const w = on === undefined ? undefined : want.get(on);
+    if (on !== undefined && w && !kept.has(on) && b.image === w.image && b.visible === w.visible) kept.add(on);
+    else remove.push(b.id);
+  }
+  return { remove, add: [...want].filter(([id]) => !kept.has(id)).map(([tokenId, w]) => ({ tokenId, image: w.image })) };
+};
+
+// A third of the token's width, at its top right; it follows the token.
+const BADGE_PX = 128;
+export const buildBadge = (token: Image, image: string, sceneDpi: number) => {
+  const cells = tokenCells(token);
+  const size = 0.35 * cells;
+  const offset = (cells * sceneDpi) / 2 - (size * sceneDpi) / 2;
+  return buildImage(
+    { width: BADGE_PX, height: BADGE_PX, mime: "image/webp", url: image },
+    { dpi: BADGE_PX / size, offset: { x: BADGE_PX / 2, y: BADGE_PX / 2 } },
+  )
+    .name("Light (Crawl Keeper)")
+    .position({ x: token.position.x + offset, y: token.position.y - offset })
+    .attachedTo(token.id)
+    .visible(token.visible)
+    .layer("ATTACHMENT")
+    .locked(true)
+    .disableHit(true)
+    .disableAttachmentBehavior(["ROTATION", "COPY"])
+    .metadata({ [BADGE_KEY]: true })
+    .build();
+};
+
+const syncBadges = async (items: Item[], s: Lights, now: number, sceneDpi: number) => {
+  const badges = items.filter(isOurBadge);
+  const plan = planBadges(
+    badges.map((b) => ({ id: b.id, attachedTo: b.attachedTo, image: b.image?.url, visible: b.visible })),
+    items,
+    s,
+    now,
+  );
+  if (plan.remove.length > 0) await OBR.scene.items.deleteItems(plan.remove);
+  const byId = new Map(items.map((i) => [i.id, i]));
+  if (plan.add.length > 0) await OBR.scene.items.addItems(plan.add.map((a) => buildBadge(byId.get(a.tokenId) as Image, a.image, sceneDpi)));
+};
+
 // The GM's background: keeps the map in step on every change to the
 // tokens, the list or the lights, and when the next light burns out. One
 // sync at a time.
@@ -133,6 +204,7 @@ export const watchTokenLights = () => {
     const now = Date.now();
     const px = (ft: number) => feetToPx(ft, dpi, scale.parsed.unit, scale.parsed.multiplier);
     await write(planTokenLights(parseTracker(scene[TRACKER_KEY]), items, lights, now, px));
+    await syncBadges(items, lights, now, dpi);
     const next = msToNextBurnOut(lights, now);
     if (next !== null) timer = setTimeout(sync, next + 50);
   };
