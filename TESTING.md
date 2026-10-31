@@ -108,13 +108,15 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 
 ### New: Follow Torchlight (Torchlight installed too)
 
+Rows 51–55 retired (Matt, 2026-10-31): the Torchlight merge (v0.3) replaces Follow Torchlight, so they aren't room-tested for v0.2. Row 56 stays: it covers every room without Torchlight.
+
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 51 | Torchlight: light a torch on a tracked token; a lantern; a Light spell | A flame (blue for the spell) beside the name for GM and player; hover names the source | |
-| 52 | Standard, Risky: put out every light on tracked tokens | Danger goes Deadly, a Darkness chip shows; each party token without a light gets a small 3 ft light (players see their own token) | |
-| 53 | Light one torch again | Back to Risky, chip gone, the 3 ft lights come off (the lit token keeps its torch) | |
-| 54 | Crawling Clock: lights out, then back | The torch toggle flips to Darkness (Roll d8) and back | |
-| 55 | Settings → Follow Torchlight off; put out the lights | Nothing changes on its own; the 3 ft lights come off | |
+| 51 | Torchlight: light a torch on a tracked token; a lantern; a Light spell | A flame (blue for the spell) beside the name for GM and player; hover names the source | Retired (v0.3) |
+| 52 | Standard, Risky: put out every light on tracked tokens | Danger goes Deadly, a Darkness chip shows; each party token without a light gets a small 3 ft light (players see their own token) | Retired (v0.3) |
+| 53 | Light one torch again | Back to Risky, chip gone, the 3 ft lights come off (the lit token keeps its torch) | Retired (v0.3) |
+| 54 | Crawling Clock: lights out, then back | The torch toggle flips to Darkness (Roll d8) and back | Retired (v0.3) |
+| 55 | Settings → Follow Torchlight off; put out the lights | Nothing changes on its own; the 3 ft lights come off | Retired (v0.3) |
 | 56 | A room without Torchlight | Never goes dark on its own | |
 
 ### New in v0.2.0
