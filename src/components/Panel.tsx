@@ -7,6 +7,7 @@ import ResizeGrip from "./ResizeGrip";
 import Settings from "./Settings";
 import Tracker from "./Tracker";
 import UndoBar from "./UndoBar";
+import { useLights } from "../hooks/useLights";
 import type { Role } from "../hooks/useRole";
 import { useSceneItems, useSceneReady } from "../hooks/useScene";
 import { VERSION } from "../version";
@@ -45,16 +46,7 @@ const Panel = ({ role }: { role: Role }) => {
           {!away && <span ref={setTitleSlot} className="min-w-0 truncate text-xs text-obr-text-secondary empty:hidden" />}
           {role === "GM" && !away && (
             <div className="ml-auto flex">
-              {/* Always here, lights or not: the way into the Light Tracker. */}
-              <button
-                type="button"
-                aria-label="Light Tracker"
-                title="Light Tracker"
-                className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-obr-bg"
-                onClick={() => setView("lights")}
-              >
-                <FlameIcon className="h-5 w-4" />
-              </button>
+              <LightsButton open={() => setView("lights")} />
               <button
                 type="button"
                 aria-label="Settings"
@@ -85,7 +77,7 @@ const Panel = ({ role }: { role: Role }) => {
           <Loading />
         ) : scene.ready ? (
           // A new key per opened scene: switching maps reads the new map fresh.
-          <Tracker key={scene.opened} role={role} headerSlot={headerSlot} titleSlot={titleSlot} openLights={() => setView("lights")} />
+          <Tracker key={scene.opened} role={role} headerSlot={headerSlot} titleSlot={titleSlot} />
         ) : (
           <p className="text-sm text-obr-text-secondary">Open a scene to use the tracker.</p>
         )}
@@ -94,6 +86,26 @@ const Panel = ({ role }: { role: Role }) => {
       <Footer />
       <ResizeGrip />
     </div>
+  );
+};
+
+// The way into the Light Tracker, always here; dim while no lights are
+// tracked.
+const LightsButton = ({ open }: { open: () => void }) => {
+  const { loaded, lights } = useLights();
+  const none = !loaded || lights.lights.length === 0;
+  return (
+    <button
+      type="button"
+      aria-label="Light Tracker"
+      title={none ? "Light Tracker (no lights yet)" : "Light Tracker"}
+      className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-obr-bg"
+      onClick={open}
+    >
+      <span className={none ? "opacity-40 grayscale" : ""}>
+        <FlameIcon className="block h-5 w-4" />
+      </span>
+    </button>
   );
 };
 

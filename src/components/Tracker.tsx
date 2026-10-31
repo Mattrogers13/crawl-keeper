@@ -62,8 +62,8 @@ export type Change<T = TrackerDoc> = (label: string, fn: (t: T) => T, opts?: { t
 
 // headerSlot: where the crawl controls go (the panel's top bar); titleSlot:
 // beside the title, for the round count.
-const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot?: HTMLElement | null; openLights?: () => void }) => {
-  const { role, headerSlot = null, titleSlot = null, openLights = () => {} } = props;
+const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot?: HTMLElement | null }) => {
+  const { role, headerSlot = null, titleSlot = null } = props;
   const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   const doc = useSceneValue(TRACKER_KEY, parseTracker);
   // The GM gives lights from the row menu; everyone sees them on the rows.
@@ -342,7 +342,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
         lights.loaded &&
         lights.lights.lights.length > 0 &&
         createPortal(
-          <LightStrip lights={lights.lights} change={lights.change} names={new Map(items.map((i) => [i.id, tokenInfo(i).name]))} manage={openLights} />,
+          <LightStrip lights={lights.lights} change={lights.change} names={new Map(items.map((i) => [i.id, tokenInfo(i).name]))} />,
           headerSlot,
         )}
       {gm &&
