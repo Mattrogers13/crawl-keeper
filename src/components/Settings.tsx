@@ -15,9 +15,7 @@ import { parseSettings, type Settings as SettingsDoc } from "../settings";
 // encounter method, switches for the rest.
 // The undo step's name for each setting (short forms of the switches' labels).
 const SETTING_LABELS: Partial<Record<keyof SettingsDoc, string>> = {
-  encounterRolls: "encounter checks",
-  encounterMode: "encounter method",
-  clockDice: "clock size",
+  encounterRolls: "encounter method",
   followTorchlight: "Follow Torchlight",
   autoRoll: "roll automatically",
   showRolls: "show rolls",
@@ -27,6 +25,24 @@ const SETTING_LABELS: Partial<Record<keyof SettingsDoc, string>> = {
   clearRollsOnCombat: "clear rolls on combat",
   showMarker: "turn marker",
   selectOnTurn: "select token",
+};
+
+// The four ways to run encounters, as the web toolkit shows them: one choice
+// over the three stored fields (encounterRolls, encounterMode, clockDice).
+// The clock size is kept when leaving the clock, as before.
+type Method = "interval" | "clock1" | "clock2" | "manual";
+const METHODS: Record<Method, Partial<SettingsDoc>> = {
+  interval: { encounterRolls: true, encounterMode: "standard" },
+  clock1: { encounterRolls: true, encounterMode: "clock", clockDice: 1 },
+  clock2: { encounterRolls: true, encounterMode: "clock", clockDice: 2 },
+  manual: { encounterRolls: false },
+};
+const METHOD_HINTS: Record<Method, string> = {
+  interval: "Core rules: a d6 every few crawl rounds by danger level; an encounter on a 1 (p. 112).",
+  clock1: "A d20 clock from 20 that the crawling die wears down each crawl round; an encounter at 0.",
+  clock2: "The same clock from 40, worn down one d20 at a time; an encounter when both are empty.",
+  manual:
+    "No clock and no auto roll. The card shows the danger level and lights up on your turn when a check is due; roll its d6 or one at the table. A due check counts as made when you move on.",
 };
 
 const Settings = () => {
@@ -42,6 +58,7 @@ const Settings = () => {
   };
   const rolls = settings.value.encounterRolls;
   const clock = rolls && settings.value.encounterMode === "clock";
+  const method: Method = !rolls ? "manual" : !clock ? "interval" : settings.value.clockDice === 2 ? "clock2" : "clock1";
 
   return (
     <div className="flex flex-col gap-4 pb-3 text-sm">
@@ -63,59 +80,29 @@ const Settings = () => {
       </a>
 
       <Group title="Encounters">
-        <Toggle
-          label="Encounter checks and the Crawling Clock"
-          hint="Off: manual rolls. No clock and no auto roll; the card shows the danger level and lights up on your turn when a check is due. Roll its d6 or one at the table; a due check counts as made when you move on."
-          checked={rolls}
-          onChange={(encounterRolls) => set({ encounterRolls })}
-        />
-        {rolls && (
-          <div className="flex flex-col gap-2 px-4 py-3">
-            <Segmented
-              label="Encounter checks"
-              name="encounter-mode"
-              value={settings.value.encounterMode}
-              options={[
-                ["standard", "Standard checks"],
-                ["clock", "Crawling Clock"],
-              ]}
-              onChange={(encounterMode) => set({ encounterMode })}
-            />
-            <p className="text-xs text-obr-text-secondary">
-              {clock
-                ? settings.value.clockDice === 2
-                  ? "Two d20s (40) that the crawling die wears down one die at a time, each crawl round; an encounter when both are empty."
-                  : "A d20 clock from 20 that the crawling die wears down each crawl round; an encounter at 0."
-                : "A d6 every few crawl rounds by danger level; an encounter on a 1 (core p. 112)."}
-            </p>
-            {clock && (
-              <>
-                <Segmented
-                  label="Clock size"
-                  name="clock-dice"
-                  value={settings.value.clockDice}
-                  options={[
-                    [1, "1d20"],
-                    [2, "2d20"],
-                  ]}
-                  onChange={(clockDice) => set({ clockDice })}
-                />
-                <details className="rounded-lg bg-obr-paper px-3 py-2">
-                  <summary className="cursor-pointer font-medium">Crawling Clock rules</summary>
-                  <div className="pt-2">
-                    <ClockRules />
-                  </div>
-                </details>
-              </>
-            )}
-          </div>
-        )}
-        <Toggle
-          label="Follow Torchlight"
-          hint="When the last light on a tracked token goes out in Torchlight, it's total darkness: Deadly, a d8 crawling die, and a 3 ft light on the party's tokens so players still see themselves. The first light back undoes it. Off: set danger and darkness yourself."
-          checked={settings.value.followTorchlight}
-          onChange={(followTorchlight) => set({ followTorchlight })}
-        />
+        <div className="flex flex-col gap-2 px-4 py-3">
+          <Segmented
+            label="Encounter checks"
+            name="encounter-method"
+            value={method}
+            options={[
+              ["interval", "Interval"],
+              ["clock1", "Clock 1d20"],
+              ["clock2", "Clock 2d20"],
+              ["manual", "Manual"],
+            ]}
+            onChange={(m) => set(METHODS[m])}
+          />
+          <p className="text-xs text-obr-text-secondary">{METHOD_HINTS[method]}</p>
+          {clock && (
+            <details className="rounded-lg bg-obr-paper px-3 py-2">
+              <summary className="cursor-pointer font-medium">Crawling Clock rules</summary>
+              <div className="pt-2">
+                <ClockRules />
+              </div>
+            </details>
+          )}
+        </div>
         {rolls && (
           <Toggle
             label="Roll automatically on the GM turn"
@@ -126,17 +113,29 @@ const Settings = () => {
         )}
       </Group>
 
-      <Group title="What players see">
+      <Group title="Darkness (p. 84)">
         <Toggle
-          label="Show the rolls to players"
-          hint={
-            clock
-              ? "Players see the crawling die's last roll and what it did to the clock."
-              : "Players see the last encounter check and whether it was an encounter."
-          }
-          checked={settings.value.showRolls}
-          onChange={(showRolls) => set({ showRolls })}
+          label="Follow Torchlight"
+          hint="When the last light on a tracked token goes out in Torchlight, it's total darkness: Deadly, a d8 crawling die, and a 3 ft light on the party's tokens so players still see themselves. The first light back undoes it. Off: set danger and darkness yourself."
+          checked={settings.value.followTorchlight}
+          onChange={(followTorchlight) => set({ followTorchlight })}
         />
+      </Group>
+
+      <Group title="What players see">
+        {/* Manual: the rolls are the GM's own, never shown. */}
+        {rolls && (
+          <Toggle
+            label="Show the rolls to players"
+            hint={
+              clock
+                ? "Players see the crawling die's last roll and what it did to the clock."
+                : "Players see the last encounter check and whether it was an encounter."
+            }
+            checked={settings.value.showRolls}
+            onChange={(showRolls) => set({ showRolls })}
+          />
+        )}
         <Toggle
           label="Hide rounds from players"
           hint="Players see Crawl or Combat but not the round number."

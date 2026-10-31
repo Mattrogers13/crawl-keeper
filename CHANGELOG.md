@@ -9,6 +9,8 @@ Versions follow semver; the same number is in `package.json` and `public/manifes
 - Manual rolls (Settings, switch "Encounter checks and the Crawling Clock" off): no clock and no auto roll. The card keeps the danger level, lights up on the GM's turn when a check is due, and its d6 rolls a check; or roll at the table: ▶ off that turn counts a due check made.
 - A 2d20 Crawling Clock (Settings, Clock size): 40, run down one d20 at a time; the omen and encounter on the last die, the overflow carries into a fresh 40.
 - A failed check for an open map retries, instead of leaving the panel waiting until it's reopened.
+- Settings laid out like the web toolkit: one choice of Interval, Clock 1d20, Clock 2d20 or Manual, and a Darkness card for Follow Torchlight.
+- Players: the card says "Crawling Clock" when it shows the clock; in Manual mode they never see the GM's encounter roll.
 
 ## v0.1.1 (2026-10-17)
 
