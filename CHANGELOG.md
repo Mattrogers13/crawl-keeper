@@ -6,6 +6,7 @@ Versions follow semver; the same number is in `package.json` and `public/manifes
 
 - Light Tracker (GM): every light's timer, the party's light, Time passes (10m, 1h, 1:30), Put lights out, Pause, Ride along or Separate timers; click a time to correct it; Remove all lights. A torch, Light spell or campfire is used once lit: putting it out spends it. A lantern put out keeps its oil to the quarter hour (45, 30, 15 minutes, then empty), lights again and takes oil. Lights start on tokens: a row's menu → Give torch, lantern or Light spell (one lit light per token). Every change can be undone.
 - A light strip under the title (GM, once there are lights): Time passes, red with "No light · total darkness", and which light burned out. One light badge per row (click: put out, light the lantern again, or a new torch; players see them). The flame beside the gear opens the Light Tracker (dim with no lights). DIS on living players' rows in total darkness.
+- Darkness, the toolkit's way (replaces Follow Torchlight): Settings → Follow light (on). With lights tracked and none shining, it's total darkness: a red notice on the crawl card, a check every crawl round in Interval or Manual, a d8 crawling die on the clocks, DIS on the party's rows and a 3 ft light on their tokens. The danger level is no longer changed. With no lights tracked, or Follow light off, the crawl card's Torchlit / Darkness switch decides, now in every mode, per map.
 - Double-click a row to center the map on its token (the zoom stays); one click still selects the row.
 
 ## v0.2.0 (2026-10-31)

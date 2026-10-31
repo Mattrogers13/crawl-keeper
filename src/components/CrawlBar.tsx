@@ -25,26 +25,31 @@ import {
 
 // The GM's encounter checks or Crawling Clock, in the top bar while
 // crawling (it stays in view as the list scrolls). Three columns: the dial
-// (what's left before the next roll), the place (danger level; darkness for
-// the clock), and the d6, which is both the roll button and its last result. The card
+// (what's left before the next roll), the place (danger level, the
+// darkness switch), and the d6, which is both the roll button and its last result. The card
 // and the die light up when a roll is due; the die can always be rolled (an
 // extra check when the GM wants one). Manual: the same d6 check, or the GM
 // rolls at the table; no auto roll. `start` is the clock's size.
+// `dark`: total darkness (isDark in lights.ts): a check every crawl round,
+// a d8 crawling die. `following`: the lights decide it, so the map's switch
+// is locked.
 const CrawlBar = (props: {
   crawl: Crawl;
   mode: EncounterMode;
   start: number;
   gmTurn: boolean;
+  dark: boolean;
+  following: boolean;
   change: Change<Crawl>;
 }) => {
-  const { crawl, mode, start, change } = props;
+  const { crawl, mode, start, dark, change } = props;
   const [askingReset, setAskingReset] = useState(false);
   const clock = mode === "clock";
   const manual = mode === "manual";
-  const isDue = due(crawl, mode);
+  const isDue = due(crawl, mode, dark);
   const callForRoll = isDue && props.gmTurn;
-  const toNext = roundsToCheck(crawl);
-  const every = cadence(crawl);
+  const toNext = roundsToCheck(crawl, dark);
+  const every = cadence(crawl, dark);
   // This mode's last roll (not the other mode's, after a switch).
   const last = lastFor(crawl, mode);
 
@@ -55,6 +60,11 @@ const CrawlBar = (props: {
         callForRoll ? "shadow-[0_0_0_3px_color-mix(in_srgb,var(--obr-primary)_18%,transparent)] ring-obr-primary" : "ring-obr-text/10"
       }`}
     >
+      {dark && (
+        <p className="col-span-3 rounded-[10px] bg-red-600/10 px-2.5 py-1.5 text-xs text-red-800 ring-1 ring-red-600/30 ring-inset dark:text-red-200">
+          <span className="font-semibold">Total darkness</span> (p. 84): disadvantage on tasks that need sight, for anyone not darkness-adapted.
+        </p>
+      )}
       <div className="flex flex-col items-center gap-1">
         {clock ? (
           // Right-click the clock to reset it.
@@ -68,7 +78,7 @@ const CrawlBar = (props: {
             <ClockDial value={clockLeft(crawl, start)} of={start} />
           </div>
         ) : (
-          <CheckDial of={every} left={toNext} due={isDue} dark={crawl.dark} />
+          <CheckDial of={every} left={toNext} due={isDue} dark={dark} />
         )}
         {/* Standard checks are rounds apart: say how far. The clock rolls every
             crawl round, so it needs no label (the die rings when it's due). */}
@@ -87,8 +97,8 @@ const CrawlBar = (props: {
         )}
         <span className="text-xs leading-snug text-obr-text-secondary">
           {clock
-            ? `Crawling die d${crawlDie(crawl)}${crawl.dark ? " (darkness)" : ""}`
-            : `A check every ${every === 1 ? "crawl round" : `${every} crawl rounds`}`}
+            ? `Crawling die d${crawlDie(dark)}${dark ? " (darkness)" : ""}`
+            : `${dark ? "Total darkness: a" : "A"} check every ${every === 1 ? "crawl round" : `${every} crawl rounds`}`}
           {manual && (
             <span className={`block ${isDue ? "font-medium text-obr-text" : ""}`}>
               {isDue ? "Check due: roll the d6, here or at the table" : "Manual rolls"}
@@ -106,21 +116,13 @@ const CrawlBar = (props: {
             </>
           )}
         </span>
-        {/* Standard checks have no darkness switch: total darkness is Deadly (p. 84).
-            Following Torchlight, a chip says why it went Deadly. */}
-        {clock ? (
-          <TorchToggle dark={crawl.dark} onClick={() => change(crawl.dark ? "Torchlit" : "Darkness", (c) => setDark(c, !c.dark))} />
-        ) : (
-          crawl.dark && (
-            <span
-              className="flex h-7 items-center gap-1.5 rounded-full bg-obr-text/10 pr-3 pl-2 text-xs font-medium text-obr-text-secondary"
-              title="Every light on the party's tokens is out (Torchlight): Deadly until one comes back"
-            >
-              <TorchIcon lit={false} />
-              Darkness
-            </span>
-          )
-        )}
+        {/* The map's darkness switch, in every mode; locked while the lights
+            decide (Settings, Follow light). */}
+        <TorchToggle
+          dark={dark}
+          following={props.following}
+          onClick={() => change(crawl.dark ? "Torchlit" : "Darkness", (c) => setDark(c, !c.dark))}
+        />
         {clock && (
           <Confirm
             label="Reset clock"
@@ -136,9 +138,9 @@ const CrawlBar = (props: {
       <div className="flex flex-col items-center gap-1">
         <D6
           roll={last}
-          label={clock ? `Roll d${crawlDie(crawl)}` : "Encounter check (d6)"}
+          label={clock ? `Roll d${crawlDie(dark)}` : "Encounter check (d6)"}
           due={isDue}
-          onClick={() => change(clock ? "Crawling die" : "Encounter check", (c) => rollFor(mode, start)(c, cryptoRand))}
+          onClick={() => change(clock ? "Crawling die" : "Encounter check", (c) => rollFor(mode, start, dark)(c, cryptoRand))}
         />
         {/* A live region that stays mounted, so a new result is announced. */}
         <div role="status" aria-label="Last roll" className="flex flex-col items-center">
@@ -177,20 +179,27 @@ const DangerSelect = ({ value, onChange }: { value: Danger; onChange: (d: Danger
   </span>
 );
 
-// Torchlit or total darkness (the crawling die becomes a d8).
-const TorchToggle = (props: { dark: boolean; onClick: () => void }) => (
+// Torchlit or total darkness: a check every crawl round, a d8 crawling die.
+// Following the lights, it shows their verdict and can't be pressed.
+const TorchToggle = (props: { dark: boolean; following: boolean; onClick: () => void }) => (
   <button
     type="button"
     aria-label="Darkness"
     aria-pressed={props.dark}
-    title="Total darkness: the crawling die is a d8"
+    disabled={props.following}
+    title={
+      props.following
+        ? "Following the Light Tracker. Turn off Follow light in Settings to set this by hand."
+        : "Total darkness: a check every crawl round, a d8 crawling die"
+    }
     className={`flex h-7 items-center gap-1.5 rounded-full pr-3 pl-2 text-xs font-medium ${FOCUS} ${
       props.dark ? "bg-obr-text/10 text-obr-text-secondary" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-    }`}
+    } ${props.following ? "cursor-default" : ""}`}
     onClick={props.onClick}
   >
     <TorchIcon lit={!props.dark} />
     {props.dark ? "Darkness" : "Torchlit"}
+    {props.following && <span className="font-normal opacity-80">· following light</span>}
   </button>
 );
 

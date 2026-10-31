@@ -94,6 +94,14 @@ export const burnedOut = (l: Light, now: number) => l.status === "spent" || (l.s
 export const lightStatus = (s: Lights, now: number): "none" | "lit" | "dark" =>
   s.lights.length === 0 ? "none" : s.lights.some((l) => shining(l, now)) ? "lit" : "dark";
 
+// Total darkness (p. 84), the toolkit's way: with Follow light on and lights
+// tracked, the lights decide (none shining = dark); otherwise the map's own
+// switch, so a room not using lights is never darkened.
+export const isDark = (followLight: boolean, s: Lights, now: number, manual: boolean) =>
+  followLight && s.lights.length > 0 ? lightStatus(s, now) === "dark" : manual;
+// The map's switch is overruled: following lights that are tracked.
+export const followingLights = (followLight: boolean, s: Lights) => followLight && s.lights.length > 0;
+
 export const shiningCount = (s: Lights, now: number) => s.lights.filter((l) => shining(l, now)).length;
 
 // The lit light a token already holds (other than `except`).

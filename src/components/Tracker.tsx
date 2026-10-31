@@ -24,7 +24,7 @@ import { MONSTERS_FOLDED_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
 import LightStrip from "./LightStrip";
 import { useLightStatus, useLights } from "../hooks/useLights";
-import type { Light } from "../lights";
+import { followingLights, type Light } from "../lights";
 import { centerOn } from "../viewport";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
@@ -183,9 +183,11 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   // Each token's lights, for its row's badges.
   const lightsOf = new Map<string, Light[]>();
   for (const l of lights.lights.lights) lightsOf.set(l.tokenId, [...(lightsOf.get(l.tokenId) ?? []), l]);
-  // Total darkness (lights tracked, none shining): disadvantage on living
-  // players' rows (p. 84).
-  const dark = lightStatus === "dark";
+  // Total darkness (p. 84; isDark in lights.ts): the lights when Follow
+  // light is on and lights are tracked, else this map's switch. Disadvantage
+  // on living players' rows, a check every crawl round, a d8 crawling die.
+  const following = followingLights(settings.value.followLight, lights.lights);
+  const dark = following ? lightStatus === "dark" : tracker.crawl.dark;
   const lightProps = (e: Entry) => ({ lights: lightsOf.get(e.id), dis: dark && e.id !== GM_ENTRY && !e.monster && !e.dead });
   const rowProps = { gm, change, show, focus, openMenu, lightChange: gm ? lights.change : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker) };
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
@@ -209,13 +211,13 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   const playerRoll = !gm && mode !== "manual" && settings.value.showRolls ? lastFor(tracker.crawl, mode) : null;
   const goNext = () =>
     change("Next turn", (t) =>
-      mode === "manual" ? nextAfterManualCheck(t) : settings.value.autoRoll ? nextWithAutoRoll(t, mode, cryptoRand, start) : next(t),
+      mode === "manual" ? nextAfterManualCheck(t, dark) : settings.value.autoRoll ? nextWithAutoRoll(t, mode, cryptoRand, start, dark) : next(t),
     );
   hotkeys.current = {
     n: goNext,
     b: () => change("Back", previous),
     r: () => {
-      if (!combat && due(tracker.crawl, mode)) change("Encounter roll", (t) => updateCrawl(t, (c) => rollFor(mode, start)(c, cryptoRand)));
+      if (!combat && due(tracker.crawl, mode, dark)) change("Encounter roll", (t) => updateCrawl(t, (c) => rollFor(mode, start, dark)(c, cryptoRand)));
     },
   };
   const drop = ({ active, over }: DragEndEvent) => {
@@ -342,7 +344,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
         lights.loaded &&
         lights.lights.lights.length > 0 &&
         createPortal(
-          <LightStrip lights={lights.lights} change={lights.change} names={new Map(items.map((i) => [i.id, tokenInfo(i).name]))} />,
+          <LightStrip lights={lights.lights} dark={dark} change={lights.change} names={new Map(items.map((i) => [i.id, tokenInfo(i).name]))} />,
           headerSlot,
         )}
       {gm &&
@@ -354,6 +356,8 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
             mode={mode}
             start={start}
             gmTurn={tracker.current === GM_ENTRY}
+            dark={dark}
+            following={following}
             change={(label, fn, opts) => change(label, (t) => updateCrawl(t, fn), opts)}
           />,
           headerSlot,

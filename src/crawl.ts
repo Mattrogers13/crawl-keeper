@@ -4,9 +4,14 @@
 // crawl roll save in one write.
 //
 // Standard (core p. 112): every 3 crawl rounds when Unsafe, 2 when Risky,
-// every round when Deadly; 1d6, encounter on 1. Total darkness makes the
-// place Deadly (p. 84), so the GM picks Deadly: darkness has no switch of its
-// own here (Matt, 2026-10-17).
+// every round when Deadly; 1d6, encounter on 1. In total darkness a check
+// every crawl round (p. 84: "The GM checks for a random encounter every
+// crawling round"), the danger level untouched (the toolkit's way; Matt,
+// 2026-10-30).
+//
+// Darkness comes in as `dark`, worked out by the caller (`isDark` in
+// lights.ts): the lights when Follow light is on and lights are tracked,
+// otherwise the map's own switch (`Crawl.dark`).
 //
 // Crawling Clock (sheet in sources/; after Goblin Punch's "Underclock"):
 // starts at 20 in a dangerous place; each crawl round the GM rolls the
@@ -59,12 +64,9 @@ export type CrawlRoll = {
 
 type CrawlCore = {
   danger: Danger;
-  // Total darkness: the crawling die steps up to a d8 (standard checks
-  // ignore it; there darkness means Deadly, set by lightsOut).
+  // The GM's own darkness switch for this map: in charge unless Follow light
+  // is on and lights are tracked (isDark in lights.ts).
   dark: boolean;
-  // The danger level before lightsOut made it Deadly, to put back when a
-  // light returns; null when it didn't.
-  dangerBeforeDark: Danger | null;
   clock: number;
   // Crawl rounds started on this map, and the count at the last check or
   // clock roll (combat rounds don't count, p. 112). lastCheck can run ahead of
@@ -81,7 +83,6 @@ export type Crawl = CrawlCore;
 export const emptyCrawl = (): Crawl => ({
   danger: "unsafe",
   dark: false,
-  dangerBeforeDark: null,
   clock: CLOCK_FULL,
   crawlRounds: 0,
   lastCheck: 0,
@@ -115,7 +116,6 @@ export const parseCrawl = (raw: unknown): Crawl => {
   return {
     danger: parseDanger(raw.danger),
     dark: raw.dark === true,
-    dangerBeforeDark: raw.dangerBeforeDark === "unsafe" || raw.dangerBeforeDark === "risky" || raw.dangerBeforeDark === "deadly" ? raw.dangerBeforeDark : null,
     clock: parseClock(raw.clock),
     crawlRounds,
     lastCheck: ahead(crawlRounds, parseCount(raw.lastCheck)),
@@ -135,27 +135,27 @@ export const cryptoRand: Rand = () => {
   return buf[0] / 2 ** 32;
 };
 
-export const crawlDie = (c: Crawl) => (c.dark ? 8 : 6);
+export const crawlDie = (dark: boolean) => (dark ? 8 : 6);
 
-// Crawl rounds between standard checks.
-export const cadence = (c: Crawl) => CADENCE[c.danger];
+// Crawl rounds between standard checks: every round in darkness.
+export const cadence = (c: Crawl, dark: boolean) => (dark ? 1 : CADENCE[c.danger]);
 
 // Is a check (standard or manual) or a clock roll due in this crawl round?
-export const due = (c: Crawl, mode: EncounterMode) =>
-  c.crawlRounds > 0 && c.crawlRounds - c.lastCheck >= (mode === "clock" ? 1 : cadence(c));
+export const due = (c: Crawl, mode: EncounterMode, dark: boolean) =>
+  c.crawlRounds > 0 && c.crawlRounds - c.lastCheck >= (mode === "clock" ? 1 : cadence(c, dark));
 
 // Crawl rounds until the next standard check (0 = due now).
-export const roundsToCheck = (c: Crawl) => Math.max(0, cadence(c) - (c.crawlRounds - c.lastCheck));
+export const roundsToCheck = (c: Crawl, dark: boolean) => Math.max(0, cadence(c, dark) - (c.crawlRounds - c.lastCheck));
 
 // Standard: roll 1d6, an encounter on 1. A due roll counts as this round's
 // check; an extra one (a loud noise, p. 112: "The GM might also check for an
 // encounter if the characters create a loud disturbance") leaves the schedule
 // alone.
-export const rollCheck = (c: Crawl, rand: Rand): Crawl => {
+export const rollCheck = (c: Crawl, rand: Rand, dark = false): Crawl => {
   const d = rollDie(6, rand);
   return {
     ...c,
-    lastCheck: due(c, "standard") ? c.crawlRounds : c.lastCheck,
+    lastCheck: due(c, "standard", dark) ? c.crawlRounds : c.lastCheck,
     last: { kind: "check", dice: [d], sides: 6, before: c.clock, after: c.clock, encounter: d === 1 },
   };
 };
@@ -163,8 +163,8 @@ export const rollCheck = (c: Crawl, rand: Rand): Crawl => {
 // Clock: roll the crawling die (exploding on its max), take it off the
 // clock; at 0 or below an encounter and the overflow carries over. `start`
 // is the clock's size (20, or 40 for 2d20).
-export const rollClock = (c: Crawl, rand: Rand, start = CLOCK_DIE): Crawl => {
-  const sides = crawlDie(c);
+export const rollClock = (c: Crawl, rand: Rand, start = CLOCK_DIE, dark = false): Crawl => {
+  const sides = crawlDie(dark);
   const dice = [rollDie(sides, rand)];
   while (dice[dice.length - 1] === sides && dice.length < MAX_DICE) dice.push(rollDie(sides, rand));
   const total = dice.reduce((a, b) => a + b, 0);
@@ -192,12 +192,12 @@ export const lastFor = (c: Crawl, mode: EncounterMode): CrawlRoll | null =>
   c.last && c.last.kind === (mode === "clock" ? "clock" : "check") ? c.last : null;
 
 // The card's roll button (and the R hotkey): the mode's roll (manual: a check).
-export const rollFor = (mode: EncounterMode, start = CLOCK_DIE) => (c: Crawl, rand: Rand) =>
-  mode === "clock" ? rollClock(c, rand, start) : rollCheck(c, rand);
+export const rollFor = (mode: EncounterMode, start = CLOCK_DIE, dark = false) => (c: Crawl, rand: Rand) =>
+  mode === "clock" ? rollClock(c, rand, start, dark) : rollCheck(c, rand, dark);
 
 // Manual: the GM may have rolled at the table. A due check counts as made
 // (nothing to undo: no result was recorded).
-export const checkMade = (c: Crawl): Crawl => (due(c, "manual") ? { ...c, lastCheck: c.crawlRounds } : c);
+export const checkMade = (c: Crawl, dark = false): Crawl => (due(c, "manual", dark) ? { ...c, lastCheck: c.crawlRounds } : c);
 
 // Entering a new dangerous place: a fresh clock (sheet: "The clock begins at
 // 20 when the party enters a dangerous location"; full for either size). That and the clock's own
@@ -208,25 +208,6 @@ export const resetClock = (c: Crawl): Crawl =>
 
 export const setDanger = (c: Crawl, danger: Danger): Crawl => (c.danger === danger ? c : { ...c, danger });
 
-// Every light on the party's tokens went out (Torchlight; the "Follow
-// Torchlight" setting): total darkness. The place becomes Deadly (p. 84) and
-// the crawling die a d8 (Crawling Clock sheet). The danger it had is kept.
-export const lightsOut = (c: Crawl): Crawl =>
-  c.dark && c.danger === "deadly"
-    ? c
-    : { ...c, dark: true, danger: "deadly", dangerBeforeDark: c.dangerBeforeDark ?? (c.danger === "deadly" ? null : c.danger) };
-
-// A light is back: no darkness, and the danger level it had, unless the GM
-// changed it from Deadly in the meantime (theirs stands).
-export const lightsBack = (c: Crawl): Crawl =>
-  !c.dark && c.dangerBeforeDark === null
-    ? c
-    : {
-        ...c,
-        dark: false,
-        danger: c.danger === "deadly" && c.dangerBeforeDark ? c.dangerBeforeDark : c.danger,
-        dangerBeforeDark: null,
-      };
 export const setDark = (c: Crawl, dark: boolean): Crawl => (c.dark === dark ? c : { ...c, dark });
 
 // A new crawl round started (▶ wrapped while crawling), or ◀ went back over

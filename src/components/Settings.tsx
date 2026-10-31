@@ -17,7 +17,7 @@ import { parseSettings, type Settings as SettingsDoc } from "../settings";
 // The undo step's name for each setting (short forms of the switches' labels).
 const SETTING_LABELS: Partial<Record<keyof SettingsDoc, string>> = {
   encounterRolls: "encounter method",
-  followTorchlight: "Follow Torchlight",
+  followLight: "Follow light",
   autoRoll: "roll automatically",
   showRolls: "show rolls",
   hideRound: "hide rounds",
@@ -116,11 +116,17 @@ const Settings = () => {
 
       <Group title="Darkness (p. 84)">
         <Toggle
-          label="Follow Torchlight"
-          hint="When the last light on a tracked token goes out in Torchlight, it's total darkness: Deadly, a d8 crawling die, and a 3 ft light on the party's tokens so players still see themselves. The first light back undoes it. Off: set danger and darkness yourself."
-          checked={settings.value.followTorchlight}
-          onChange={(followTorchlight) => set({ followTorchlight })}
+          label="Follow light"
+          hint="When the Light Tracker has no light lit, it's total darkness: a check every crawl round in Interval mode, a d8 crawling die in clock modes, DIS on the party's rows, and a 3 ft light on their tokens so players still see themselves. The danger level stays. With no lights tracked, or off: set darkness yourself."
+          checked={settings.value.followLight}
+          onChange={(followLight) => set({ followLight })}
         />
+        {/* The switch itself is on the crawl card: darkness is per map, in
+            the map's tracker doc, which only the tracker writes. */}
+        <p className="text-xs text-obr-text-secondary">
+          <span className="font-medium text-obr-text">Darkness by hand:</span> the Torchlit / Darkness switch on the crawl card, for each map.
+          {settings.value.followLight && " Locked while there are lights to follow."}
+        </p>
       </Group>
 
       <Group title="What players see">
