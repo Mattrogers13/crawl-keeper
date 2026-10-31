@@ -22,6 +22,8 @@ import RowMenu from "./RowMenu";
 import Row, { INIT_SLOT, tokenInfo, type ButtonProps, type Token } from "./TrackerRow";
 import { MONSTERS_FOLDED_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
+import { useLights } from "../hooks/useLights";
+import { centerOn } from "../viewport";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
 import { afterChange } from "../marker";
@@ -62,6 +64,8 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   const { role, headerSlot = null, titleSlot = null } = props;
   const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   const doc = useSceneValue(TRACKER_KEY, parseTracker);
+  // The GM gives lights from the row menu.
+  const lights = useLights();
   const items = useSceneItems();
   // Drag rows by the grip (mouse, touch), or focus the grip and use Space +
   // arrow keys.
@@ -160,6 +164,11 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   // GM only: select the token on the map (Owlbear's own highlight).
   const show = (id: string) =>
     OBR.player.select([id], true).catch((err) => notify(`Couldn't select the token: ${errorMessage(err)}`, "WARNING"));
+  // GM only: center the camera on the token, and select it there too.
+  const focus = (id: string) => {
+    void show(id);
+    centerOn(id).catch((err) => notify(`Couldn't move to the token: ${errorMessage(err)}`, "WARNING"));
+  };
   // Token rows in the order shown (monsters right after the GM row).
   const order = top.flatMap((e) => (e.id === GM_ENTRY ? monsters : [e])).map((e) => e.id);
   const selection = keepRows(picked, order);
@@ -168,7 +177,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
     setPicked(menuTargets(selection, id));
     setMenu({ x, y });
   };
-  const rowProps = { gm, change, show, openMenu, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker) };
+  const rowProps = { gm, change, show, focus, openMenu, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker) };
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
   const round = tracker.round;
   const roundLabel =
@@ -432,6 +441,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
           y={menu.y}
           close={() => setMenu(null)}
           change={change}
+          lights={lights.loaded ? lights : null}
           show={show}
           clear={() => setPicked(NO_SELECTION)}
         />

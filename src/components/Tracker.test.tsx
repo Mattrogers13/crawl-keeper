@@ -211,6 +211,9 @@ describe("Tracker (GM)", () => {
       "Mark dead",
       "Turn marker off",
       "Show on map",
+      "Give torch",
+      "Give lantern",
+      "Give Light spell",
       "Remove from initiative",
     ]);
     expect(within(menu).getByRole("menuitem", { name: "Mark as monster" })).toHaveFocus();
@@ -545,6 +548,16 @@ describe("Tracker (GM)", () => {
     expect(screen.queryByText("Crawling Clock rules")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: "Clock 1d20" }));
     expect(await screen.findByText("Crawling Clock rules")).toBeInTheDocument();
+  });
+
+  it("double-clicking a row centers the camera on its token at the same zoom, and selects it", async () => {
+    obr.items = [token("a", { name: "Aria", position: { x: 300, y: 100 } })];
+    scene([{ id: "a" }, { id: GM_ENTRY }]);
+    render(<App />);
+    fireEvent.doubleClick(await screen.findByText("Aria"));
+    // Map point (300, 100) at zoom 2 lands mid-screen (400, 300).
+    await waitFor(() => expect(OBR.viewport.animateTo).toHaveBeenCalledWith({ scale: 2, position: { x: 400 - 600, y: 300 - 200 } }));
+    expect(OBR.player.select).toHaveBeenCalledWith(["a"], true);
   });
 
   it("a row's checkbox adds it to the selection or takes it out", async () => {

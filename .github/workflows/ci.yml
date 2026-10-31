@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    # torchlight-merge: the v0.3 build PRs (docs/design.md, shipping).
+    branches: [main, torchlight-merge]
 
 # Tests and builds only: the token can read the repo, nothing more.
 permissions:

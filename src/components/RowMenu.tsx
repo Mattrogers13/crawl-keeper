@@ -1,7 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import type { Change } from "./Tracker";
-import { remove, setDead, setMarker, setMonster, type Entry } from "../tracker";
+import type { LightChange } from "../hooks/useLights";
+import { LIGHT_KINDS, addLight, litOn, swapLight, type LightKind, type Lights } from "../lights";
+import { GM_ENTRY, remove, setDead, setMarker, setMonster, type Entry } from "../tracker";
+
+// What a row can be given (a campfire goes on any token from the map's
+// right-click menu instead: docs/design.md).
+const GIVEN: LightKind[] = ["torch", "lantern", "lightSpell"];
+const lower = (kind: LightKind) => (kind === "lightSpell" ? "Light spell" : LIGHT_KINDS[kind].label.toLowerCase());
 
 // The GM's actions for the selected token rows (one or many). Opened by
 // right-clicking a row or its ⋯ button (touch has no right-click). Closes on
@@ -13,6 +20,8 @@ const RowMenu = (props: {
   y: number;
   close: () => void;
   change: Change;
+  // The light timers, once loaded.
+  lights: { lights: Lights; change: LightChange } | null;
   show: (id: string) => void;
   clear: () => void;
 }) => {
@@ -47,6 +56,7 @@ const RowMenu = (props: {
     ["Turn marker on", some((e) => !e.marker), () => change("Turn marker on", (t) => setMarker(t, ids, true))],
     ["Turn marker off", some((e) => e.marker), () => change("Turn marker off", (t) => setMarker(t, ids, false))],
     ["Show on map", ids.length === 1, () => props.show(ids[0])],
+    ...giveLight(),
     [
       ids.length === 1 ? "Remove from initiative" : `Remove ${ids.length} from initiative`,
       true,
@@ -56,6 +66,22 @@ const RowMenu = (props: {
       },
     ],
   ];
+  // One token: Give torch / lantern / Light spell. A token holds one lit
+  // light (p. 84), so with one already lit the item says the swap: "Put out
+  // the torch, light the lantern".
+  function giveLight(): [string, boolean, () => void][] {
+    const l = props.lights;
+    const id = ids.length === 1 && ids[0] !== GM_ENTRY ? ids[0] : null;
+    if (!l || !id) return [];
+    const held = litOn(l.lights, id);
+    return GIVEN.filter((kind) => kind !== held?.kind).map((kind) => {
+      const light = { kind, tokenId: id, carrier: props.name };
+      return held
+        ? [`Put out the ${lower(held.kind)}, light the ${lower(kind)}`, true, () => l.change(`Swap ${lower(held.kind)} for ${lower(kind)}`, (s, now) => swapLight(s, now, newId, light))]
+        : [`Give ${lower(kind)}`, true, () => l.change(`Give ${lower(kind)}`, (s, now) => addLight(s, now, newId, light))];
+    });
+  }
+
   // Up / Down move between items.
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Escape") return close();
@@ -94,5 +120,7 @@ const RowMenu = (props: {
     </div>
   );
 };
+
+const newId = () => crypto.randomUUID();
 
 export default RowMenu;
