@@ -152,7 +152,7 @@ const Banner = ({ status, count, paused }: { status: "none" | "lit" | "dark"; co
 };
 
 // A text field only (the toolkit's way): 10m, 1h, 1:30, 90.
-const TimePasses = ({ change }: { change: LightChange }) => {
+export const TimePasses = ({ change, compact = false }: { change: LightChange; compact?: boolean }) => {
   const [text, setText] = useState("");
   const [said, setSaid] = useState("");
   const submit = (e: FormEvent) => {
@@ -169,7 +169,7 @@ const TimePasses = ({ change }: { change: LightChange }) => {
         <input
           aria-label="Time passes"
           value={text}
-          placeholder="10m, 1h, 1:30"
+          placeholder={compact ? "10m" : "10m, 1h, 1:30"}
           onChange={(e) => {
             setText(e.target.value);
             setSaid("");
@@ -189,7 +189,7 @@ const TimePasses = ({ change }: { change: LightChange }) => {
   );
 };
 
-const ICONS: Record<LightKind, string> = { torch: "🔥", lantern: "🏮", lightSpell: "✨", campfire: "🏕️" };
+export const ICONS: Record<LightKind, string> = { torch: "🔥", lantern: "🏮", lightSpell: "✨", campfire: "🏕️" };
 
 const LightCard = (props: { light: Light; name: string; now: number; paused: boolean; change: LightChange }) => {
   const { light: l, name, now, change } = props;

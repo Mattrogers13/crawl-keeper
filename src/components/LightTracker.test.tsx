@@ -75,12 +75,12 @@ describe("Give light (row menu)", () => {
 
 describe("the Light Tracker", () => {
   const open = async () => {
-    fireEvent.click(await screen.findByLabelText("Light Tracker"));
+    fireEvent.click(await screen.findByRole("button", { name: "Manage" }));
     await screen.findByRole("heading", { name: "Light Tracker" });
     await screen.findByRole("button", { name: "Put lights out" });
   };
 
-  it("opens from the flame, says how to start a light, and goes back", async () => {
+  it("opens from the strip's Manage, says how to start a light, and goes back", async () => {
     scene([]);
     render(<App />);
     await open();
@@ -222,11 +222,98 @@ describe("the Light Tracker", () => {
     expect(left(0)).toBe(60 * MINUTE);
   });
 
-  it("players get no Light Tracker", async () => {
+  it("players get no strip and no Light Tracker", async () => {
     obr.role = "PLAYER";
     scene([]);
     render(<App />);
     await screen.findByText("GM / Monsters");
-    expect(screen.queryByLabelText("Light Tracker")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Lights" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Manage" })).not.toBeInTheDocument();
+  });
+});
+
+describe("the strip, badges and DIS", () => {
+  const strip = () => screen.getByRole("region", { name: "Lights" });
+  const rowOf = (name: string) => screen.getAllByRole("listitem").reverse().find((r) => within(r).queryByText(name))!;
+
+  it("a badge per light on its row; the GM clicks it to put out and light again", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a")] } };
+    scene(["a"]);
+    render(<App />);
+    const badge = await screen.findByRole("button", { name: "Torch: 1:00:00 left. Click to put out" });
+    vi.setSystemTime(T0 + 5 * MINUTE);
+    fireEvent.click(badge);
+    await waitFor(() => expect(saved().lights[0].status).toBe("out"));
+    fireEvent.click(await screen.findByRole("button", { name: "Torch: out. Click to light" }));
+    await waitFor(() => expect(saved().lights[0].status).toBe("lit"));
+    expect(left(0)).toBe(55 * MINUTE);
+  });
+
+  it("players see the badges and DIS but can't click them", async () => {
+    obr.role = "PLAYER";
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a"), { ...lit("l2", "b"), status: "out", endsAt: null }] } };
+    scene(["a", "b"]);
+    render(<App />);
+    expect(await screen.findByRole("img", { name: "Torch: 1:00:00 left" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Torch: out" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Click to/ })).not.toBeInTheDocument();
+  });
+
+  it("total darkness: a red strip and DIS on living players' rows, not monsters, the dead or the GM row", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("d", { name: "Dead Dan" }), token("m", { name: "Goblin" })];
+    obr.metadata = { [LIGHTS_KEY]: { lights: [{ ...lit("l1", "a"), status: "out", endsAt: null }] } };
+    obr.sceneMetadata = {
+      [TRACKER_KEY]: {
+        entries: [
+          { id: "a", roll: null, note: "", dead: false },
+          { id: "d", roll: null, note: "", dead: true },
+          { id: GM_ENTRY, roll: null, note: "", dead: false },
+          { id: "m", roll: null, note: "", dead: false, monster: true },
+        ],
+        current: null,
+        round: 0,
+      },
+    };
+    render(<App />);
+    await screen.findByText("Aria");
+    expect(strip()).toHaveTextContent("No light · total darkness");
+    expect(within(rowOf("Aria")).getByText("DIS")).toBeInTheDocument();
+    expect(within(rowOf("Dead Dan")).queryByText("DIS")).not.toBeInTheDocument();
+    expect(within(rowOf("Goblin")).queryByText("DIS")).not.toBeInTheDocument();
+    expect(within(rowOf("GM / Monsters")).queryAllByText("DIS")).toHaveLength(0);
+  });
+
+  it("no lights tracked: never dark, no DIS", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    scene(["a"]);
+    render(<App />);
+    await screen.findByText("Aria");
+    expect(strip()).not.toHaveTextContent("total darkness");
+    expect(screen.queryByText("DIS")).not.toBeInTheDocument();
+  });
+
+  it("a light burning out turns the room dark without a write, and the strip says which", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a", "torch", 1000)] } };
+    scene(["a"]);
+    render(<App />);
+    await screen.findByText("Aria");
+    expect(screen.queryByText("DIS")).not.toBeInTheDocument();
+    vi.setSystemTime(T0 + 2000);
+    expect(await screen.findByText("DIS", {}, { timeout: 2000 })).toBeInTheDocument();
+    await waitFor(() => expect(strip()).toHaveTextContent("Torch · Aria burned out"), { timeout: 2000 });
+  });
+
+  it("Time passes from the strip", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a")] } };
+    scene(["a"]);
+    render(<App />);
+    await screen.findByText("Aria");
+    fireEvent.change(within(strip()).getByLabelText("Time passes"), { target: { value: "15m" } });
+    fireEvent.click(within(strip()).getByRole("button", { name: "Time passes" }));
+    await waitFor(() => expect(left(0)).toBe(45 * MINUTE));
   });
 });

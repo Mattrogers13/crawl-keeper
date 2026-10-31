@@ -22,7 +22,9 @@ import RowMenu from "./RowMenu";
 import Row, { INIT_SLOT, tokenInfo, type ButtonProps, type Token } from "./TrackerRow";
 import { MONSTERS_FOLDED_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
-import { useLights } from "../hooks/useLights";
+import LightStrip from "./LightStrip";
+import { useLightStatus, useLights } from "../hooks/useLights";
+import type { Light } from "../lights";
 import { centerOn } from "../viewport";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
@@ -60,12 +62,13 @@ export type Change<T = TrackerDoc> = (label: string, fn: (t: T) => T, opts?: { t
 
 // headerSlot: where the crawl controls go (the panel's top bar); titleSlot:
 // beside the title, for the round count.
-const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot?: HTMLElement | null }) => {
-  const { role, headerSlot = null, titleSlot = null } = props;
+const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot?: HTMLElement | null; openLights?: () => void }) => {
+  const { role, headerSlot = null, titleSlot = null, openLights = () => {} } = props;
   const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   const doc = useSceneValue(TRACKER_KEY, parseTracker);
-  // The GM gives lights from the row menu.
+  // The GM gives lights from the row menu; everyone sees them on the rows.
   const lights = useLights();
+  const lightStatus = useLightStatus(lights.lights);
   const items = useSceneItems();
   // Drag rows by the grip (mouse, touch), or focus the grip and use Space +
   // arrow keys.
@@ -177,7 +180,14 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
     setPicked(menuTargets(selection, id));
     setMenu({ x, y });
   };
-  const rowProps = { gm, change, show, focus, openMenu, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker) };
+  // Each token's lights, for its row's badges.
+  const lightsOf = new Map<string, Light[]>();
+  for (const l of lights.lights.lights) lightsOf.set(l.tokenId, [...(lightsOf.get(l.tokenId) ?? []), l]);
+  // Total darkness (lights tracked, none shining): disadvantage on living
+  // players' rows (p. 84).
+  const dark = lightStatus === "dark";
+  const lightProps = (e: Entry) => ({ lights: lightsOf.get(e.id), dis: dark && e.id !== GM_ENTRY && !e.monster && !e.dead });
+  const rowProps = { gm, change, show, focus, openMenu, lightChange: gm ? lights.change : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker) };
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
   const round = tracker.round;
   const roundLabel =
@@ -324,6 +334,14 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
         </p>
       )}
 
+      {/* The GM's light strip, above the crawl card (in combat too: lights burn). */}
+      {gm &&
+        headerSlot &&
+        lights.loaded &&
+        createPortal(
+          <LightStrip lights={lights.lights} change={lights.change} names={new Map(items.map((i) => [i.id, tokenInfo(i).name]))} manage={openLights} />,
+          headerSlot,
+        )}
       {gm &&
         !combat &&
         headerSlot &&
@@ -376,6 +394,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
               {top.map((entry) => (
                 <Row
                   key={entry.id}
+                  {...lightProps(entry)}
                   entry={entry}
                   token={tokenFor(entry)}
                   current={entry.id === current}
@@ -408,7 +427,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
                       {showMonsters && (
                         <ol aria-label="Monsters" className="flex flex-col">
                           {monsters.map((m) => (
-                            <Row key={m.id} entry={m} token={tokenFor(m)} current={m.id === current} selected={selection.ids.includes(m.id)} small {...rowProps} />
+                            <Row key={m.id} {...lightProps(m)} entry={m} token={tokenFor(m)} current={m.id === current} selected={selection.ids.includes(m.id)} small {...rowProps} />
                           ))}
                         </ol>
                       )}
