@@ -4,7 +4,8 @@ import OBR, { type Item } from "@owlbear-rodeo/sdk";
 import { LIGHTS_KEY, TRACKER_KEY } from "./constants";
 import { MINUTE, parseLights } from "./lights";
 import { TORCHLIGHT_TOKEN_KEY, lightOn } from "./torchlight";
-import { DF_LIGHT_KEY, DIM_KEY, LIT_KEY, dfLight, feetToPx, planTokenLights, watchTokenLights } from "./tokenLights";
+import { BADGE_KEY } from "./constants";
+import { DF_LIGHT_KEY, DIM_KEY, LIT_KEY, badgeImage, dfLight, feetToPx, planBadges, planTokenLights, watchTokenLights } from "./tokenLights";
 import { GM_ENTRY, parseTracker } from "./tracker";
 import { obr, setItems, token, writeFromElsewhere, writeSceneFromElsewhere } from "./test/obrMock";
 
@@ -109,6 +110,33 @@ describe("planTokenLights: lit lights", () => {
   });
 });
 
+describe("planBadges: the light's icon on the token", () => {
+  const badge = (id: string, on: string, image: string | null, visible = true) => ({ id, attachedTo: on, image: image ?? undefined, visible });
+
+  it("torch, lantern and Light spell get their icon; a campfire (stationary) gets none", () => {
+    const items = [token("a"), token("b"), token("c"), token("f", { layer: "PROP" })];
+    const s = lights(light("a"), light("b", "lantern"), light("c", "lightSpell"), light("f", "campfire"));
+    expect(planBadges([], items, s, NOW).add).toEqual([
+      { tokenId: "a", image: badgeImage("torch") },
+      { tokenId: "b", image: badgeImage("lantern") },
+      { tokenId: "c", image: badgeImage("lightSpell") },
+    ]);
+    expect(badgeImage("campfire")).toBeNull();
+  });
+
+  it("keeps one good badge; strays, duplicates, the wrong light, a hidden token's mismatch and spent lights' badges go", () => {
+    const items = [token("a"), token("b", { visible: false }), token("c")];
+    const s = lights(light("a"), light("b"), light("c", "torch", "spent"));
+    const plan = planBadges(
+      [badge("1", "a", badgeImage("torch")), badge("2", "a", badgeImage("torch")), badge("3", "b", badgeImage("torch")), badge("4", "c", badgeImage("torch")), badge("5", "gone", badgeImage("torch"))],
+      items,
+      s,
+      NOW,
+    );
+    expect(plan).toEqual({ remove: ["2", "3", "4", "5"], add: [{ tokenId: "b", image: badgeImage("torch") }] });
+  });
+});
+
 describe("watchTokenLights (the GM's background)", () => {
   const settle = async () => {
     for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 0));
@@ -130,9 +158,12 @@ describe("watchTokenLights (the GM's background)", () => {
     await writeFromElsewhere({ [LIGHTS_KEY]: { lights: [torch(Date.now() + 60 * MINUTE)] } });
     await settle();
     expect([radius(0), radius(1)]).toEqual([900, 90]);
+    const badges = () => obr.items.filter((i) => i.metadata[BADGE_KEY] === true);
+    expect(badges()).toMatchObject([{ attachedTo: "a", layer: "ATTACHMENT", image: { url: badgeImage("torch") } }]);
     await writeFromElsewhere({ [LIGHTS_KEY]: { lights: [{ ...torch(0), status: "spent", remainingMs: 0, endsAt: null }] } });
     await settle();
     expect(radius(0)).toBe(90);
+    expect(badges()).toEqual([]);
     await writeSceneFromElsewhere({ [TRACKER_KEY]: { entries: [{ id: "a", dead: true }, { id: "b" }, { id: "c" }, { id: GM_ENTRY }] } });
     await settle();
     expect([radius(0), radius(1), radius(2)]).toEqual([undefined, 90, 90]);
