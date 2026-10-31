@@ -39,6 +39,22 @@ export const PlayIcon = ({ back = false }: { back?: boolean }) => (
   </svg>
 );
 
+// A curved arrow back (mirrored: forward): Undo / Redo.
+export const UndoIcon = ({ redo = false }: { redo?: boolean }) => (
+  <svg
+    viewBox="0 0 16 16"
+    className={`h-3.5 w-3.5 shrink-0 ${redo ? "-scale-x-100" : ""}`}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <path d="M5.5 3L2.5 6l3 3M2.5 6h7a4 4 0 0 1 0 8H7" />
+  </svg>
+);
+
 // Bars shortening downward: the usual "sort, highest first" icon.
 export const SortIcon = () => (
   <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>

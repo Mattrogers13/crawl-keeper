@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { FOCUS } from "./CrawlBar";
+import { UndoIcon } from "./icons";
 import type { History } from "../history";
 import { loadHistory, onHistoryChange, redo, undo } from "../undo";
 
@@ -59,12 +60,14 @@ const UndoBar = () => {
 
   return (
     <>
-      <div className="flex shrink-0 items-center gap-3 text-xs">
+      <div className="flex shrink-0 items-center gap-2 text-xs">
         <StepButton label={lastUndo && `Undo: ${lastUndo.label}`} idle="Nothing to undo" hint="⌘Z" onClick={() => void undo()}>
-          {lastUndo ? `Undo: ${lastUndo.label}` : "Undo"}
+          <UndoIcon />
+          <span className="truncate">{lastUndo ? `Undo: ${lastUndo.label}` : "Undo"}</span>
         </StepButton>
         <StepButton label={lastRedo && `Redo: ${lastRedo.label}`} idle="Nothing to redo" hint="⇧⌘Z" onClick={() => void redo()}>
-          {lastRedo ? `Redo: ${lastRedo.label}` : "Redo"}
+          <UndoIcon redo />
+          <span className="truncate">{lastRedo ? `Redo: ${lastRedo.label}` : "Redo"}</span>
         </StepButton>
       </div>
       {toast && lastUndo && (
@@ -90,14 +93,15 @@ const UndoBar = () => {
   );
 };
 
-// Disabled (and plain) when there's nothing to undo or redo.
+// A pill like the turn bar's buttons, so it reads as a button; faded and
+// disabled when there's nothing to undo or redo.
 const StepButton = (props: { label: string | undefined; idle: string; hint: string; onClick: () => void; children: ReactNode }) => (
   <button
     type="button"
     aria-label={props.label ?? props.idle}
     title={props.label ? `${props.label} (${props.hint})` : undefined}
     disabled={!props.label}
-    className={`min-w-0 truncate rounded-md py-0.5 text-obr-text-secondary enabled:hover:text-obr-text disabled:opacity-40 ${FOCUS}`}
+    className={`flex h-8 min-w-0 items-center gap-1.5 rounded-full bg-obr-bg px-3 font-medium text-obr-text ring-1 ring-obr-text/15 ring-inset enabled:hover:bg-obr-text/10 disabled:opacity-40 ${FOCUS}`}
     onClick={props.onClick}
   >
     {props.children}
