@@ -60,21 +60,32 @@ describe("the GM's undo in the panel", () => {
     scene([{ id: GM_ENTRY }, { id: "m", monster: true }]);
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "Remove monsters" }));
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    fireEvent.click(screen.getByText("Remove"));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument());
-    // Not before 8 seconds...
-    await act(async () => vi.advanceTimersByTime(TOAST_MS - 500));
-    expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
-    // ...then gone. (Advanced until gone: on a slow runner the toast can
-    // appear a tick later than the click, starting its timer later.)
-    await waitFor(async () => {
-      await act(async () => vi.advanceTimersByTime(1000));
-      expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
-    });
-    // The step itself stays in the bar.
-    expect(screen.getByRole("button", { name: "Undo: Remove monsters" })).toBeInTheDocument();
-    vi.useRealTimers();
+    // No waitFor / findBy while the clock is fake: Testing Library then
+    // drives Jest's timers, which Vitest doesn't have, and its polling stalls
+    // (it failed on CI). Flush promises by hand instead.
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(screen.getByText("Remove"));
+      const toastUndo = () => screen.queryByRole("button", { name: "Undo" });
+      for (let i = 0; i < 20 && !toastUndo(); i++) {
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0);
+        });
+      }
+      expect(toastUndo()).toBeInTheDocument();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(TOAST_MS - 500);
+      });
+      expect(toastUndo()).toBeInTheDocument();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      expect(toastUndo()).not.toBeInTheDocument();
+      // The step itself stays in the bar.
+      expect(screen.getByRole("button", { name: "Undo: Remove monsters" })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("works from Settings too: a setting is a step", async () => {
