@@ -2,12 +2,12 @@
 
 Versions follow semver; the same number is in `package.json` and `public/manifest.json`.
 
-## Unreleased
+## v0.2.0 (2026-10-31)
 
 - Undo and Redo for every GM action (turns, rolls, edits, row menu, right-click Add / Remove, settings), up to 50 steps, under the list on every screen; Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z. Bigger actions (Remove monsters, Remove from initiative, Reset rounds, Reset clock) offer Undo in a toast. Kept while the panel is closed, gone on reload. Replaces the roll-only Undo.
 - Follow Torchlight (setting, on): a flame beside tokens with a lit Torchlight light; when the last one goes out, total darkness (Deadly, d8 crawling die) and a 3 ft light on the party's tokens; the first light back undoes it.
-- Manual rolls (Settings, switch "Encounter checks and the Crawling Clock" off): no clock and no auto roll. The card keeps the danger level, lights up on the GM's turn when a check is due, and its d6 rolls a check; or roll at the table: ▶ off that turn counts a due check made.
-- A 2d20 Crawling Clock (Settings, Clock size): 40, run down one d20 at a time; the omen and encounter on the last die, the overflow carries into a fresh 40.
+- Manual rolls (Settings → Encounters → Manual): no clock and no auto roll. The card keeps the danger level, lights up on the GM's turn when a check is due, and its d6 rolls a check; or roll at the table: ▶ off that turn counts a due check made.
+- A 2d20 Crawling Clock (Settings → Encounters → Clock 2d20): 40, run down one d20 at a time; the omen and encounter on the last die, the overflow carries into a fresh 40.
 - Settings laid out like the web toolkit: one choice of Interval, Clock 1d20, Clock 2d20 or Manual, and a Darkness card for Follow Torchlight.
 - Players: the card says "Crawling Clock" when it shows the clock; in Manual mode they never see the GM's encounter roll.
 - A failed check for an open map retries, instead of leaving the panel waiting until it's reopened.
