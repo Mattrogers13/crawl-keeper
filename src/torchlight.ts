@@ -1,7 +1,8 @@
-// Following Torchlight (github.com/Mattrogers13/obr-torchlight): which
-// tracked tokens carry a burning light, total darkness when the last one goes
-// out, and a dim light on the party's tokens while it's dark so players still
-// see their own tokens through Dynamic Fog.
+// The party's minimum light on the map: 3 ft of dim light on each of their
+// tokens that has no light of its own, always (Matt, 2026-10-31), so
+// players see their own tokens through Dynamic Fog, dark or not. And,
+// until the Torchlight merge's last PR, which tokens Torchlight lights (its
+// flame on the row; its lit tokens keep their own light).
 //
 // The contract with Torchlight is one item metadata key: its GM background
 // sets TORCHLIGHT_TOKEN_KEY ({ source, saved }) on a token while a light of
@@ -10,11 +11,9 @@
 // TOKEN_KEY in src/tokenSync.ts: keep the two in step.
 import OBR, { type Item, type Metadata } from "@owlbear-rodeo/sdk";
 
-import { ID, SETTINGS_KEY, TRACKER_KEY } from "./constants";
-import { lightsBack, lightsOut } from "./crawl";
+import { ID, TRACKER_KEY } from "./constants";
 import { isObject } from "./parse";
-import { parseSettings } from "./settings";
-import { parseTracker, updateCrawl, type Tracker } from "./tracker";
+import { parseTracker, type Tracker } from "./tracker";
 import { errorMessage, notify } from "./utils";
 
 export const TORCHLIGHT_TOKEN_KEY = "io.github.mattrogers13.torchlight/token";
@@ -22,7 +21,7 @@ export const TORCHLIGHT_TOKEN_KEY = "io.github.mattrogers13.torchlight/token";
 export const DF_LIGHT_KEY = "rodeo.owlbear.dynamic-fog/light";
 // On a token we gave the dim light: it's ours to take off again.
 export const DIM_KEY = `${ID}/dim`;
-// Feet of dim light around each of the party's tokens in total darkness.
+// Feet of dim light around each of the party's tokens without a light.
 export const DIM_FT = 3;
 
 export type LightSource = "torch" | "lantern" | "light-spell";
@@ -36,12 +35,6 @@ export const lightOn = (item: Item | undefined): LightSource | null => {
   if (raw === undefined) return null;
   const source = isObject(raw) ? raw.source : undefined;
   return SOURCES.includes(source as LightSource) ? (source as LightSource) : "torch";
-};
-
-// Is any tracked token lit?
-export const anyLit = (t: Tracker, items: Item[]) => {
-  const tracked = new Set(t.entries.map((e) => e.id));
-  return items.some((i) => tracked.has(i.id) && lightOn(i) !== null);
 };
 
 // Dynamic Fog's light shape (full circle, primary), as Torchlight writes it.
@@ -62,13 +55,13 @@ export const feetToPx = (feet: number, dpi: number, unit: string, multiplier: nu
 const sameLight = (a: unknown, radiusPx: number) =>
   isObject(a) && a.attenuationRadius === radiusPx && a.lightType === "PRIMARY" && a.innerAngle === 360;
 
-// Pure: which tokens get the dim light and which lose it. While it's dark,
-// each of the party's tokens (tracked, not a monster, not dead) on the
-// character layer that has no light at all gets one. Ours come off when it's
-// light again, or when the token stops qualifying; one Torchlight has lit
-// over (it keeps ours to put back) is left to Torchlight until its light
-// stops. A light someone else changed is theirs: we only drop our mark.
-export const planDim = (t: Tracker, items: Item[], dark: boolean, radiusPx: number) => {
+// Pure: which tokens get the dim light and which lose it. Each of the
+// party's tokens (tracked, not a monster, not dead) on the character layer
+// that has no light at all gets one. Ours come off when the token stops
+// qualifying; one Torchlight has lit over (it keeps ours to put back) is
+// left to Torchlight until its light stops. A light someone else changed is
+// theirs: we only drop our mark.
+export const planDim = (t: Tracker, items: Item[], radiusPx: number) => {
   const party = new Set(t.entries.filter((e) => !e.monster && !e.dead).map((e) => e.id));
   const add: string[] = [];
   const remove: string[] = [];
@@ -76,7 +69,7 @@ export const planDim = (t: Tracker, items: Item[], dark: boolean, radiusPx: numb
   for (const i of items) {
     if (i.type !== "IMAGE" || i.layer !== "CHARACTER") continue;
     const ours = i.metadata[DIM_KEY] === true;
-    const want = dark && party.has(i.id);
+    const want = party.has(i.id);
     if (lightOn(i) !== null) continue;
     if (want && !ours && i.metadata[DF_LIGHT_KEY] === undefined) add.push(i.id);
     else if (!want && ours) (sameLight(i.metadata[DF_LIGHT_KEY], radiusPx) ? remove : forget).push(i.id);
@@ -84,33 +77,18 @@ export const planDim = (t: Tracker, items: Item[], dark: boolean, radiusPx: numb
   return { add, remove, forget };
 };
 
-// The GM's background: follows Torchlight while the setting is on. Darkness
-// and Deadly change only when the lit state changes (the last light out, the
-// first one back), never from what's there when it starts, so a room without
-// Torchlight is never plunged into darkness. One sync at a time.
-export const watchTorchlight = () => {
+// The GM's background: the 3 ft dim light on the party's tokens, kept in
+// step as tokens and rows change. One sync at a time.
+export const watchDimLights = () => {
   let gm = false;
-  let lit: boolean | null = null;
   let running: Promise<void> = Promise.resolve();
   const sync = () => {
-    running = running.then(syncOnce).catch((err) => notify(`Couldn't follow Torchlight: ${errorMessage(err)}`, "WARNING"));
+    running = running.then(syncOnce).catch((err) => notify(`Couldn't update the party's light: ${errorMessage(err)}`, "WARNING"));
   };
   const syncOnce = async () => {
     if (!gm || !(await OBR.scene.isReady())) return;
-    const [items, scene, room] = await Promise.all([OBR.scene.items.getItems(), OBR.scene.getMetadata(), OBR.room.getMetadata()]);
-    if (!parseSettings(room[SETTINGS_KEY]).followTorchlight) {
-      lit = null;
-      return syncDim(parseTracker(scene[TRACKER_KEY]), items, false);
-    }
-    let t = parseTracker(scene[TRACKER_KEY]);
-    const now = anyLit(t, items);
-    if (lit !== null && now !== lit) {
-      const updated = updateCrawl(t, now ? lightsBack : lightsOut);
-      if (updated !== t) await OBR.scene.setMetadata({ [TRACKER_KEY]: updated });
-      t = updated;
-    }
-    lit = now;
-    await syncDim(t, items, t.crawl.dark);
+    const [items, scene] = await Promise.all([OBR.scene.items.getItems(), OBR.scene.getMetadata()]);
+    await syncDim(parseTracker(scene[TRACKER_KEY]), items);
   };
   const role = (r: string) => {
     gm = r === "GM";
@@ -123,24 +101,19 @@ export const watchTorchlight = () => {
   const offPlayer = OBR.player.onChange((p) => role(p.role));
   const offItems = OBR.scene.items.onChange(() => sync());
   const offScene = OBR.scene.onMetadataChange((m: Metadata) => m[TRACKER_KEY] !== undefined && sync());
-  const offRoom = OBR.room.onMetadataChange(() => sync());
-  const offReady = OBR.scene.onReadyChange(() => {
-    lit = null;
-    sync();
-  });
+  const offReady = OBR.scene.onReadyChange(() => sync());
   return () => {
     offPlayer();
     offItems();
     offScene();
-    offRoom();
     offReady();
   };
 };
 
-const syncDim = async (t: Tracker, items: Item[], dark: boolean) => {
+const syncDim = async (t: Tracker, items: Item[]) => {
   const [dpi, scale] = await Promise.all([OBR.scene.grid.getDpi(), OBR.scene.grid.getScale()]);
   const radius = feetToPx(DIM_FT, dpi, scale.parsed.unit, scale.parsed.multiplier);
-  const plan = planDim(t, items, dark, radius);
+  const plan = planDim(t, items, radius);
   const ids = [...plan.add, ...plan.remove, ...plan.forget];
   if (ids.length === 0) return;
   const add = new Set(plan.add);

@@ -1,13 +1,13 @@
 import { TimePasses } from "./LightTracker";
 import type { LightChange } from "../hooks/useLights";
 import { useNow } from "../hooks/useNow";
-import { LIGHT_KINDS, burnedOut, lightStatus, type Lights } from "../lights";
+import { LIGHT_KINDS, burnedOut, type Lights } from "../lights";
 
 // The GM's light strip under the title (mockups ck-01, ck-08): Time passes,
 // total darkness, and lights that burned out.
-const LightStrip = (props: { lights: Lights; change: LightChange; names: Map<string, string> }) => {
+const LightStrip = (props: { lights: Lights; dark: boolean; change: LightChange; names: Map<string, string> }) => {
   const now = useNow();
-  const dark = lightStatus(props.lights, now) === "dark";
+  const { dark } = props;
   const spent = props.lights.lights.filter((l) => burnedOut(l, now));
   const first = spent[0];
   return (

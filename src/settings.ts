@@ -19,9 +19,10 @@ export type Settings = {
   autoRoll: boolean;
   // Players see the last encounter check or crawling die roll.
   showRolls: boolean;
-  // Torchlight's lights drive darkness: all out = dark, Deadly, and a dim
-  // light on the party's tokens; a light back undoes it.
-  followTorchlight: boolean;
+  // The Light Tracker drives darkness: with lights tracked and none shining
+  // it's total darkness (isDark in lights.ts); off, or with no lights, the
+  // map's own Darkness switch decides.
+  followLight: boolean;
   // Hide the round counts from players.
   hideRound: boolean;
   // Switching to combat clears the rolls for the combat roll.
@@ -41,7 +42,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showDanger: false,
   autoRoll: false,
   showRolls: false,
-  followTorchlight: true,
+  followLight: true,
   hideRound: false,
   clearRollsOnCombat: true,
   showMarker: true,
@@ -58,7 +59,7 @@ export const parseSettings = (raw: unknown): Settings => {
     showDanger: r.showDanger === true,
     autoRoll: r.autoRoll === true,
     showRolls: r.showRolls === true,
-    followTorchlight: r.followTorchlight !== false,
+    followLight: r.followLight !== false,
     hideRound: r.hideRound === true,
     clearRollsOnCombat: r.clearRollsOnCombat !== false,
     showMarker: r.showMarker !== false,

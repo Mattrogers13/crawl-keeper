@@ -25,26 +25,32 @@ import {
 
 // The GM's encounter checks or Crawling Clock, in the top bar while
 // crawling (it stays in view as the list scrolls). Three columns: the dial
-// (what's left before the next roll), the place (danger level; darkness for
-// the clock), and the d6, which is both the roll button and its last result. The card
+// (what's left before the next roll), the place (danger level, the
+// darkness switch), and the die (a d6, or a d8 for the crawling die in darkness),
+// which is both the roll button and its last result. The card
 // and the die light up when a roll is due; the die can always be rolled (an
 // extra check when the GM wants one). Manual: the same d6 check, or the GM
 // rolls at the table; no auto roll. `start` is the clock's size.
+// `dark`: total darkness (isDark in lights.ts): a check every crawl round,
+// a d8 crawling die. `following`: the lights decide it, so the map's switch
+// is locked.
 const CrawlBar = (props: {
   crawl: Crawl;
   mode: EncounterMode;
   start: number;
   gmTurn: boolean;
+  dark: boolean;
+  following: boolean;
   change: Change<Crawl>;
 }) => {
-  const { crawl, mode, start, change } = props;
+  const { crawl, mode, start, dark, change } = props;
   const [askingReset, setAskingReset] = useState(false);
   const clock = mode === "clock";
   const manual = mode === "manual";
-  const isDue = due(crawl, mode);
+  const isDue = due(crawl, mode, dark);
   const callForRoll = isDue && props.gmTurn;
-  const toNext = roundsToCheck(crawl);
-  const every = cadence(crawl);
+  const toNext = roundsToCheck(crawl, dark);
+  const every = cadence(crawl, dark);
   // This mode's last roll (not the other mode's, after a switch).
   const last = lastFor(crawl, mode);
 
@@ -55,6 +61,11 @@ const CrawlBar = (props: {
         callForRoll ? "shadow-[0_0_0_3px_color-mix(in_srgb,var(--obr-primary)_18%,transparent)] ring-obr-primary" : "ring-obr-text/10"
       }`}
     >
+      {dark && (
+        <p className="col-span-3 rounded-[10px] bg-red-600/10 px-2.5 py-1.5 text-xs text-red-800 ring-1 ring-red-600/30 ring-inset dark:text-red-200">
+          <span className="font-semibold">Total darkness</span> (p. 84): disadvantage on tasks that need sight, for anyone not darkness-adapted.
+        </p>
+      )}
       <div className="flex flex-col items-center gap-1">
         {clock ? (
           // Right-click the clock to reset it.
@@ -68,7 +79,7 @@ const CrawlBar = (props: {
             <ClockDial value={clockLeft(crawl, start)} of={start} />
           </div>
         ) : (
-          <CheckDial of={every} left={toNext} due={isDue} dark={crawl.dark} />
+          <CheckDial of={every} left={toNext} due={isDue} dark={dark} />
         )}
         {/* Standard checks are rounds apart: say how far. The clock rolls every
             crawl round, so it needs no label (the die rings when it's due). */}
@@ -87,8 +98,8 @@ const CrawlBar = (props: {
         )}
         <span className="text-xs leading-snug text-obr-text-secondary">
           {clock
-            ? `Crawling die d${crawlDie(crawl)}${crawl.dark ? " (darkness)" : ""}`
-            : `A check every ${every === 1 ? "crawl round" : `${every} crawl rounds`}`}
+            ? `Crawling die d${crawlDie(dark)}${dark ? " (darkness)" : ""}`
+            : `${dark ? "Total darkness: a" : "A"} check every ${every === 1 ? "crawl round" : `${every} crawl rounds`}`}
           {manual && (
             <span className={`block ${isDue ? "font-medium text-obr-text" : ""}`}>
               {isDue ? "Check due: roll the d6, here or at the table" : "Manual rolls"}
@@ -106,21 +117,13 @@ const CrawlBar = (props: {
             </>
           )}
         </span>
-        {/* Standard checks have no darkness switch: total darkness is Deadly (p. 84).
-            Following Torchlight, a chip says why it went Deadly. */}
-        {clock ? (
-          <TorchToggle dark={crawl.dark} onClick={() => change(crawl.dark ? "Torchlit" : "Darkness", (c) => setDark(c, !c.dark))} />
-        ) : (
-          crawl.dark && (
-            <span
-              className="flex h-7 items-center gap-1.5 rounded-full bg-obr-text/10 pr-3 pl-2 text-xs font-medium text-obr-text-secondary"
-              title="Every light on the party's tokens is out (Torchlight): Deadly until one comes back"
-            >
-              <TorchIcon lit={false} />
-              Darkness
-            </span>
-          )
-        )}
+        {/* The map's darkness switch, in every mode; locked while the lights
+            decide (Settings, Follow light). */}
+        <TorchToggle
+          dark={dark}
+          following={props.following}
+          onClick={() => change(crawl.dark ? "Torchlit" : "Darkness", (c) => setDark(c, !c.dark))}
+        />
         {clock && (
           <Confirm
             label="Reset clock"
@@ -134,11 +137,12 @@ const CrawlBar = (props: {
       </div>
 
       <div className="flex flex-col items-center gap-1">
-        <D6
+        <Die
           roll={last}
-          label={clock ? `Roll d${crawlDie(crawl)}` : "Encounter check (d6)"}
+          sides={clock ? crawlDie(dark) : 6}
+          label={clock ? `Roll d${crawlDie(dark)}` : "Encounter check (d6)"}
           due={isDue}
-          onClick={() => change(clock ? "Crawling die" : "Encounter check", (c) => rollFor(mode, start)(c, cryptoRand))}
+          onClick={() => change(clock ? "Crawling die" : "Encounter check", (c) => rollFor(mode, start, dark)(c, cryptoRand))}
         />
         {/* A live region that stays mounted, so a new result is announced. */}
         <div role="status" aria-label="Last roll" className="flex flex-col items-center">
@@ -177,20 +181,27 @@ const DangerSelect = ({ value, onChange }: { value: Danger; onChange: (d: Danger
   </span>
 );
 
-// Torchlit or total darkness (the crawling die becomes a d8).
-const TorchToggle = (props: { dark: boolean; onClick: () => void }) => (
+// Torchlit or total darkness: a check every crawl round, a d8 crawling die.
+// Following the lights, it shows their verdict and can't be pressed.
+const TorchToggle = (props: { dark: boolean; following: boolean; onClick: () => void }) => (
   <button
     type="button"
     aria-label="Darkness"
     aria-pressed={props.dark}
-    title="Total darkness: the crawling die is a d8"
+    disabled={props.following}
+    title={
+      props.following
+        ? "Following the Light Tracker. Turn off Follow light in Settings to set this by hand."
+        : "Total darkness: a check every crawl round, a d8 crawling die"
+    }
     className={`flex h-7 items-center gap-1.5 rounded-full pr-3 pl-2 text-xs font-medium ${FOCUS} ${
       props.dark ? "bg-obr-text/10 text-obr-text-secondary" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-    }`}
+    } ${props.following ? "cursor-default" : ""}`}
     onClick={props.onClick}
   >
     <TorchIcon lit={!props.dark} />
     {props.dark ? "Darkness" : "Torchlit"}
+    {props.following && <span className="font-normal opacity-80">· following light</span>}
   </button>
 );
 
@@ -215,33 +226,40 @@ const ChevronDown = ({ className }: { className: string }) => (
   </svg>
 );
 
-// The d6: the GM presses it to roll; it shows the last roll (pips for a
-// check, the total for the crawling die). Red on an encounter, ringed while a
-// roll is due. Without onClick (players) it's a picture of the roll.
-const D6 = (props: { roll: CrawlRoll | null; label: string; due?: boolean; onClick?: () => void; small?: boolean }) => {
+// The die: the GM presses it to roll; it shows the last roll (pips for a
+// check, the total for the crawling die). Shaped like the next roll's die: a
+// d6, or a d8 for the crawling die in darkness. Red on an encounter, ringed
+// while a roll is due. Without onClick (players) it's a picture of the roll.
+const Die = (props: { roll: CrawlRoll | null; sides: number; label: string; due?: boolean; onClick?: () => void; small?: boolean }) => {
   const { roll } = props;
   const enc = roll?.encounter ?? false;
+  const d8 = props.sides === 8;
   const Face = props.onClick ? "button" : "span";
   return (
     <div className={`flex shrink-0 items-center justify-center ${props.small ? "h-[52px] w-[52px]" : "h-[76px] w-[76px]"}`}>
       <Face
         {...(props.onClick ? { type: "button" as const, onClick: props.onClick, title: `${props.label} (R when due)` } : { role: "img" })}
         aria-label={props.label}
-        className={`relative flex items-center justify-center rounded-xl ${props.small ? "h-11 w-11" : "h-14 w-14"} ${
+        className={`relative flex items-center justify-center ${props.small ? "h-11 w-11" : "h-14 w-14"} ${
           props.onClick
             ? "transition-transform active:translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-obr-primary focus-visible:ring-offset-2 focus-visible:ring-offset-obr-bg"
             : ""
-        } ${
-          enc ? "bg-red-600 text-white shadow-[0_4px_0_#8f2a2a,0_8px_14px_rgba(0,0,0,.35)]" : "bg-[#f4f1ea] text-[#1b1b1b] shadow-[0_4px_0_#b9b2a3,0_8px_14px_rgba(0,0,0,.35)]"
-        } ${props.due ? "outline-3 outline-offset-3 outline-obr-primary/60" : ""}`}
+        } ${enc ? "text-white" : "text-[#1b1b1b]"} ${
+          d8
+            ? "rounded-md"
+            : `rounded-xl ${enc ? "bg-red-600 shadow-[0_4px_0_#8f2a2a,0_8px_14px_rgba(0,0,0,.35)]" : "bg-[#f4f1ea] shadow-[0_4px_0_#b9b2a3,0_8px_14px_rgba(0,0,0,.35)]"} ${
+                props.due ? "outline-3 outline-offset-3 outline-obr-primary/60" : ""
+              }`
+        }`}
       >
+        {d8 && <D8Shape enc={enc} due={props.due ?? false} />}
         {!roll ? (
-          <span className="text-xs font-bold tracking-wide uppercase opacity-60">Roll</span>
+          <span className={`relative font-bold tracking-wide uppercase opacity-60 ${d8 ? "-translate-y-0.5 text-[11px]" : "text-xs"}`}>Roll</span>
         ) : roll.kind === "check" ? (
           <Pips n={roll.dice[0]} />
         ) : (
           <>
-            <span className="text-[22px] font-extrabold tabular-nums">{roll.dice.reduce((a, b) => a + b, 0)}</span>
+            <span className={`relative font-extrabold tabular-nums ${d8 ? "-translate-y-0.5 text-[20px]" : "text-[22px]"}`}>{roll.dice.reduce((a, b) => a + b, 0)}</span>
             <span className="absolute -top-1.5 -right-1.5 rounded-md bg-obr-paper px-1 text-[9.5px] font-medium text-obr-text-secondary ring-1 ring-obr-text/10">
               d{roll.sides}
             </span>
@@ -252,10 +270,21 @@ const D6 = (props: { roll: CrawlRoll | null; label: string; due?: boolean; onCli
   );
 };
 
+// A d8 seen point-up: a diamond with its two front faces, on a
+// darker copy for the same lip as the d6. The due ring follows the outline.
+const D8Shape = ({ enc, due }: { enc: boolean; due: boolean }) => (
+  <svg viewBox="-6 -6 68 72" className="pointer-events-none absolute -inset-[10px] h-[calc(100%+20px)] w-[calc(100%+20px)] overflow-visible drop-shadow-[0_8px_7px_rgba(0,0,0,.35)]" aria-hidden>
+    {due && <polygon points="28,-5 61,28 28,61 -5,28" fill="none" strokeWidth="3" className="stroke-obr-primary/60" />}
+    <polygon points="28,4 54,32 28,60 2,32" fill={enc ? "#8f2a2a" : "#b9b2a3"} />
+    <polygon points="28,0 54,28 28,56 2,28" fill={enc ? "#dc2626" : "#f4f1ea"} />
+    <path d="M2 28 28 44 54 28M28 44v12" fill="none" stroke={enc ? "#8f2a2a" : "#b9b2a3"} strokeWidth="1.2" strokeLinejoin="round" />
+  </svg>
+);
+
 // The players' view of the last roll (the GM's "Show the rolls" setting).
 export const PlayerRoll = ({ roll }: { roll: CrawlRoll }) => (
   <span className="flex items-center gap-2">
-    <D6 roll={roll} label={roll.kind === "clock" ? `Crawling die: ${roll.dice.reduce((a, b) => a + b, 0)}` : `Encounter check: ${roll.dice[0]}`} small />
+    <Die roll={roll} sides={roll.sides} label={roll.kind === "clock" ? `Crawling die: ${roll.dice.reduce((a, b) => a + b, 0)}` : `Encounter check: ${roll.dice[0]}`} small />
     <Outcome roll={roll} />
   </span>
 );

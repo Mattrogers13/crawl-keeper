@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import App from "./App";
-import { LIGHTS_KEY, TRACKER_KEY } from "../constants";
+import { LIGHTS_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import { GM_ENTRY } from "../tracker";
 import { MINUTE, parseLights, remaining } from "../lights";
 import { obr, setItems, token } from "../test/obrMock";
@@ -358,6 +358,57 @@ describe("the strip, badges and DIS", () => {
     vi.setSystemTime(T0 + 2000);
     expect(await screen.findByText("DIS", {}, { timeout: 2000 })).toBeInTheDocument();
     await waitFor(() => expect(strip()).toHaveTextContent("Torch · Aria burned out"), { timeout: 2000 });
+  });
+
+  it("darkness by the lights: a check every crawl round, the danger level kept, the card's switch locked", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    obr.metadata = { [LIGHTS_KEY]: { lights: [{ ...lit("l1", "a"), status: "spent", endsAt: null, remainingMs: 0 }] } };
+    scene(["a"]);
+    render(<App />);
+    const card = await screen.findByRole("region", { name: "Encounter checks" });
+    expect(card).toHaveTextContent("Total darkness (p. 84)");
+    expect(card).toHaveTextContent("Total darkness: a check every crawl round");
+    expect(within(card).getByLabelText("Danger level")).toHaveValue("unsafe");
+    const toggle = within(card).getByRole("button", { name: /Darkness/ });
+    expect(toggle).toBeDisabled();
+    expect(toggle).toHaveTextContent("following light");
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("no lights tracked: the card's switch sets darkness by hand, as an undo step", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    scene(["a"]);
+    render(<App />);
+    const card = await screen.findByRole("region", { name: "Encounter checks" });
+    expect(card).toHaveTextContent("A check every 3 crawl rounds");
+    fireEvent.click(within(card).getByRole("button", { name: /Darkness/ }));
+    await waitFor(() => expect(card).toHaveTextContent("Total darkness: a check every crawl round"));
+    expect(obr.sceneMetadata[TRACKER_KEY]).toMatchObject({ crawl: { dark: true, danger: "unsafe" } });
+    expect(within(rowOf("Aria")).getByText("DIS")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Undo: Darkness" })).toBeInTheDocument();
+  });
+
+  it("Follow light off: lights out isn't darkness unless the switch says so; the clock's die follows it, d8 face and all", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    obr.metadata = {
+      [LIGHTS_KEY]: { lights: [{ ...lit("l1", "a"), status: "spent", endsAt: null, remainingMs: 0 }] },
+      [SETTINGS_KEY]: { followLight: false, encounterMode: "clock" },
+    };
+    scene(["a"]);
+    render(<App />);
+    const card = await screen.findByRole("region", { name: "Crawling Clock" });
+    expect(card).toHaveTextContent("Crawling die d6");
+    expect(screen.queryByText("DIS")).not.toBeInTheDocument();
+    expect(strip()).not.toHaveTextContent("total darkness");
+    // The die is drawn as a d6 (no diamond) until it's dark.
+    expect(within(card).getByRole("button", { name: "Roll d6" }).querySelector("svg")).toBeNull();
+    fireEvent.click(within(card).getByRole("button", { name: "Darkness" }));
+    await waitFor(() => expect(card).toHaveTextContent("Crawling die d8 (darkness)"));
+    expect(within(card).getByRole("button", { name: "Roll d8" }).querySelector("svg polygon")).not.toBeNull();
+    // The Light Tracker doesn't call it darkness either.
+    fireEvent.click(screen.getByRole("button", { name: "Light Tracker" }));
+    await waitFor(() => expect(screen.getAllByRole("status").some((el) => /Follow light is off/.test(el.textContent ?? ""))).toBe(true));
+    expect(screen.queryByText(/No light: total darkness/)).not.toBeInTheDocument();
   });
 
   it("Time passes from the strip", async () => {
