@@ -334,10 +334,13 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
         </p>
       )}
 
-      {/* The GM's light strip, above the crawl card (in combat too: lights burn). */}
+      {/* The GM's light strip, above the crawl card (in combat too: lights
+          burn); only once there are lights (the header's flame opens the
+          Light Tracker either way). */}
       {gm &&
         headerSlot &&
         lights.loaded &&
+        lights.lights.lights.length > 0 &&
         createPortal(
           <LightStrip lights={lights.lights} change={lights.change} names={new Map(items.map((i) => [i.id, tokenInfo(i).name]))} manage={openLights} />,
           headerSlot,

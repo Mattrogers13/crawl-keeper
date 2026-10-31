@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from
 
 import type { Change } from "./Tracker";
 import type { LightChange } from "../hooks/useLights";
-import { LIGHT_KINDS, addLight, litOn, swapLight, type LightKind, type Lights } from "../lights";
+import { LIGHT_KINDS, addLight, formatRemaining, litOn, newLightId, outOn, relight, renew, swapLight, type LightKind, type Lights } from "../lights";
 import { GM_ENTRY, remove, setDead, setMarker, setMonster, type Entry } from "../tracker";
 
 // What a row can be given (a campfire goes on any token from the map's
@@ -68,17 +68,32 @@ const RowMenu = (props: {
   ];
   // One token: Give torch / lantern / Light spell. A token holds one lit
   // light (p. 84), so with one already lit the item says the swap: "Put out
-  // the torch, light the lantern".
+  // the torch, light the lantern". A lantern the token has out offers its
+  // oil back, or a refill.
   function giveLight(): [string, boolean, () => void][] {
     const l = props.lights;
     const id = ids.length === 1 && ids[0] !== GM_ENTRY ? ids[0] : null;
     if (!l || !id) return [];
     const held = litOn(l.lights, id);
-    return GIVEN.filter((kind) => kind !== held?.kind).map((kind) => {
+    const waiting = outOn(l.lights, id);
+    const oil = waiting ? ` (${formatRemaining(waiting.remainingMs)} left)` : "";
+    return GIVEN.filter((kind) => kind !== held?.kind).flatMap((kind): [string, boolean, () => void][] => {
       const light = { kind, tokenId: id, carrier: props.name };
-      return held
-        ? [`Put out the ${lower(held.kind)}, light the ${lower(kind)}`, true, () => l.change(`Swap ${lower(held.kind)} for ${lower(kind)}`, (s, now) => swapLight(s, now, newId, light))]
-        : [`Give ${lower(kind)}`, true, () => l.change(`Give ${lower(kind)}`, (s, now) => addLight(s, now, newId, light))];
+      const kept = waiting?.kind === kind ? oil : "";
+      if (held)
+        return [
+          [
+            `Put out the ${lower(held.kind)}, light the ${lower(kind)}${kept}`,
+            true,
+            () => l.change(`Swap ${lower(held.kind)} for ${lower(kind)}`, (s, now) => swapLight(s, now, newLightId, light)),
+          ],
+        ];
+      if (waiting && kept)
+        return [
+          [`Light the ${lower(kind)}${kept}`, true, () => l.change(`Light ${lower(kind)}`, (s, now) => relight(s, now, waiting.id))],
+          [`Refill and light the ${lower(kind)}`, true, () => l.change(`Refill and light ${lower(kind)}`, (s, now) => renew(s, now, newLightId, waiting.id))],
+        ];
+      return [[`Give ${lower(kind)}`, true, () => l.change(`Give ${lower(kind)}`, (s, now) => addLight(s, now, newLightId, light))]];
     });
   }
 
@@ -120,7 +135,5 @@ const RowMenu = (props: {
     </div>
   );
 };
-
-const newId = () => crypto.randomUUID();
 
 export default RowMenu;

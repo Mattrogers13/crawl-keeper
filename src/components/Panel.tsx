@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { FlameIcon } from "./icons";
 import LightTracker from "./LightTracker";
 import Loading from "./Loading";
 import ResizeGrip from "./ResizeGrip";
@@ -44,6 +45,16 @@ const Panel = ({ role }: { role: Role }) => {
           {!away && <span ref={setTitleSlot} className="min-w-0 truncate text-xs text-obr-text-secondary empty:hidden" />}
           {role === "GM" && !away && (
             <div className="ml-auto flex">
+              {/* Always here, lights or not: the way into the Light Tracker. */}
+              <button
+                type="button"
+                aria-label="Light Tracker"
+                title="Light Tracker"
+                className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-obr-bg"
+                onClick={() => setView("lights")}
+              >
+                <FlameIcon className="h-5 w-4" />
+              </button>
               <button
                 type="button"
                 aria-label="Settings"

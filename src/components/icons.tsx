@@ -83,8 +83,8 @@ export const GmPortrait = ({ className }: { className: string }) => (
 
 // A small flame: a token with a light burning (Torchlight). `spell`: the
 // Light spell, a cool white glow instead of fire.
-export const FlameIcon = ({ spell = false }: { spell?: boolean }) => (
-  <svg viewBox="0 0 14 18" className="h-3.5 w-3" aria-hidden>
+export const FlameIcon = ({ spell = false, className = "h-3.5 w-3" }: { spell?: boolean; className?: string }) => (
+  <svg viewBox="0 0 14 18" className={className} aria-hidden>
     <path d="M7 1c2 3 5 4.5 5 8.5a5 5 0 0 1-10 0c0-2.4 1.2-3.7 2.4-4.8C4.6 7 5.6 8 6.6 8 6.4 5.6 5.6 3.4 7 1z" fill={spell ? "#9cc4ff" : "#ff9a3c"} />
     <path d="M7 7.5c1.2 2 2.4 2.8 2.4 4.6a2.4 2.4 0 0 1-4.8 0c0-1.3 1.2-2.6 2.4-4.6z" fill={spell ? "#eef5ff" : "#ffe08a"} />
   </svg>
