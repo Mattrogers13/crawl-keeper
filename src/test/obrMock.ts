@@ -322,7 +322,20 @@ export const OBR = {
         applyItems(obr.items.filter((i) => !gone.has(i.id)));
       }),
       onChange: vi.fn((cb: Listener<Item[]>) => subscribe(obr.itemListeners, cb)),
+      // A 100-unit box around the items' positions.
+      getItemBounds: vi.fn(async (ids: string[]) => {
+        needScene();
+        const p = obr.items.find((i) => ids.includes(i.id))?.position ?? { x: 0, y: 0 };
+        return { min: { x: p.x - 50, y: p.y - 50 }, max: { x: p.x + 50, y: p.y + 50 }, width: 100, height: 100, center: p };
+      }),
     },
+  },
+  // An 800 x 600 view at zoom 2. Records only.
+  viewport: {
+    getScale: vi.fn(async () => 2),
+    getWidth: vi.fn(async () => 800),
+    getHeight: vi.fn(async () => 600),
+    animateTo: vi.fn(async () => undefined),
   },
   action: {
     setHeight: vi.fn(async () => undefined),

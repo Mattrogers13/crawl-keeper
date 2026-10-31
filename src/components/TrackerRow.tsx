@@ -46,6 +46,7 @@ const Row = (props: {
   gm: boolean;
   change: Change;
   show: (id: string) => void;
+  focus: (id: string) => void;
   openMenu: (id: string, x: number, y: number) => void;
   select: (id: string, mods: { shift: boolean; toggle: boolean }) => void;
   selected: boolean;
@@ -93,6 +94,16 @@ const Row = (props: {
             ? (e) => {
                 if ((e.target as HTMLElement).closest("input, button")) return;
                 props.select(entry.id, { shift: e.shiftKey, toggle: e.metaKey || e.ctrlKey });
+              }
+            : undefined
+        }
+        // GM: double-click to bring the token into view (the first click
+        // of the two selects, as a single click does).
+        onDoubleClick={
+          gm && token
+            ? (e) => {
+                if ((e.target as HTMLElement).closest("input, button")) return;
+                props.focus(entry.id);
               }
             : undefined
         }
