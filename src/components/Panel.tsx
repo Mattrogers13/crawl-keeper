@@ -55,7 +55,10 @@ const Panel = ({ role }: { role: Role }) => {
       </header>
       <main className="flex min-h-0 flex-1 flex-col">
         {showSettings ? (
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          // relative: the switches' hidden inputs (sr-only, absolute) are
+          // placed in here; otherwise against the page, which then scrolls
+          // too (a second scrollbar, Matt's room pass 2026-10-31).
+          <div className="relative min-h-0 flex-1 overflow-y-auto">
             <Settings />
           </div>
         ) : scene.ready === null ? (
