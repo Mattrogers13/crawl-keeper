@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import OBR, { type Image } from "@owlbear-rodeo/sdk";
 
-import { COMBAT_ALERT, createMenu, toggleInitiative, watchCombat, watchMarkerVisibility } from "./background";
+import { COMBAT_ALERT, createMenu, watchCombat, watchMarkerVisibility } from "./background";
+import { toggleInitiative } from "./initiative";
 import { MARKER_KEY, TRACKER_KEY } from "./constants";
 import { buildMarker, buildSkull, markerImage, skullImage } from "./marker";
 import { GM_ENTRY, parseTracker } from "./tracker";
@@ -47,12 +48,14 @@ describe("background: Add / Remove Initiative", () => {
     expect(OBR.notification.show).not.toHaveBeenCalledWith(expect.stringContaining("not added"), "WARNING");
   });
 
-  it("registers one GM-only menu item on character and mount images", async () => {
+  it("registers one GM-only Crawl Keeper item on character, mount and prop images, opening the submenu", async () => {
     await createMenu();
     const menus = vi.mocked(OBR.contextMenu.create).mock.calls.map((c) => c[0]);
     expect(menus).toHaveLength(1);
-    expect(menus[0].icons[0]).toMatchObject({ label: "Add / Remove Initiative", icon: "/img/initiative.svg" });
+    expect(menus[0].icons[0]).toMatchObject({ label: "Crawl Keeper", icon: "/img/initiative.svg" });
     expect(menus[0].icons[0].filter?.roles).toEqual(["GM"]);
+    expect(menus[0].icons[0].filter?.every?.map((f) => f.value)).toEqual(["CHARACTER", "MOUNT", "PROP", "IMAGE"]);
+    expect(menus[0].embed).toEqual({ url: "/menu", height: 6 * 36 + 8 });
   });
 });
 

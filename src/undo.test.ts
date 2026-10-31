@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import OBR from "@owlbear-rodeo/sdk";
 
-import { toggleInitiative } from "./background";
+import { toggleInitiative } from "./initiative";
 import { HISTORY_KEY, MARKER_KEY, SCENE_ID_KEY, SETTINGS_KEY, TRACKER_KEY } from "./constants";
 import { GM_ENTRY, parseTracker } from "./tracker";
 import { clearHistory, loadHistory, onHistoryChange, record, redo, undo } from "./undo";
