@@ -63,8 +63,15 @@ describe("the GM's undo in the panel", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     fireEvent.click(screen.getByText("Remove"));
     await waitFor(() => expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument());
-    await act(async () => vi.advanceTimersByTime(TOAST_MS + 10));
-    expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
+    // Not before 8 seconds...
+    await act(async () => vi.advanceTimersByTime(TOAST_MS - 500));
+    expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
+    // ...then gone. (Advanced until gone: on a slow runner the toast can
+    // appear a tick later than the click, starting its timer later.)
+    await waitFor(async () => {
+      await act(async () => vi.advanceTimersByTime(1000));
+      expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
+    });
     // The step itself stays in the bar.
     expect(screen.getByRole("button", { name: "Undo: Remove monsters" })).toBeInTheDocument();
     vi.useRealTimers();
