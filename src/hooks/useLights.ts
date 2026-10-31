@@ -1,5 +1,7 @@
+import { useEffect, useReducer } from "react";
+
 import { LIGHTS_KEY } from "../constants";
-import { parseLights, type Lights } from "../lights";
+import { lightStatus, msToNextBurnOut, parseLights, type Lights } from "../lights";
 import { record } from "../undo";
 import { errorMessage, notify } from "../utils";
 import { useRoomValue } from "./useRoomValue";
@@ -31,4 +33,18 @@ export const useLights = () => {
     });
   };
   return { loaded: doc.loaded, lights: doc.value, change };
+};
+
+// "none" / "lit" / "dark", re-read when the next lit light burns out, so a
+// burn-out shows without a write or a ticking re-render.
+export const useLightStatus = (lights: Lights) => {
+  const [, wake] = useReducer((n: number) => n + 1, 0);
+  const now = Date.now();
+  const next = msToNextBurnOut(lights, now);
+  useEffect(() => {
+    if (next === null) return;
+    const t = setTimeout(wake, next + 50);
+    return () => clearTimeout(t);
+  }, [lights, next]);
+  return lightStatus(lights, now);
 };

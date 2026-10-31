@@ -5,6 +5,7 @@ Versions follow semver; the same number is in `package.json` and `public/manifes
 ## Unreleased (v0.3, on `torchlight-merge`)
 
 - Light Tracker (flame button, GM): every light's timer, the party's light, Time passes (10m, 1h, 1:30), Put lights out, Pause, Ride along or Separate timers, Resume its time or Treat as newly lit; lanterns shutter and take oil; click a time to correct it; burned-out lights relight; Remove all lights. Lights start on tokens: a row's menu → Give torch, lantern or Light spell (one lit light per token). Every change can be undone.
+- A light strip under the title (GM): Time passes, Manage (the Light Tracker), red with "No light · total darkness", and which light burned out. Badges on rows for each token's lights (click: put out or light again; players see them). DIS on living players' rows in total darkness.
 - Double-click a row to center the map on its token (the zoom stays); one click still selects the row.
 
 ## v0.2.0 (2026-10-31)

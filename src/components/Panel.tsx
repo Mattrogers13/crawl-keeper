@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-import { FlameIcon } from "./icons";
 import LightTracker from "./LightTracker";
 import Loading from "./Loading";
 import ResizeGrip from "./ResizeGrip";
@@ -47,15 +46,6 @@ const Panel = ({ role }: { role: Role }) => {
             <div className="ml-auto flex">
               <button
                 type="button"
-                aria-label="Light Tracker"
-                title="Light Tracker"
-                className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-obr-bg"
-                onClick={() => setView("lights")}
-              >
-                <FlameIcon />
-              </button>
-              <button
-                type="button"
                 aria-label="Settings"
                 title="Settings"
                 className="flex h-9 w-9 items-center justify-center rounded-full text-obr-text-secondary hover:bg-obr-bg hover:text-obr-text"
@@ -66,7 +56,7 @@ const Panel = ({ role }: { role: Role }) => {
             </div>
           )}
         </div>
-        {!away && <div ref={setHeaderSlot} className="empty:hidden" />}
+        {!away && <div ref={setHeaderSlot} className="flex flex-col gap-2.5 empty:hidden" />}
       </header>
       <main className="flex min-h-0 flex-1 flex-col">
         {shown === "lights" ? (
@@ -84,7 +74,7 @@ const Panel = ({ role }: { role: Role }) => {
           <Loading />
         ) : scene.ready ? (
           // A new key per opened scene: switching maps reads the new map fresh.
-          <Tracker key={scene.opened} role={role} headerSlot={headerSlot} titleSlot={titleSlot} />
+          <Tracker key={scene.opened} role={role} headerSlot={headerSlot} titleSlot={titleSlot} openLights={() => setView("lights")} />
         ) : (
           <p className="text-sm text-obr-text-secondary">Open a scene to use the tracker.</p>
         )}
