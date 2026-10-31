@@ -8,6 +8,7 @@ Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript
 
 - If `sources/sdk` is missing: `scripts/fetch-sources.sh`. Original ask: `BRIEF.md` (DONE).
 - Installs: live `https://crawl-keeper.editbag.workers.dev/manifest.json`, Dev `https://dev-crawl-keeper.editbag.workers.dev/manifest.json` (`docs/obr/deploy.md`). After a Dev rebuild, reload the Owlbear room: the background page loads once per room.
+- `main` deploys the live install on every push: merged = live for users, whatever the version number or CHANGELOG says. "Unreleased" means not tagged or announced.
 - Tracked tasks and undecided review candidates: `docs/design.md` "Releases".
 - Status (2026-10-26): v0.1.1 released (room pass passed, rows 1–50). v0.2 on main, unreleased (ships all together): Follow Torchlight, manual rolls, 2d20 clock. Next: Dice+, morale, encounter tables, Time Passes, End tracker (`docs/design.md`).
 
@@ -75,7 +76,7 @@ Node 24 (`.node-version`; fnm auto-switches). Non-interactive shells: `eval "$(f
 - No prettier/formatter in this repo: don't run one (it rewrites whole files); match the surrounding style by hand.
 - Rules questions: quote the book. `pdftotext -layout "sources/Shadowdark RPG - V4-8.pdf" <scratch>/sd.txt` then grep; the clock rules are `sources/CrawlingClock_Rules.jpeg`. Cite page numbers.
 - Review in Owlbear via the `dev` branch install, not per-PR previews (`docs/obr/deploy.md`).
-- Updating `dev` without force-push (blocked in auto mode): `git checkout dev && git merge --no-edit <branch>`; on conflicts, check `git diff --quiet HEAD origin/main` (dev's files = main's), then `git checkout <branch> -- . && git commit --no-edit`.
+- Updating `dev` without force-push (blocked in auto mode): `git checkout dev && git merge --no-edit <branch>`; on conflicts, check `git diff --stat HEAD origin/main` (dev's files = main's, or only docs differ), then `git checkout <branch> -- . && git commit --no-edit`.
 - See a panel component without Owlbear: render it in a throwaway vitest file, write `container.innerHTML` to scratch, wrap it with `dist/assets/*.css` (after `npm run build`), screenshot with headless Chrome (dark: `class="dark"`; light: override the `--obr-*` vars). The homepage: `npx vite preview` + screenshot.
 - Rules text shown in the app (book or Crawling Clock sheet): our own words plus credit (`src/components/ClockRules.tsx`), never the source text.
 - Versions: semver, same value in `package.json` and `public/manifest.json` (a test enforces it). In `package-lock.json` edit only its two own `version` fields by hand; `npm install` churns the rest.
