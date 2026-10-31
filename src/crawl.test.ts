@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 
 import {
+  crawlDie,
   cadence,
   checkMade,
   clockLeft,
@@ -46,7 +47,7 @@ describe("parseCrawl", () => {
   it("lastCheck runs at most the longest cadence ahead, so bad data can't switch checks off", () => {
     const c = parseCrawl({ crawlRounds: 2, lastCheck: 9999 });
     expect(c.lastCheck).toBe(5);
-    expect(due(rounds(c, 4), "clock")).toBe(true);
+    expect(due(rounds(c, 4), "clock", false)).toBe(true);
   });
 
   it("counts over the cap clamp instead of resetting to 0", () => {
@@ -64,21 +65,25 @@ describe("parseCrawl", () => {
   });
 });
 
-describe("dangerBeforeDark", () => {
-  it("parses a danger level or null", () => {
-    expect(parseCrawl({ dangerBeforeDark: "risky" }).dangerBeforeDark).toBe("risky");
-    expect(parseCrawl({}).dangerBeforeDark).toBeNull();
-    expect(parseCrawl({ dangerBeforeDark: 7 }).dangerBeforeDark).toBeNull();
-  });
-});
-
 describe("standard checks (core p. 112)", () => {
-  it("cadence: Unsafe 3, Risky 2, Deadly 1 (darkness is Deadly: the GM picks it, p. 84)", () => {
-    expect(cadence(crawl({ danger: "unsafe" }))).toBe(3);
-    expect(cadence(crawl({ danger: "risky" }))).toBe(2);
-    expect(cadence(crawl({ danger: "deadly" }))).toBe(1);
-    // A darkness flag saved by an older version no longer changes the checks.
-    expect(cadence(crawl({ danger: "unsafe", dark: true }))).toBe(3);
+  it("cadence: Unsafe 3, Risky 2, Deadly 1; every round in total darkness, whatever the danger (p. 84)", () => {
+    expect(cadence(crawl({ danger: "unsafe" }), false)).toBe(3);
+    expect(cadence(crawl({ danger: "risky" }), false)).toBe(2);
+    expect(cadence(crawl({ danger: "deadly" }), false)).toBe(1);
+    expect(cadence(crawl({ danger: "unsafe" }), true)).toBe(1);
+    // The map's own switch is only an input: the caller decides (isDark).
+    expect(cadence(crawl({ danger: "unsafe", dark: true }), false)).toBe(3);
+  });
+
+  it("in darkness a check is due every crawl round, and the danger level stays", () => {
+    let c = rounds(crawl({ danger: "unsafe" }), 1);
+    expect([due(c, "standard", false), due(c, "standard", true), roundsToCheck(c, true)]).toEqual([false, true, 0]);
+    c = rollCheck(c, dice(6, 4), true);
+    expect(c.lastCheck).toBe(1);
+    expect(due(rounds(c, 1), "standard", true)).toBe(true);
+    expect(c.danger).toBe("unsafe");
+    expect(due(rounds(crawl(), 1), "manual", true)).toBe(true);
+    expect(checkMade(rounds(crawl(), 1), true).lastCheck).toBe(1);
   });
 
   it("a roll shows only in its own mode", () => {
@@ -92,14 +97,14 @@ describe("standard checks (core p. 112)", () => {
 
   it("due on the 3rd, 6th... crawl round when Unsafe; nothing before the first round", () => {
     let c = crawl();
-    expect(due(c, "standard")).toBe(false);
+    expect(due(c, "standard", false)).toBe(false);
     c = rounds(c, 2);
-    expect([due(c, "standard"), roundsToCheck(c)]).toEqual([false, 1]);
+    expect([due(c, "standard", false), roundsToCheck(c, false)]).toEqual([false, 1]);
     c = rounds(c, 1);
-    expect(due(c, "standard")).toBe(true);
+    expect(due(c, "standard", false)).toBe(true);
     c = rollCheck(c, dice(6, 4));
-    expect(due(c, "standard")).toBe(false);
-    expect(roundsToCheck(rounds(c, 1))).toBe(2);
+    expect(due(c, "standard", false)).toBe(false);
+    expect(roundsToCheck(rounds(c, 1), false)).toBe(2);
   });
 
   it("a 1 on the d6 is an encounter", () => {
@@ -111,15 +116,17 @@ describe("standard checks (core p. 112)", () => {
 describe("Crawling Clock", () => {
   it("due once per crawl round", () => {
     let c = rounds(crawl(), 1);
-    expect(due(c, "clock")).toBe(true);
+    expect(due(c, "clock", false)).toBe(true);
     c = rollClock(c, dice(6, 3));
-    expect(due(c, "clock")).toBe(false);
-    expect(due(rounds(c, 1), "clock")).toBe(true);
+    expect(due(c, "clock", false)).toBe(false);
+    expect(due(rounds(c, 1), "clock", false)).toBe(true);
   });
 
   it("the crawling die takes off the clock; a d8 in darkness", () => {
     expect(rollClock(crawl(), dice(6, 4))).toMatchObject({ clock: 16, last: { dice: [4], sides: 6, before: 20, after: 16 } });
-    expect(rollClock(crawl({ dark: true }), dice(8, 7))).toMatchObject({ clock: 13, last: { sides: 8 } });
+    expect(rollClock(crawl(), dice(8, 7), 20, true)).toMatchObject({ clock: 13, last: { sides: 8 } });
+    expect(crawlDie(true)).toBe(8);
+    expect(crawlDie(false)).toBe(6);
   });
 
   it("the max explodes: roll again and add, up to 10 dice", () => {
@@ -142,7 +149,7 @@ describe("Crawling Clock", () => {
   it("an extra check (a loud noise, p. 112) leaves the schedule alone; a due one resets it", () => {
     const early = rollCheck(rounds(crawl({ danger: "unsafe" }), 2), dice(6, 4));
     expect(early).toMatchObject({ lastCheck: 0, last: { kind: "check" } });
-    expect(due(crawlRoundStarted(early), "standard")).toBe(true);
+    expect(due(crawlRoundStarted(early), "standard", false)).toBe(true);
     const onTime = rollCheck(rounds(crawl({ danger: "unsafe" }), 3), dice(6, 4));
     expect(onTime.lastCheck).toBe(3);
   });
@@ -184,8 +191,8 @@ describe("2d20 clock", () => {
 describe("manual (encounter checks and clock off)", () => {
   it("due on the standard cadence; its roll is a d6 check", () => {
     const c = rounds(crawl({ danger: "risky", last: { kind: "clock", dice: [3], sides: 6, before: 20, after: 17, encounter: false } }), 2);
-    expect(due(c, "manual")).toBe(true);
-    expect(due(rounds(crawl({ danger: "risky" }), 1), "manual")).toBe(false);
+    expect(due(c, "manual", false)).toBe(true);
+    expect(due(rounds(crawl({ danger: "risky" }), 1), "manual", false)).toBe(false);
     expect(lastFor(c, "manual")).toBeNull();
     const rolled = rollFor("manual")(c, dice(6, 1));
     expect(rolled).toMatchObject({ lastCheck: 2, clock: c.clock, last: { kind: "check", dice: [1], encounter: true } });
@@ -195,7 +202,7 @@ describe("manual (encounter checks and clock off)", () => {
   it("checkMade counts a due check; not due keeps the object", () => {
     const c = rounds(crawl({ danger: "risky" }), 2);
     expect(checkMade(c)).toMatchObject({ lastCheck: 2, last: null });
-    expect(due(checkMade(c), "manual")).toBe(false);
+    expect(due(checkMade(c), "manual", false)).toBe(false);
     const early = rounds(crawl({ danger: "risky" }), 1);
     expect(checkMade(early)).toBe(early);
   });
@@ -216,9 +223,9 @@ describe("rounds", () => {
     const c = rollClock(rounds(crawl(), 5), dice(6, 3));
     const back = crawlRoundUndone(c);
     expect(back).toMatchObject({ crawlRounds: 4, lastCheck: 5 });
-    expect(due(back, "clock")).toBe(false);
-    expect(due(crawlRoundStarted(back), "clock")).toBe(false);
-    expect(due(crawlRoundStarted(crawlRoundStarted(back)), "clock")).toBe(true);
+    expect(due(back, "clock", false)).toBe(false);
+    expect(due(crawlRoundStarted(back), "clock", false)).toBe(false);
+    expect(due(crawlRoundStarted(crawlRoundStarted(back)), "clock", false)).toBe(true);
     expect(resetCrawlRounds(c)).toMatchObject({ crawlRounds: 0, lastCheck: 0 });
     const zero = crawl();
     expect(resetCrawlRounds(zero)).toBe(zero);

@@ -1,7 +1,7 @@
-// Following Torchlight (github.com/Mattrogers13/obr-torchlight): which
-// tracked tokens carry a burning light, total darkness when the last one goes
-// out, and a dim light on the party's tokens while it's dark so players still
-// see their own tokens through Dynamic Fog.
+// Darkness on the map: a dim light on the party's tokens while it's total
+// darkness, so players still see their own tokens through Dynamic Fog. And,
+// until the Torchlight merge's last PR, which tokens Torchlight lights (its
+// flame on the row; its lit tokens keep their own light).
 //
 // The contract with Torchlight is one item metadata key: its GM background
 // sets TORCHLIGHT_TOKEN_KEY ({ source, saved }) on a token while a light of
@@ -10,11 +10,11 @@
 // TOKEN_KEY in src/tokenSync.ts: keep the two in step.
 import OBR, { type Item, type Metadata } from "@owlbear-rodeo/sdk";
 
-import { ID, SETTINGS_KEY, TRACKER_KEY } from "./constants";
-import { lightsBack, lightsOut } from "./crawl";
+import { ID, LIGHTS_KEY, SETTINGS_KEY, TRACKER_KEY } from "./constants";
+import { followingLights, isDark, msToNextBurnOut, parseLights } from "./lights";
 import { isObject } from "./parse";
 import { parseSettings } from "./settings";
-import { parseTracker, updateCrawl, type Tracker } from "./tracker";
+import { parseTracker, type Tracker } from "./tracker";
 import { errorMessage, notify } from "./utils";
 
 export const TORCHLIGHT_TOKEN_KEY = "io.github.mattrogers13.torchlight/token";
@@ -84,33 +84,30 @@ export const planDim = (t: Tracker, items: Item[], dark: boolean, radiusPx: numb
   return { add, remove, forget };
 };
 
-// The GM's background: follows Torchlight while the setting is on. Darkness
-// and Deadly change only when the lit state changes (the last light out, the
-// first one back), never from what's there when it starts, so a room without
-// Torchlight is never plunged into darkness. One sync at a time.
-export const watchTorchlight = () => {
+// The GM's background: the 3 ft dim light on the party's tokens while it's
+// total darkness (isDark: the Light Tracker with Follow light on and lights
+// tracked, else the map's switch). Darkness is never written here: every
+// client works it out on read, so a light burning out can't race a GM
+// write. A timer re-checks when the next light burns out (no write marks
+// it). One sync at a time.
+export const watchDarkness = () => {
   let gm = false;
-  let lit: boolean | null = null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   let running: Promise<void> = Promise.resolve();
   const sync = () => {
-    running = running.then(syncOnce).catch((err) => notify(`Couldn't follow Torchlight: ${errorMessage(err)}`, "WARNING"));
+    running = running.then(syncOnce).catch((err) => notify(`Couldn't follow the lights: ${errorMessage(err)}`, "WARNING"));
   };
   const syncOnce = async () => {
+    clearTimeout(timer);
     if (!gm || !(await OBR.scene.isReady())) return;
     const [items, scene, room] = await Promise.all([OBR.scene.items.getItems(), OBR.scene.getMetadata(), OBR.room.getMetadata()]);
-    if (!parseSettings(room[SETTINGS_KEY]).followTorchlight) {
-      lit = null;
-      return syncDim(parseTracker(scene[TRACKER_KEY]), items, false);
-    }
-    let t = parseTracker(scene[TRACKER_KEY]);
-    const now = anyLit(t, items);
-    if (lit !== null && now !== lit) {
-      const updated = updateCrawl(t, now ? lightsBack : lightsOut);
-      if (updated !== t) await OBR.scene.setMetadata({ [TRACKER_KEY]: updated });
-      t = updated;
-    }
-    lit = now;
-    await syncDim(t, items, t.crawl.dark);
+    const t = parseTracker(scene[TRACKER_KEY]);
+    const lights = parseLights(room[LIGHTS_KEY]);
+    const follow = parseSettings(room[SETTINGS_KEY]).followLight;
+    const now = Date.now();
+    await syncDim(t, items, isDark(follow, lights, now, t.crawl.dark));
+    const next = followingLights(follow, lights) ? msToNextBurnOut(lights, now) : null;
+    if (next !== null) timer = setTimeout(sync, next + 50);
   };
   const role = (r: string) => {
     gm = r === "GM";
@@ -124,11 +121,9 @@ export const watchTorchlight = () => {
   const offItems = OBR.scene.items.onChange(() => sync());
   const offScene = OBR.scene.onMetadataChange((m: Metadata) => m[TRACKER_KEY] !== undefined && sync());
   const offRoom = OBR.room.onMetadataChange(() => sync());
-  const offReady = OBR.scene.onReadyChange(() => {
-    lit = null;
-    sync();
-  });
+  const offReady = OBR.scene.onReadyChange(() => sync());
   return () => {
+    clearTimeout(timer);
     offPlayer();
     offItems();
     offScene();

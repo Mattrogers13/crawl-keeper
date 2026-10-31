@@ -1,23 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import OBR, { type Item } from "@owlbear-rodeo/sdk";
 
-import { SETTINGS_KEY, TRACKER_KEY } from "./constants";
-import { emptyCrawl, lightsBack, lightsOut, type Crawl } from "./crawl";
-import {
-  DF_LIGHT_KEY,
-  DIM_KEY,
-  TORCHLIGHT_TOKEN_KEY,
-  anyLit,
-  dimLight,
-  feetToPx,
-  lightOn,
-  planDim,
-  watchTorchlight,
-} from "./torchlight";
+import { LIGHTS_KEY, SETTINGS_KEY, TRACKER_KEY } from "./constants";
+import { DF_LIGHT_KEY, DIM_KEY, TORCHLIGHT_TOKEN_KEY, dimLight, feetToPx, lightOn, planDim, watchDarkness } from "./torchlight";
 import { GM_ENTRY, parseTracker } from "./tracker";
-import { obr, setItems, token } from "./test/obrMock";
+import { obr, setItems, token, writeFromElsewhere, writeSceneFromElsewhere } from "./test/obrMock";
 
-const crawl = (c: Partial<Crawl> = {}): Crawl => ({ ...emptyCrawl(), ...c });
 const lit = (id: string, source: unknown = "torch", extra: Partial<Item> = {}) => ({
   ...token(id, extra),
   metadata: { [TORCHLIGHT_TOKEN_KEY]: { source, saved: null } },
@@ -26,31 +14,11 @@ const doc = (entries: object[]) => parseTracker({ entries });
 // 3 ft on Owlbear's default 5 ft grid at 150 dpi.
 const DIM_PX = 90;
 
-describe("lights out and back (crawl rules)", () => {
-  it("lights out: total darkness, Deadly, the old danger kept", () => {
-    expect(lightsOut(crawl({ danger: "risky" }))).toMatchObject({ dark: true, danger: "deadly", dangerBeforeDark: "risky" });
-    // Already Deadly: nothing to put back.
-    expect(lightsOut(crawl({ danger: "deadly" }))).toMatchObject({ dark: true, dangerBeforeDark: null });
-    const out = lightsOut(crawl());
-    expect(lightsOut(out)).toBe(out);
-  });
-
-  it("lights back: the old danger returns, unless the GM changed it meanwhile", () => {
-    expect(lightsBack(lightsOut(crawl({ danger: "unsafe" })))).toMatchObject({ dark: false, danger: "unsafe", dangerBeforeDark: null });
-    expect(lightsBack({ ...lightsOut(crawl({ danger: "unsafe" })), danger: "risky" })).toMatchObject({ dark: false, danger: "risky" });
-    const plain = crawl();
-    expect(lightsBack(plain)).toBe(plain);
-  });
-});
-
 describe("reading Torchlight", () => {
-  it("a token's light; an unknown source still counts; untracked tokens don't", () => {
+  it("a token's light; an unknown source still counts", () => {
     expect(lightOn(lit("a", "lantern"))).toBe("lantern");
     expect(lightOn(lit("a", "bonfire"))).toBe("torch");
     expect(lightOn(token("a"))).toBeNull();
-    const t = doc([{ id: "a" }, { id: GM_ENTRY }]);
-    expect(anyLit(t, [lit("b")])).toBe(false);
-    expect(anyLit(t, [lit("a"), token("b")])).toBe(true);
   });
 
   it("feet to pixels: 5 ft cells; other units count as 5 ft cells", () => {
@@ -82,63 +50,66 @@ describe("planDim", () => {
   });
 });
 
-describe("watchTorchlight (the GM's background)", () => {
+describe("watchDarkness (the GM's background)", () => {
   const settle = async () => {
     for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
   };
-  const saved = () => parseTracker(obr.sceneMetadata[TRACKER_KEY]);
-  const start = async (items: Item[], danger = "risky") => {
+  const radius = (i: number) => (obr.items[i].metadata[DF_LIGHT_KEY] as { attenuationRadius?: number } | undefined)?.attenuationRadius;
+  const ourLight = (id: string, status: string, endsAt: number | null = null) => ({
+    id: `l-${id}`,
+    kind: "torch",
+    tokenId: id,
+    status,
+    remainingMs: status === "lit" ? 60 * 60_000 : 0,
+    endsAt,
+  });
+  const start = async (lights: object[], crawl: object = {}) => {
     obr.role = "GM";
-    obr.items = items;
-    obr.sceneMetadata = { [TRACKER_KEY]: { entries: [{ id: "a" }, { id: "b" }, { id: GM_ENTRY }], crawl: { danger } } };
-    const off = watchTorchlight();
+    obr.items = [token("a"), token("b")];
+    obr.metadata = { [LIGHTS_KEY]: { lights } };
+    obr.sceneMetadata = { [TRACKER_KEY]: { entries: [{ id: "a" }, { id: "b" }, { id: GM_ENTRY }], crawl } };
+    const off = watchDarkness();
     await settle();
     return off;
   };
 
-  it("the last light out: darkness, Deadly and dim lights on the party; the first back undoes it all", async () => {
-    const off = await start([lit("a"), token("b")]);
-    // Starting up lit changes nothing.
-    expect(saved().crawl).toMatchObject({ dark: false, danger: "risky" });
-    await setItems([token("a"), token("b")]);
+  it("no light shining in the Light Tracker: dim lights on the party; a light back takes them off; darkness is never written", async () => {
+    const off = await start([ourLight("a", "spent")]);
+    expect([radius(0), radius(1)]).toEqual([DIM_PX, DIM_PX]);
+    await writeFromElsewhere({ [LIGHTS_KEY]: { lights: [ourLight("a", "lit", Date.now() + 60 * 60_000)] } });
     await settle();
-    expect(saved().crawl).toMatchObject({ dark: true, danger: "deadly", dangerBeforeDark: "risky" });
-    expect(obr.items.map((i) => (i.metadata[DF_LIGHT_KEY] as { attenuationRadius?: number })?.attenuationRadius)).toEqual([DIM_PX, DIM_PX]);
-    // Torchlight lights "a" (keeping our dim light to put back).
-    await setItems([
-      { ...obr.items[0], metadata: { ...obr.items[0].metadata, [DF_LIGHT_KEY]: dimLight(900), [TORCHLIGHT_TOKEN_KEY]: { source: "torch", saved: dimLight(DIM_PX) } } },
-      obr.items[1],
-    ]);
-    await settle();
-    expect(saved().crawl).toMatchObject({ dark: false, danger: "risky" });
-    expect(obr.items[1].metadata[DF_LIGHT_KEY]).toBeUndefined();
-    expect(obr.items[0].metadata[DF_LIGHT_KEY]).toEqual(dimLight(900));
-    // Its torch burns out while another light burns: Torchlight puts our dim light back, we take it off.
-    await setItems([
-      { ...token("a"), metadata: { [DF_LIGHT_KEY]: dimLight(DIM_PX), [DIM_KEY]: true } },
-      lit("b"),
-    ]);
-    await settle();
-    expect(obr.items[0].metadata).toEqual({});
-    off();
-  });
-
-  it("a room without Torchlight never goes dark", async () => {
-    const off = await start([token("a"), token("b")]);
-    await setItems([token("a"), token("b"), token("c")]);
-    await settle();
-    expect(saved().crawl.dark).toBe(false);
+    expect([radius(0), radius(1)]).toEqual([undefined, undefined]);
     expect(OBR.scene.setMetadata).not.toHaveBeenCalled();
     off();
   });
 
-  it("setting off: no darkness, and its dim lights come off", async () => {
-    const off = await start([lit("a"), token("b")]);
-    await setItems([token("a"), token("b")]);
+  it("a light burning out turns it dark on a timer, with no write to mark it", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    try {
+      const off = watchDarknessWith([ourLight("a", "lit", Date.now() + 1000)]);
+      await vi.advanceTimersByTimeAsync(10);
+      expect(radius(0)).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(1100);
+      expect([radius(0), radius(1)]).toEqual([DIM_PX, DIM_PX]);
+      off();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("no lights tracked: the map's switch decides, so a room not using lights is never darkened", async () => {
+    const off = await start([]);
+    expect(radius(0)).toBeUndefined();
+    await writeSceneFromElsewhere({ [TRACKER_KEY]: { entries: [{ id: "a" }, { id: "b" }, { id: GM_ENTRY }], crawl: { dark: true } } });
     await settle();
-    expect(saved().crawl.dark).toBe(true);
-    obr.metadata = { [SETTINGS_KEY]: { followTorchlight: false } };
-    await setItems([...obr.items]);
+    expect([radius(0), radius(1)]).toEqual([DIM_PX, DIM_PX]);
+    off();
+  });
+
+  it("Follow light off: the map's switch, not the lights", async () => {
+    const off = await start([ourLight("a", "spent")]);
+    expect(radius(0)).toBe(DIM_PX);
+    await writeFromElsewhere({ [SETTINGS_KEY]: { followLight: false } });
     await settle();
     expect(obr.items.every((i) => i.metadata[DF_LIGHT_KEY] === undefined)).toBe(true);
     off();
@@ -146,11 +117,10 @@ describe("watchTorchlight (the GM's background)", () => {
 
   it("players' clients never write", async () => {
     obr.role = "PLAYER";
-    obr.items = [lit("a")];
+    obr.items = [token("a")];
+    obr.metadata = { [LIGHTS_KEY]: { lights: [ourLight("a", "spent")] } };
     obr.sceneMetadata = { [TRACKER_KEY]: { entries: [{ id: "a" }, { id: GM_ENTRY }] } };
-    const off = watchTorchlight();
-    await settle();
-    await setItems([token("a")]);
+    const off = watchDarkness();
     await settle();
     expect(OBR.scene.setMetadata).not.toHaveBeenCalled();
     expect(OBR.scene.items.updateItems).not.toHaveBeenCalled();
@@ -158,7 +128,7 @@ describe("watchTorchlight (the GM's background)", () => {
   });
 
   it("stops when unsubscribed", async () => {
-    const off = await start([lit("a")]);
+    const off = await start([]);
     off();
     vi.mocked(OBR.scene.items.getItems).mockClear();
     await setItems([token("a")]);
@@ -166,3 +136,12 @@ describe("watchTorchlight (the GM's background)", () => {
     expect(OBR.scene.items.getItems).not.toHaveBeenCalled();
   });
 });
+
+// Starts the watch without waiting on real timers (for fake-timer tests).
+const watchDarknessWith = (lights: object[]) => {
+  obr.role = "GM";
+  obr.items = [token("a"), token("b")];
+  obr.metadata = { [LIGHTS_KEY]: { lights } };
+  obr.sceneMetadata = { [TRACKER_KEY]: { entries: [{ id: "a" }, { id: "b" }, { id: GM_ENTRY }] } };
+  return watchDarkness();
+};
