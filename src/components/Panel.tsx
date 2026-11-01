@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { FlameIcon } from "./icons";
 import LightTracker from "./LightTracker";
+import PlayerLights from "./PlayerLights";
 import Loading from "./Loading";
 import ResizeGrip from "./ResizeGrip";
 import Settings from "./Settings";
@@ -14,10 +15,10 @@ import { VERSION } from "../version";
 
 const Panel = ({ role }: { role: Role }) => {
   const scene = useSceneReady();
-  // Settings and the Light Tracker are the GM's only; each replaces the
-  // tracker, with a back arrow.
+  // Settings is the GM's only; the Light Tracker is everyone's (players get
+  // their own, PlayerLights). Each replaces the tracker, with a back arrow.
   const [view, setView] = useState<"tracker" | "settings" | "lights">("tracker");
-  const shown = role === "GM" ? view : "tracker";
+  const shown = role === "GM" || view !== "settings" ? view : "tracker";
   const away = shown !== "tracker";
   // Under the title, part of the top bar: the tracker puts the crawl
   // controls here (a portal), so they sit with the title.
@@ -44,6 +45,11 @@ const Panel = ({ role }: { role: Role }) => {
           {!away && <KeyIcon />}
           <h1 className="text-[17px] font-medium tracking-[0.01em]">{TITLES[shown]}</h1>
           {!away && <span ref={setTitleSlot} className="min-w-0 truncate text-xs text-obr-text-secondary empty:hidden" />}
+          {role !== "GM" && !away && (
+            <div className="ml-auto flex">
+              <LightsButton open={() => setView("lights")} />
+            </div>
+          )}
           {role === "GM" && !away && (
             <div className="ml-auto flex">
               <LightsButton open={() => setView("lights")} />
@@ -64,7 +70,17 @@ const Panel = ({ role }: { role: Role }) => {
       <main className="flex min-h-0 flex-1 flex-col">
         {shown === "lights" ? (
           <div className="relative min-h-0 flex-1 overflow-y-auto">
-            {scene.ready ? <LightsOnMap key={scene.opened} /> : <LightTracker names={NO_NAMES} />}
+            {role !== "GM" ? (
+              scene.ready ? (
+                <PlayerLightsOnMap key={scene.opened} />
+              ) : (
+                <PlayerLights items={[]} />
+              )
+            ) : scene.ready ? (
+              <LightsOnMap key={scene.opened} />
+            ) : (
+              <LightTracker names={NO_NAMES} />
+            )}
           </div>
         ) : shown === "settings" ? (
           // relative: the switches' hidden inputs (sr-only, absolute) are
@@ -118,6 +134,13 @@ const LightsOnMap = () => {
   const items = useSceneItems();
   if (items === null) return <Loading />;
   return <LightTracker names={new Map(items.map((i) => [i.id, i.name?.trim() || "Unnamed"]))} />;
+};
+
+// The players' view needs the open map's tokens (which are theirs, names).
+const PlayerLightsOnMap = () => {
+  const items = useSceneItems();
+  if (items === null) return <Loading />;
+  return <PlayerLights items={items} />;
 };
 
 // The Keeper's key: a key with a torch-flame bow, beside the turn order. The

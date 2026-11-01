@@ -263,14 +263,17 @@ describe("the Light Tracker", () => {
     expect(left(0)).toBe(60 * MINUTE);
   });
 
-  it("players get no strip and no Light Tracker", async () => {
+  it("players get no strip; their flame opens their own view, without the GM's controls", async () => {
     obr.role = "PLAYER";
     scene([]);
     render(<App />);
     await screen.findByText("GM / Monsters");
     expect(screen.queryByRole("region", { name: "Lights" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Manage" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Light Tracker" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Light Tracker" }));
+    expect(await screen.findByText("No lights yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pause|Time passes|Put lights out/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back to tracker" }));
+    expect(await screen.findByText("GM / Monsters")).toBeInTheDocument();
   });
 });
 
