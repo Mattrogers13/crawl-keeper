@@ -7,6 +7,7 @@ import Segmented from "./Segmented";
 import { useLights, type LightChange } from "../hooks/useLights";
 import { useNow } from "../hooks/useNow";
 import { useRoomValue } from "../hooks/useRoomValue";
+import { sayTimePassed } from "../lightNotices";
 import { SETTINGS_KEY } from "../constants";
 import { parseSettings } from "../settings";
 import {
@@ -159,7 +160,7 @@ export const TimePasses = ({ change, compact = false }: { change: LightChange; c
     e.preventDefault();
     const ms = parseTimeEntry(text);
     if (ms === null) return setSaid("Try 10m, 1h, 1:30 or 90 (minutes), up to 24 hours.");
-    change(`Time passes ${text.trim()}`, (s, now) => timePasses(s, now, ms));
+    change(`Time passes ${text.trim()}`, (s, now) => timePasses(s, now, ms), { saved: () => void sayTimePassed(ms) });
     setSaid(`${text.trim()} passed`);
     setText("");
   };

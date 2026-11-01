@@ -264,6 +264,7 @@ export const OBR = {
       return obr.role;
     }),
     onChange: vi.fn((cb: Listener<Player>) => subscribe(obr.playerListeners, cb)),
+    getSelection: vi.fn(async () => [...obr.selection]),
     select: vi.fn(async (ids: string[], replace?: boolean) => {
       obr.selection = replace ? [...ids] : [...new Set([...obr.selection, ...ids])];
     }),
@@ -273,6 +274,7 @@ export const OBR = {
     grid: {
       getDpi: vi.fn(async () => 150),
       getScale: vi.fn(async () => ({ raw: "5ft", parsed: { multiplier: 5, unit: "ft", digits: 0 } })),
+      onChange: vi.fn(() => () => {}),
     },
     isReady: vi.fn(async () => obr.sceneReady),
     onReadyChange: vi.fn((cb: Listener<boolean>) => subscribe(obr.sceneReadyListeners, cb)),

@@ -15,6 +15,8 @@ export const MENU_ID = `${ID}/initiative-menu`;
 export const MARKER_KEY = `${ID}/marker`;
 // Item metadata: marks the skull badge we attach to a dead token.
 export const SKULL_KEY = `${ID}/skull`;
+// On a lit token's light badge (tokenLights.ts).
+export const BADGE_KEY = `${ID}/badge`;
 // localStorage (this browser only): the monsters folded under the GM row.
 export const MONSTERS_FOLDED_KEY = `${ID}/monsters-folded`;
 // Scene metadata: a random id for this map, written by the GM the first time
