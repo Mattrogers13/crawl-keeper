@@ -1,4 +1,5 @@
 import { useEffect, useReducer } from "react";
+import OBR from "@owlbear-rodeo/sdk";
 
 import { LIGHTS_KEY } from "../constants";
 import { lightStatus, msToNextBurnOut, parseLights, type Lights } from "../lights";
@@ -11,29 +12,31 @@ import { useRoomValue } from "./useRoomValue";
 // undo step named `label`. A change the rules refuse (they throw) is told,
 // not saved.
 //
-// Writers: this panel, the right-click menu and undo, all the GM's own
-// clicks reading fresh (like the tracker's right-click Add / Remove), so
-// they don't overlap in practice. Burn-outs write nothing. `saved` runs once
-// the write lands.
+// Writers: this panel, the right-click menu, undo, and the GM's background
+// answering players (playerLights.ts). Each reads the room fresh at the
+// moment it writes, so a player's light lit a moment ago isn't overwritten
+// by what the panel last saw. Burn-outs write nothing. `saved` runs once the
+// write lands.
 export type LightChange = (label: string, fn: (s: Lights, now: number) => Lights, opts?: { toast?: boolean; saved?: () => void }) => void;
 
 export const useLights = () => {
   const doc = useRoomValue(LIGHTS_KEY, parseLights);
   const change: LightChange = (label, fn, opts) => {
-    const before = doc.value;
-    let after: Lights;
-    try {
-      after = fn(before, Date.now());
-    } catch (err) {
-      notify(errorMessage(err), "WARNING");
-      return;
-    }
-    if (after === before) return;
-    void doc.write(after).then((saved) => {
-      if (!saved) return;
+    const run = async () => {
+      const before = parseLights((await OBR.room.getMetadata())[LIGHTS_KEY]);
+      let after: Lights;
+      try {
+        after = fn(before, Date.now());
+      } catch (err) {
+        notify(errorMessage(err), "WARNING");
+        return;
+      }
+      if (after === before) return;
+      if (!(await doc.write(after))) return;
       void record(label, [{ store: "room", key: LIGHTS_KEY, before, after }], opts);
       opts?.saved?.();
-    });
+    };
+    run().catch((err) => notify(`Couldn't change the lights: ${errorMessage(err)}`, "ERROR"));
   };
   return { loaded: doc.loaded, lights: doc.value, change };
 };
