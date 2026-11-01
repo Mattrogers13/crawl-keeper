@@ -2,7 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import OBR from "@owlbear-rodeo/sdk";
 
 import { toggleInitiative } from "./initiative";
-import { HISTORY_KEY, MARKER_KEY, SCENE_ID_KEY, SETTINGS_KEY, TRACKER_KEY } from "./constants";
+import { HISTORY_KEY, LIGHTS_KEY, MARKER_KEY, SCENE_ID_KEY, SETTINGS_KEY, TRACKER_KEY } from "./constants";
+import { parseLights } from "./lights";
 import { GM_ENTRY, parseTracker } from "./tracker";
 import { clearHistory, loadHistory, onHistoryChange, record, redo, undo } from "./undo";
 import { obr, setSceneReady, token } from "./test/obrMock";
@@ -29,6 +30,22 @@ describe("undo", () => {
     expect(typeof id).toBe("string");
     await record("B", [{ store: "scene", key: TRACKER_KEY, before: tracker(GM_ENTRY), after: tracker("a") }]);
     expect(loadHistory().undo.map((s) => s.scene)).toEqual([id, id]);
+  });
+
+  it("lights: undo and redo put back only the lights the step changed, keeping a player's lit since", async () => {
+    const torch = (id: string, tokenId: string, status = "lit") => ({ id, kind: "torch", tokenId, status, remainingMs: 60 * 60_000, endsAt: status === "lit" ? Date.now() + 3_600_000 : null });
+    const before = { lights: [torch("old", "npc", "spent")] };
+    const after = { lights: [torch("npc-torch", "npc")] };
+    await record("Light torch", [{ store: "room", key: LIGHTS_KEY, before, after }]);
+    // Then Greg lit his own (the GM's client wrote it for him, no step).
+    obr.metadata = { [LIGHTS_KEY]: { lights: [...after.lights, torch("greg-torch", "greg")] } };
+    await undo();
+    expect(parseLights(obr.metadata[LIGHTS_KEY]).lights.map((l) => [l.id, l.status])).toEqual([
+      ["greg-torch", "lit"],
+      ["old", "spent"],
+    ]);
+    await redo();
+    expect(parseLights(obr.metadata[LIGHTS_KEY]).lights.map((l) => l.id)).toEqual(["greg-torch", "npc-torch"]);
   });
 
   it("a room-only step (settings) needs no map and restores the settings", async () => {

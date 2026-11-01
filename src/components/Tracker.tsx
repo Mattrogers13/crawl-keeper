@@ -24,7 +24,8 @@ import { MONSTERS_FOLDED_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import type { Role } from "../hooks/useRole";
 import LightStrip from "./LightStrip";
 import { useLightStatus, useLights } from "../hooks/useLights";
-import { followingLights, type Light } from "../lights";
+import { followingLights, shiningCount, type Light } from "../lights";
+import YourLight from "./YourLight";
 import { centerOn } from "../viewport";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
@@ -188,7 +189,11 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   // on living players' rows, a check every crawl round, a d8 crawling die.
   const following = followingLights(settings.value.followLight, lights.lights);
   const dark = following ? lightStatus === "dark" : tracker.crawl.dark;
-  const lightProps = (e: Entry) => ({ lights: lightsOf.get(e.id), dis: dark && e.id !== GM_ENTRY && !e.monster && !e.dead });
+  // Players see the lights unless the GM turns that off (their own lights
+  // stay in their card).
+  const seeLights = gm || settings.value.showLights;
+  const lightProps = (e: Entry) =>
+    seeLights ? { lights: lightsOf.get(e.id), dis: dark && e.id !== GM_ENTRY && !e.monster && !e.dead } : { lights: undefined, dis: false };
   const rowProps = { gm, change, show, focus, openMenu, lightChange: gm ? lights.change : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker) };
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
   const round = tracker.round;
@@ -335,6 +340,23 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
           <span className="font-semibold">Your turn</span>, {myTurn}
         </p>
       )}
+
+      {/* Players: whether the party has light (read-only), then their own. */}
+      {!gm && seeLights && lights.loaded && lights.lights.lights.length > 0 && (dark || following) && (
+        <p
+          role="status"
+          className={`rounded-[10px] px-3 py-1.5 text-sm ${dark ? "bg-red-600/15 text-red-800 dark:text-red-200" : "bg-obr-bg text-obr-text-secondary"}`}
+        >
+          {dark ? (
+            <>
+              <span className="font-semibold">No light: total darkness</span> (p. 84). Disadvantage on tasks that need sight.
+            </>
+          ) : (
+            `Party has light · ${shiningCount(lights.lights, Date.now())} shining`
+          )}
+        </p>
+      )}
+      {!gm && lights.loaded && <YourLight items={items} lights={lights.lights} allowed={settings.value.playersLight} />}
 
       {/* The GM's light strip, above the crawl card (in combat too: lights
           burn); only once there are lights (the header's flame opens the

@@ -1,13 +1,15 @@
 // Background page: runs in every client while the extension is enabled.
 // Registers the GM's right-click Crawl Keeper menu on tokens, keeps the
-// lights on the map, and shows everyone the combat alert and light notices
-// (it runs with the panel closed too).
+// lights on the map, answers players lighting their own (on the GM's
+// client), and shows everyone the combat alert and light notices (it runs
+// with the panel closed too).
 import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 
 import { MENU_ID, TRACKER_KEY } from "./constants";
 import { MENU_ROWS } from "./mapMenu";
 import { watchLightNotices } from "./lightNotices";
 import { fixMarkerVisibility } from "./marker";
+import { watchLightRequests } from "./playerLights";
 import { watchTokenLights } from "./tokenLights";
 import { clearHistory } from "./undo";
 import { parseTracker, type Phase } from "./tracker";
@@ -106,4 +108,5 @@ OBR.onReady(() => {
   watchMarkerVisibility();
   watchTokenLights();
   watchLightNotices();
+  watchLightRequests();
 });

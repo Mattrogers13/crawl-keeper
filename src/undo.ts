@@ -5,8 +5,9 @@
 // GM actions only; players never record.
 import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 
-import { HISTORY_KEY, SCENE_ID_KEY, SETTINGS_KEY, TRACKER_KEY } from "./constants";
+import { HISTORY_KEY, LIGHTS_KEY, SCENE_ID_KEY, SETTINGS_KEY, TRACKER_KEY } from "./constants";
 import { EMPTY, afterUndo, afterRedo, parseHistory, pushStep, trim, type Change, type History, type Step } from "./history";
+import { parseLights, restoreLights } from "./lights";
 import { afterChange, syncTurnFromScene } from "./marker";
 import { parseSettings } from "./settings";
 import { readSession, writeSession } from "./storage";
@@ -88,7 +89,13 @@ const apply = async (step: Step, side: "before" | "after"): Promise<"ok" | "othe
   if (step.scene && scene === null) return "no-map";
   if (step.scene && readSceneId(scene!) !== step.scene) return "other-map";
   const updates: Record<"room" | "scene", Metadata> = { room: {}, scene: {} };
+  const other = side === "before" ? "after" : "before";
   for (const c of step.changes) updates[c.store][c.key] = c[side];
+  // Lights have writers besides the GM (players' own, playerLights.ts):
+  // only the lights this step changed go back.
+  for (const c of step.changes)
+    if (c.store === "room" && c.key === LIGHTS_KEY)
+      updates.room[LIGHTS_KEY] = restoreLights(parseLights(room[LIGHTS_KEY]), parseLights(c[other]), parseLights(c[side]));
   await write("room", updates.room);
   await write("scene", updates.scene);
   // Put the map in line with what's restored: the ring, the skulls, and the
