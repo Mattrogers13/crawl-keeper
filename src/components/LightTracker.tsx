@@ -73,7 +73,7 @@ const LightTracker = ({ names }: { names: Map<string, string> }) => {
       <button
         type="button"
         disabled={!anyLit}
-        className={`h-9 rounded-[10px] bg-red-700 font-medium text-white disabled:opacity-40 ${FOCUS}`}
+        className={`h-9 rounded-[10px] bg-[#b3392b] font-medium text-white disabled:opacity-40 ${FOCUS}`}
         onClick={() => change("Put lights out", putAllOut, { toast: true })}
       >
         Put lights out
@@ -233,7 +233,7 @@ const LightCard = (props: { light: Light; name: string; now: number; paused: boo
             type="button"
             title="Click to correct the time"
             aria-label={`Time left ${formatRemaining(left)}. Correct it`}
-            className={`rounded-md px-1 font-mono text-2xl font-semibold tabular-nums hover:bg-obr-text/10 ${
+            className={`rounded-md px-1 text-2xl font-bold tabular-nums hover:bg-obr-text/10 ${
               lit ? (low(l, now) ? "text-red-600 dark:text-red-400" : "") : "text-obr-text-secondary"
             } ${FOCUS}`}
             onClick={() => setSettingTime(true)}
@@ -243,7 +243,7 @@ const LightCard = (props: { light: Light; name: string; now: number; paused: boo
         )}
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-obr-text/10" aria-hidden>
-        <div className={`h-full rounded-full ${lit ? "bg-amber-400" : "bg-amber-400/50"}`} style={{ width: `${(left / full) * 100}%` }} />
+        <div className={`h-full rounded-full ${lit ? "bg-linear-to-r from-orange-400 to-amber-400" : "bg-amber-400/50"}`} style={{ width: `${(left / full) * 100}%` }} />
       </div>
       {l.note && !editing && <p className="text-xs text-obr-text-secondary">{l.note}</p>}
       {editing ? (

@@ -12,6 +12,7 @@ Versions follow semver; the same number is in `package.json` and `public/manifes
 - Notices for everyone when a light burns out or is put out, and when the GM says time passes.
 - The party's minimum light: 3 ft of dim light on every party token without a light of its own, always (it used to come only in total darkness), so players see their own tokens through Dynamic Fog.
 - Double-click a row to center the map on its token (the zoom stays); one click still selects the row.
+- Look, matched to the mockups: names sit level with the portrait and badges (an empty note no longer pushes them up; Add a note still shows on hover), a softer red Put lights out, tighter Light Tracker timers with warmer bars, and Settings' "Darkness by hand" line padded like the rest.
 
 ## v0.2.0 (2026-10-31)
 

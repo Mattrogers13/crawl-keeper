@@ -125,7 +125,7 @@ const Settings = () => {
         />
         {/* The switch itself is on the crawl card: darkness is per map, in
             the map's tracker doc, which only the tracker writes. */}
-        <p className="text-xs text-obr-text-secondary">
+        <p className="px-4 py-3 text-xs text-obr-text-secondary">
           <span className="font-medium text-obr-text">Darkness by hand:</span> the Torchlit / Darkness switch on the crawl card, for each map.
           {settings.value.followLight && " Locked while there are lights to follow."}
         </p>

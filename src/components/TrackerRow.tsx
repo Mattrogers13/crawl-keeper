@@ -164,7 +164,7 @@ const Row = (props: {
         ) : (
           <Portrait token={token} dead={entry.dead} small={props.small} />
         )}
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="relative flex min-w-0 flex-1 flex-col">
           <span className="flex min-w-0 items-center gap-1">
             <span className={`truncate leading-tight ${props.small ? "text-[13px]" : "font-medium"} ${entry.dead ? "line-through" : ""}`}>
               {name}
@@ -177,7 +177,11 @@ const Row = (props: {
             )}
           </span>
           {gm ? (
-            <span className="flex min-w-0 items-baseline gap-1.5">
+            // An empty note hangs under the name, out of the layout, so the
+            // name lines up with the portrait and badges (mockup ck-04).
+            <span
+              className={`flex min-w-0 items-baseline gap-1.5 ${!entry.note && !(!token && props.gmDie) ? "absolute inset-x-0 top-[calc(100%-3px)]" : ""}`}
+            >
               {!token && props.gmDie && <Equation die={props.gmDie} />}
               <NoteInput key={entry.note} name={name} value={entry.note} save={(n) => change("Note", (t) => setNote(t, entry.id, n))} />
             </span>
