@@ -10,7 +10,7 @@ Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript
 - Installs: live `https://crawl-keeper.editbag.workers.dev/manifest.json`, Dev `https://dev-crawl-keeper.editbag.workers.dev/manifest.json` (`docs/obr/deploy.md`). After a Dev rebuild, reload the Owlbear room: the background page loads once per room.
 - `main` deploys the live install on every push: merged = live for users, whatever the version number or CHANGELOG says. "Unreleased" means not tagged or announced.
 - Tracked tasks and undecided review candidates: `docs/design.md` "Releases".
-- Status (2026-10-31): v0.2.0 released: global undo, Follow Torchlight, manual rolls, 2d20 clock, Settings like the web toolkit. Next: the Torchlight merge (v0.3) on the `torchlight-merge` branch; then Dice+, morale, encounter tables, End tracker (v0.4) (`docs/design.md`).
+- Status (2026-10-31): v0.2.0 released: global undo, Follow Torchlight, manual rolls, 2d20 clock, Settings like the web toolkit. Next: the Torchlight merge (v0.3) on the `torchlight-merge` branch; then effects: focus, conditions, timed effects (v0.4, `docs/effects.md`); then Dice+, morale, encounter tables, End tracker (v0.5) (`docs/design.md`).
 
 ## Commands
 
@@ -39,7 +39,7 @@ Node 24 (`.node-version`; fnm auto-switches). Non-interactive shells: `eval "$(f
 - `src/marker.ts`: the turn-marker ring, the skull on dead tokens, selecting the current token. Every GM write calls `afterChange` (turn → ring; dead set → skulls; syncs queued one at a time). Only items passing `isOurs` (tag + ATTACHMENT + our `/img/` URL) are ever deleted or re-shown. Visibility matched by hand.
 - `src/background.ts` (every client, panel open or not): the GM's right-click Crawl Keeper item (an embedded submenu: `menu.html` + `src/menu.ts`, rows in `src/mapMenu.ts`, initiative in `src/initiative.ts`), the combat alert, light notices (`src/lightNotices.ts`), the GM's ring-visibility fix.
 - `src/playerLights.ts`: players lighting their own (party tokens). A player's click (their right-click menu, or `components/YourLight.tsx`) is a broadcast request; the GM's background checks the setting and the token and writes the one lights doc. Players never write room metadata.
-- `src/tokenLights.ts` (started by background, GM only): Dynamic Fog lights on tokens from the Light Tracker (saves and restores the token's own light, `${ID}/lit`) and the party's 3 ft minimum (`${ID}/dim`). `src/lights.ts`: the light rules; `isDark` derives darkness on read. `src/torchlight.ts`: reads Torchlight's token key (row flame) until the merge's last PR.
+- `src/tokenLights.ts` (started by background, GM only): Dynamic Fog lights on tokens from the Light Tracker (saves and restores the token's own light, `${ID}/lit`) and the party's 3 ft minimum (`${ID}/dim`). `src/lights.ts`: the light rules; `isDark` derives darkness on read.
 - `src/constants.ts`: extension `ID` (prefixes every metadata key and broadcast channel) and keys. No React imports (background pages use it).
 - `src/undo.ts` + `src/history.ts` (pure): the GM's undo / redo for every action (`record` after a saved write; tracker edits through `Tracker`'s `change(label, fn)`), in sessionStorage shared with the background page; steps on another map are skipped. Automatic writes (prune, Follow Torchlight) aren't steps.
 - `src/storage.ts`: the only way to touch localStorage / sessionStorage (it throws in Owlbear's iframe under strict privacy).

@@ -3,16 +3,11 @@ import OBR, { type Item } from "@owlbear-rodeo/sdk";
 
 import { LIGHTS_KEY, TRACKER_KEY } from "./constants";
 import { MINUTE, parseLights } from "./lights";
-import { TORCHLIGHT_TOKEN_KEY, lightOn } from "./torchlight";
 import { BADGE_KEY } from "./constants";
 import { DF_LIGHT_KEY, DIM_KEY, LIT_KEY, badgeImage, dfLight, feetToPx, planBadges, planTokenLights, watchTokenLights } from "./tokenLights";
 import { GM_ENTRY, parseTracker } from "./tracker";
 import { obr, setItems, token, writeFromElsewhere, writeSceneFromElsewhere } from "./test/obrMock";
 
-const torchlit = (id: string, source: unknown = "torch", extra: Partial<Item> = {}) => ({
-  ...token(id, extra),
-  metadata: { [TORCHLIGHT_TOKEN_KEY]: { source, saved: null } },
-});
 const doc = (entries: object[]) => parseTracker({ entries });
 // Owlbear's default 5 ft grid at 150 dpi: 30 px a foot.
 const px = (ft: number) => ft * 30;
@@ -30,13 +25,7 @@ const lights = (...ls: object[]) => parseLights({ lights: ls });
 const NONE = lights();
 const with_ = (id: string, metadata: Record<string, unknown>, extra: Partial<Item> = {}) => ({ ...token(id, extra), metadata });
 
-describe("reading Torchlight", () => {
-  it("a token's light; an unknown source still counts", () => {
-    expect(lightOn(torchlit("a", "lantern"))).toBe("lantern");
-    expect(lightOn(torchlit("a", "bonfire"))).toBe("torch");
-    expect(lightOn(token("a"))).toBeNull();
-  });
-
+describe("feetToPx", () => {
   it("feet to pixels: 5 ft cells; other units count as 5 ft cells", () => {
     expect(feetToPx(3, 150, "ft", 5)).toBe(90);
     expect(feetToPx(3, 150, "m", 1.5)).toBe(90);
@@ -44,10 +33,10 @@ describe("reading Torchlight", () => {
 });
 
 describe("planTokenLights: the 3 ft minimum", () => {
-  it("the party's tokens with no light of their own; not monsters, the dead, props or Torchlight's", () => {
+  it("the party's tokens with no light of their own; not monsters, the dead or props", () => {
     const own = with_("q", { [DF_LIGHT_KEY]: dfLight(300) });
-    const t = doc([{ id: "p" }, { id: "q" }, { id: "l" }, { id: "dead", dead: true }, { id: "m", monster: true }, { id: "prop" }]);
-    const items = [token("p"), own, torchlit("l"), token("dead"), token("m"), token("x"), token("prop", { layer: "PROP" })];
+    const t = doc([{ id: "p" }, { id: "q" }, { id: "dead", dead: true }, { id: "m", monster: true }, { id: "prop" }]);
+    const items = [token("p"), own, token("dead"), token("m"), token("x"), token("prop", { layer: "PROP" })];
     expect(planTokenLights(t, items, NONE, NOW, px)).toEqual([{ id: "p", light: dfLight(90), dim: true }]);
   });
 
