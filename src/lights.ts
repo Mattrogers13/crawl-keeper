@@ -70,6 +70,9 @@ export type Light = {
   endsAt: number | null;
   // When it burned out (epoch ms), for spent lights.
   spentAt: number | null;
+  // The player who lit it (their Owlbear id), so it shows in their panel;
+  // absent for the GM's.
+  by?: string;
 };
 
 export type Lights = {
@@ -437,6 +440,7 @@ export const parseLight = (raw: unknown): Light | null => {
     remainingMs: st === "spent" ? 0 : remainingMs,
     endsAt: st === "lit" ? time(raw.endsAt) : null,
     spentAt: st === "spent" ? time(raw.spentAt) : null,
+    ...(typeof raw.by === "string" && raw.by.length > 0 && raw.by.length <= 64 ? { by: raw.by } : {}),
   };
 };
 

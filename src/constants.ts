@@ -11,6 +11,8 @@ export const TRACKER_KEY = `${ID}/tracker`;
 export const SETTINGS_KEY = `${ID}/settings`;
 
 export const MENU_ID = `${ID}/initiative-menu`;
+// Players' right-click Crawl Keeper item, there while they may light their own.
+export const PLAYER_MENU_ID = `${ID}/player-menu`;
 // Item metadata: marks the turn marker we attach to the current token.
 export const MARKER_KEY = `${ID}/marker`;
 // Item metadata: marks the skull badge we attach to a dead token.

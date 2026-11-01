@@ -3,11 +3,14 @@ import OBR from "@owlbear-rodeo/sdk";
 
 import { LIGHTS_KEY, TRACKER_KEY } from "./constants";
 import { MINUTE, parseLights, type Lights } from "./lights";
-import { menuRows, type MenuToken } from "./mapMenu";
+import { menuRows, playerMenuRows, type MenuToken } from "./mapMenu";
+import { REQUEST_CHANNEL } from "./playerLights";
+import { SETTINGS_KEY } from "./constants";
 import { render } from "./menu";
 import { loadHistory } from "./undo";
 import { GM_ENTRY, parseTracker } from "./tracker";
 import { obr, token } from "./test/obrMock";
+import { vi } from "vitest";
 
 const NOW = 1_000_000;
 const t = parseTracker({ entries: [{ id: "a" }] });
@@ -60,6 +63,31 @@ describe("the map menu's rows", () => {
   });
 });
 
+describe("the players' menu rows", () => {
+  const party = parseTracker({ entries: [{ id: "a" }, { id: "m", monster: true }, { id: GM_ENTRY }] });
+  const rows = (s: Lights, tokens: MenuToken[]) => playerMenuRows(party, s, tokens, NOW, "greg");
+
+  it("a party row: the three carried lights as requests, nothing to put out", () => {
+    const r = rows(none, [tok("a")]);
+    expect(r.map((x) => (x.enabled ? x.label : `(${x.label})`))).toEqual(["Light torch", "Light lantern", "Cast Light", "(Put out light)"]);
+    expect(r[0].action).toEqual({ type: "request", asks: [{ tokenId: "a", action: "light", kind: "torch" }] });
+  });
+
+  it("a monster, or a token off the list someone else placed: all off; one they placed: on", () => {
+    expect(rows(none, [tok("m")]).every((x) => !x.enabled && x.title === "Party tokens only")).toBe(true);
+    expect(rows(none, [{ ...tok("x"), owner: "gm" }]).some((x) => x.enabled)).toBe(false);
+    expect(rows(none, [{ ...tok("x"), owner: "greg" }])[0].enabled).toBe(true);
+  });
+
+  it("lit: the swap and Put out, asked for that token", () => {
+    const s = parseLights({ lights: [lit("a")] });
+    const r = rows(s, [tok("a")]);
+    expect(r[0].enabled).toBe(false);
+    expect(r[1].title).toBe("Puts out the torch");
+    expect(r[3]).toMatchObject({ label: "Put out the torch", action: { type: "request", asks: [{ tokenId: "a", action: "putOut" }] } });
+  });
+});
+
 describe("the map menu page", () => {
   const settle = async () => {
     for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 0));
@@ -93,6 +121,19 @@ describe("the map menu page", () => {
     await settle();
     expect(parseTracker(obr.sceneMetadata[TRACKER_KEY]).entries.map((e) => e.id)).toContain("b");
     expect(button(root, "Remove from initiative")).toBeDefined();
+  });
+
+  it("a player's menu asks the GM's client and records nothing", async () => {
+    await setup();
+    obr.role = "PLAYER";
+    obr.metadata = { [SETTINGS_KEY]: { playersLight: true } };
+    const root = document.createElement("div");
+    await render(root);
+    expect([...root.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Light torch", "Light lantern", "Cast Light", "Put out light"]);
+    button(root, "Light torch").click();
+    await settle();
+    expect(vi.mocked(OBR.broadcast.sendMessage)).toHaveBeenCalledWith(REQUEST_CHANNEL, expect.objectContaining({ tokenId: "a", action: "light", kind: "torch" }), { destination: "REMOTE" });
+    expect(loadHistory().undo).toEqual([]);
   });
 
   it("a refused change is told, not saved", async () => {

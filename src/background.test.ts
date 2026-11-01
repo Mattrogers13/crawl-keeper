@@ -1,12 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import OBR, { type Image } from "@owlbear-rodeo/sdk";
 
-import { COMBAT_ALERT, createMenu, watchCombat, watchMarkerVisibility } from "./background";
+import { COMBAT_ALERT, createMenu, watchCombat, watchMarkerVisibility, watchPlayerMenu } from "./background";
 import { toggleInitiative } from "./initiative";
-import { MARKER_KEY, TRACKER_KEY } from "./constants";
+import { MARKER_KEY, PLAYER_MENU_ID, SETTINGS_KEY, TRACKER_KEY } from "./constants";
 import { buildMarker, buildSkull, markerImage, skullImage } from "./marker";
 import { GM_ENTRY, parseTracker } from "./tracker";
-import { changePlayer, obr, setItems, setSceneReady, token, writeSceneFromElsewhere } from "./test/obrMock";
+import { changePlayer, obr, setItems, setSceneReady, token, writeFromElsewhere, writeSceneFromElsewhere } from "./test/obrMock";
 
 const saved = () => parseTracker(obr.sceneMetadata[TRACKER_KEY]);
 
@@ -143,6 +143,23 @@ describe("background: turn marker visibility", () => {
     await setItems([token("a", { visible: false }), ring(true)]);
     await settle();
     expect(OBR.scene.items.updateItems).toHaveBeenCalled();
+    off();
+  });
+});
+
+describe("background: the players' menu", () => {
+  it("is there only while the GM lets players light their own", async () => {
+    const off = watchPlayerMenu();
+    await new Promise((r) => setTimeout(r, 0));
+    const created = () => vi.mocked(OBR.contextMenu.create).mock.calls.filter((c) => c[0].id === PLAYER_MENU_ID).length;
+    expect(created()).toBe(0);
+    await writeFromElsewhere({ [SETTINGS_KEY]: { playersLight: true } });
+    await writeFromElsewhere({ [SETTINGS_KEY]: { playersLight: true, hideRound: true } });
+    expect(created()).toBe(1);
+    const item = vi.mocked(OBR.contextMenu.create).mock.calls[0][0];
+    expect(item.icons[0].filter?.roles).toEqual(["PLAYER"]);
+    await writeFromElsewhere({ [SETTINGS_KEY]: { playersLight: false } });
+    expect(OBR.contextMenu.remove).toHaveBeenCalledWith(PLAYER_MENU_ID);
     off();
   });
 });

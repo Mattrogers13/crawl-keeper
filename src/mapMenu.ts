@@ -17,9 +17,11 @@ import {
   type LightKind,
   type Lights,
 } from "./lights";
-import type { Tracker } from "./tracker";
+import type { LightAsk } from "./playerLights";
+import { GM_ENTRY, type Tracker } from "./tracker";
 
-export type MenuToken = { id: string; name: string; layer: string };
+// owner: who placed it (players may light party tokens and their own).
+export type MenuToken = { id: string; name: string; layer: string; owner?: string };
 
 export type MenuRow = {
   label: string;
@@ -30,10 +32,13 @@ export type MenuRow = {
   action:
     | { type: "initiative"; ids: string[] }
     | { type: "lights"; step: string; fn: (s: Lights, now: number, newId: () => string) => Lights }
+    // A player's: asked of the GM's client, one token at a time (playerLights.ts).
+    | { type: "request"; asks: LightAsk[] }
     | null;
 };
 
 export const MENU_ROWS = 6;
+export const PLAYER_MENU_ROWS = 4;
 
 // Torch, lantern and Light spell are carried (character tokens); a campfire
 // goes on any token, a prop included.
@@ -110,4 +115,26 @@ export const menuRows = (t: Tracker, s: Lights, tokens: MenuToken[], now: number
     lightRow(settled, tokens, "campfire"),
     putOutRow(settled, tokens),
   ];
+};
+
+// A player's menu (Players light their own on): the three carried lights and
+// Put out, on party tokens only (a player row on the list, or one they
+// placed); the GM's client checks again. Same swaps as the GM's rows.
+export const playerMenuRows = (t: Tracker, s: Lights, tokens: MenuToken[], now: number, playerId: string): MenuRow[] => {
+  const settled = settle(s, now);
+  const party = new Set(t.entries.filter((e) => e.id !== GM_ENTRY && !e.monster).map((e) => e.id));
+  const ok = tokens.filter((x) => carries(x) && (party.has(x.id) || x.owner === playerId));
+  const toRequest = (row: MenuRow, asks: LightAsk[]): MenuRow =>
+    ok.length === 0
+      ? { ...row, enabled: false, title: "Party tokens only", action: null }
+      : row.enabled
+        ? { ...row, action: { type: "request", asks } }
+        : row;
+  const rows = CARRIED.map((kind) => {
+    const row = lightRow(settled, ok, kind);
+    const todo = ok.filter((x) => litOn(settled, x.id)?.kind !== kind);
+    return toRequest(row, todo.map((x) => ({ tokenId: x.id, action: "light", kind })));
+  });
+  const lit = ok.filter((x) => litOn(settled, x.id));
+  return [...rows, toRequest(putOutRow(settled, ok), lit.map((x) => ({ tokenId: x.id, action: "putOut" })))];
 };

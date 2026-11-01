@@ -6,7 +6,7 @@ import { FOCUS } from "./CrawlBar";
 import { readAndFollow } from "../hooks/readAndFollow";
 import { useNow } from "../hooks/useNow";
 import { LIGHT_KINDS, MINUTE, burnedOut, formatRemaining, low, remaining, shownLight, type LightKind, type Lights } from "../lights";
-import { PLAYER_KINDS, ownsToken, requestLight, verbFor } from "../playerLights";
+import { PLAYER_KINDS, requestLight, theirTokens, verbFor } from "../playerLights";
 import { notify } from "../utils";
 
 // Whether a GM is in the room (OBR.party lists everyone but this client);
@@ -29,15 +29,16 @@ const useGmPresent = () => {
 const lower = (kind: LightKind) => (kind === "lightSpell" ? "Light spell" : LIGHT_KINDS[kind].label.toLowerCase());
 
 // A player's own lights (mockup player-lights.html, "Your light"): the light
-// on each token they placed, and, when the GM allows, light one or put it
-// out. Each click asks the GM's client (playerLights.ts), which saves it.
+// on each token they placed or lit, and, when the GM allows, light one or
+// put it out (any other token: right-click it). Each click asks the GM's
+// client (playerLights.ts), which saves it.
 const YourLight = ({ items, lights, allowed }: { items: Item[]; lights: Lights; allowed: boolean }) => {
   const now = useNow();
   const gmPresent = useGmPresent();
   const [busy, setBusy] = useState(false);
   // "token:kind" while asking "Put out the torch, light the lantern?".
   const [asking, setAsking] = useState<string | null>(null);
-  const mine = items.filter((i) => ownsToken(i, OBR.player.id));
+  const mine = theirTokens(items, lights, OBR.player.id);
   const withLight = mine.map((token) => ({ token, light: shownLight(lights.lights.filter((l) => l.tokenId === token.id)) }));
   const can = allowed && gmPresent === true;
   // Nothing to show: no token of theirs, or nothing lit and nothing to do.
