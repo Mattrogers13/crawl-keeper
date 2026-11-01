@@ -1,6 +1,6 @@
 # Effects: focus, conditions and timed effects (plan, 2026-11-01)
 
-Matt's ask (2026-11-01): a focus marker on a token with a built-in focus check reminder; ADV and DIS icons and any other conditions Shadowdark uses; a tracker for spells and other effects with a duration, on a token or on its own, so everyone sees what's still running and what ends soon. Built as **one system** (Matt, 2026-11-01): an effect is a tag with an optional holder, an optional duration and an optional map icon. Not built yet; release slot to be decided.
+Matt's ask (2026-11-01): a focus marker on a token with a built-in focus check reminder; ADV and DIS icons and any other conditions Shadowdark uses; a tracker for spells and other effects with a duration, on a token or on its own, so everyone sees what's still running and what ends soon. Built as **one system** (Matt, 2026-11-01): an effect is a tag with an optional holder, an optional duration and an optional map icon. Not built yet; v0.4, before the rollers, Dice+ and End tracker (now v0.5) (Matt, 2026-11-01).
 
 ## Rules it follows (Shadowdark core)
 
@@ -94,7 +94,7 @@ Room and scene data live on Owlbear's servers with the room, not in the browser.
 - Pass 2: actions writing two keys (one step, after both land); effects on a token outside initiative listed in the strip.
 - Pass 3: holder vs counts-on row when removed from initiative; hidden tokens' effects. Further passes found only wording.
 
-## Build order (once the release slot is set)
+## Build order (v0.4, after v0.3 ships)
 
 1. Scene limit test on Dev (above); note caps if needed.
 2. Pure rules `src/effects.ts` + tests (parse, add, remove, derived rounds left, Reset rounds, Time passes, focus and ends-with).
