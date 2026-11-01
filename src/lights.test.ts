@@ -484,3 +484,21 @@ describe("parsing the room's copy", () => {
     expect(L.parseLights({ lights }).lights).toHaveLength(L.MAX_LIGHTS);
   });
 });
+
+describe("restoreLights (undo over others' changes)", () => {
+  const torch = (id: string, tokenId: string, status = "lit") => ({ id, kind: "torch", tokenId, status, remainingMs: 60 * L.MINUTE, endsAt: status === "lit" ? 5 * L.MINUTE : null });
+  it("Pause undone: the flag and the frozen lights go back; a light lit since stays", () => {
+    const from = L.parseLights({ paused: true, lights: [{ ...torch("a", "A"), endsAt: null }] });
+    const to = L.parseLights({ lights: [torch("a", "A")] });
+    const now = L.parseLights({ paused: true, lights: [{ ...torch("a", "A"), endsAt: null }, torch("b", "B")] });
+    const r = L.restoreLights(now, from, to);
+    expect(r.paused).toBe(false);
+    expect(r.lights.map((l) => [l.id, l.endsAt])).toEqual([["a", 5 * L.MINUTE], ["b", 5 * L.MINUTE]]);
+  });
+  it("two lit on one token after a restore: the later one reads as spent", () => {
+    const from = L.parseLights({ lights: [torch("a", "T", "spent")] });
+    const to = L.parseLights({ lights: [torch("a", "T")] });
+    const now = L.parseLights({ lights: [torch("b", "T"), torch("a", "T", "spent")] });
+    expect(L.restoreLights(now, from, to).lights.map((l) => [l.id, l.status])).toEqual([["b", "lit"], ["a", "spent"]]);
+  });
+});

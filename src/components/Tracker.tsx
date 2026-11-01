@@ -188,7 +188,11 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   // on living players' rows, a check every crawl round, a d8 crawling die.
   const following = followingLights(settings.value.followLight, lights.lights);
   const dark = following ? lightStatus === "dark" : tracker.crawl.dark;
-  const lightProps = (e: Entry) => ({ lights: lightsOf.get(e.id), dis: dark && e.id !== GM_ENTRY && !e.monster && !e.dead });
+  // Players see the lights unless the GM turns that off (their own stay in
+  // their Light Tracker view, PlayerLights.tsx).
+  const seeLights = gm || settings.value.showLights;
+  const lightProps = (e: Entry) =>
+    seeLights ? { lights: lightsOf.get(e.id), dis: dark && e.id !== GM_ENTRY && !e.monster && !e.dead } : { lights: undefined, dis: false };
   const rowProps = { gm, change, show, focus, openMenu, lightChange: gm ? lights.change : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker) };
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
   const round = tracker.round;

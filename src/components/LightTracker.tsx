@@ -124,13 +124,13 @@ const LightTracker = ({ names }: { names: Map<string, string> }) => {
   );
 };
 
-const Banner = (props: { status: "none" | "lit" | "dark"; count: number; paused: boolean; followLight: boolean }) => {
+export const Banner = (props: { status: "none" | "lit" | "dark"; count: number; paused: boolean; followLight: boolean; player?: boolean }) => {
   const { status, count, paused } = props;
   const pausedNote = paused ? " · paused" : "";
   if (status === "none")
     return (
       <p className="flex flex-1 items-center rounded-[10px] bg-obr-bg px-3 py-2 text-obr-text-secondary">
-        No lights yet. Give one from a row's menu (⋯ → Give torch).
+        {props.player ? "No lights yet." : "No lights yet. Give one from a row's menu (⋯ → Give torch)."}
       </p>
     );
   if (status === "lit")

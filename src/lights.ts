@@ -47,8 +47,9 @@ export const OIL_STEP_MS = 15 * MINUTE;
 
 export const LOW_MS = 10 * MINUTE;
 // Room metadata is 16 kB for every extension together (docs/design.md, room
-// budget).
-export const MAX_LIGHTS = 12;
+// budget): 16 lights at the longest name, note and ids are about 5.8 kB.
+// Players' own lights share the cap with the GM's.
+export const MAX_LIGHTS = 16;
 export const MAX_CARRIER = 40;
 export const MAX_NOTE = 80;
 export const MAX_PASS_MS = 24 * 60 * MINUTE;
@@ -69,6 +70,9 @@ export type Light = {
   endsAt: number | null;
   // When it burned out (epoch ms), for spent lights.
   spentAt: number | null;
+  // The player who lit it (their Owlbear id), so it shows in their panel;
+  // absent for the GM's.
+  by?: string;
 };
 
 export type Lights = {
@@ -350,6 +354,25 @@ export const timePasses = (state: Lights, now: number, ms: number): Lights => {
   };
 };
 
+// Undo / redo of one step (undo.ts): put back only what the step changed,
+// from `from` to `to`, over the doc as it is now. A light someone else
+// changed since (a player lighting their own) is left as they made it,
+// unless the step touched that same light. parseLights keeps one lit and
+// one out per token if the two collide.
+export const restoreLights = (current: Lights, from: Lights, to: Lights): Lights => {
+  const byId = (s: Lights) => new Map(s.lights.map((l) => [l.id, l]));
+  const was = byId(from);
+  const will = byId(to);
+  const touched = new Set([...was.keys(), ...will.keys()].filter((id) => JSON.stringify(was.get(id)) !== JSON.stringify(will.get(id))));
+  const lights = current.lights.filter((l) => !touched.has(l.id) || will.has(l.id)).map((l) => (touched.has(l.id) ? will.get(l.id)! : l));
+  for (const id of touched) if (will.has(id) && !lights.some((l) => l.id === id)) lights.push(will.get(id)!);
+  return parseLights({
+    paused: from.paused !== to.paused ? to.paused : current.paused,
+    lightingRule: from.lightingRule !== to.lightingRule ? to.lightingRule : current.lightingRule,
+    lights,
+  });
+};
+
 export const setLightingRule = (s: Lights, rule: LightingRule): Lights => (s.lightingRule === rule ? s : { ...s, lightingRule: rule });
 
 // --- Time entry ----------------------------------------------------------
@@ -417,6 +440,7 @@ export const parseLight = (raw: unknown): Light | null => {
     remainingMs: st === "spent" ? 0 : remainingMs,
     endsAt: st === "lit" ? time(raw.endsAt) : null,
     spentAt: st === "spent" ? time(raw.spentAt) : null,
+    ...(typeof raw.by === "string" && raw.by.length > 0 && raw.by.length <= 64 ? { by: raw.by } : {}),
   };
 };
 

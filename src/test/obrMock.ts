@@ -39,6 +39,10 @@ const fresh = () => ({
   role: "GM" as Role,
   playerId: "player-1",
   playerName: "Test Player",
+  connectionId: "conn-1",
+  // The other players in the room (OBR.party), not this one.
+  party: [] as Player[],
+  partyListeners: [] as Listener<Player[]>[],
   theme: DARK_THEME,
   metadata: {} as Metadata,
   // Every setMetadata rejects while set (e.g. the room's 16 kB cap).
@@ -193,9 +197,16 @@ export const changeTheme = (theme: Theme) =>
   });
 
 /** A broadcast arrived from another client. */
-export const receiveBroadcast = (channel: string, data: unknown) =>
+export const receiveBroadcast = (channel: string, data: unknown, connectionId = "other") =>
   act(async () => {
-    (obr.broadcastListeners.get(channel) ?? []).forEach((l) => l({ data, connectionId: "other" }));
+    (obr.broadcastListeners.get(channel) ?? []).forEach((l) => l({ data, connectionId }));
+  });
+
+/** Someone joined, left or changed role. */
+export const setParty = (party: Partial<Player>[]) =>
+  act(async () => {
+    obr.party = party as Player[];
+    [...obr.partyListeners].forEach((l) => l(obr.party));
   });
 
 // --- The mocked SDK ------------------------------------------------------
@@ -255,6 +266,7 @@ export const OBR = {
       return obr.playerId;
     },
     getId: vi.fn(async () => obr.playerId),
+    getConnectionId: vi.fn(async () => obr.connectionId),
     getName: vi.fn(async () => obr.playerName),
     getRole: vi.fn(async () => {
       if (obr.failRoleLookups > 0) {
@@ -352,6 +364,10 @@ export const OBR = {
   },
   notification: {
     show: vi.fn(async () => "notification-id"),
+  },
+  party: {
+    getPlayers: vi.fn(async () => obr.party),
+    onChange: vi.fn((cb: Listener<Player[]>) => subscribe(obr.partyListeners, cb)),
   },
   broadcast: {
     // Records only. Simulate incoming messages with receiveBroadcast().

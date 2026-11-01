@@ -32,6 +32,12 @@ export type Settings = {
   // Select the current token on the GM's screen on each turn (tokens whose
   // turn marker is on; see Entry.marker).
   selectOnTurn: boolean;
+  // Players see the lights: the darkness card, the row badges and DIS tags.
+  // Off, they see only their own lights.
+  showLights: boolean;
+  // Players light and put out lights on their own tokens (asked of the
+  // GM's client, which checks this: playerLights.ts). Off like Torchlight's.
+  playersLight: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -47,6 +53,8 @@ export const DEFAULT_SETTINGS: Settings = {
   clearRollsOnCombat: true,
   showMarker: true,
   selectOnTurn: true,
+  showLights: true,
+  playersLight: false,
 };
 
 export const parseSettings = (raw: unknown): Settings => {
@@ -64,6 +72,8 @@ export const parseSettings = (raw: unknown): Settings => {
     clearRollsOnCombat: r.clearRollsOnCombat !== false,
     showMarker: r.showMarker !== false,
     selectOnTurn: r.selectOnTurn !== false,
+    showLights: r.showLights !== false,
+    playersLight: r.playersLight === true,
   };
 };
 

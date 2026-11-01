@@ -26,6 +26,8 @@ const SETTING_LABELS: Partial<Record<keyof SettingsDoc, string>> = {
   clearRollsOnCombat: "clear rolls on combat",
   showMarker: "turn marker",
   selectOnTurn: "select token",
+  showLights: "show lights",
+  playersLight: "players light their own",
 };
 
 // The four ways to run encounters, as the web toolkit shows them: one choice
@@ -127,6 +129,21 @@ const Settings = () => {
           <span className="font-medium text-obr-text">Darkness by hand:</span> the Torchlit / Darkness switch on the crawl card, for each map.
           {settings.value.followLight && " Locked while there are lights to follow."}
         </p>
+      </Group>
+
+      <Group title="Players' lights">
+        <Toggle
+          label="Show lights to players"
+          hint="Players see whether the party has light, the badges on the rows and DIS in darkness. Off: only their own lights."
+          checked={settings.value.showLights}
+          onChange={(showLights) => set({ showLights })}
+        />
+        <Toggle
+          label="Players light their own"
+          hint="Players right-click a party token (a player on the list, or one they placed) → Crawl Keeper: a torch, lantern or Light spell, one lit at a time, or put it out; their panel shows their lights. Only while you're in the room: your Crawl Keeper checks and makes the change."
+          checked={settings.value.playersLight}
+          onChange={(playersLight) => set({ playersLight })}
+        />
       </Group>
 
       <Group title="What players see">

@@ -45,6 +45,17 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("Give light (row menu)", () => {
+  it("reads the room fresh: a light saved a moment ago (its echo not in yet) isn't overwritten", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("g", { name: "Greg", createdUserId: "greg" })];
+    scene(["a", "g"]);
+    render(<App />);
+    await screen.findByText("Aria");
+    // Greg's torch is saved, but this panel hasn't heard yet.
+    obr.metadata = { ...obr.metadata, [LIGHTS_KEY]: { lights: [lit("greg", "g")] } };
+    await pick("Aria", "Give torch");
+    await waitFor(() => expect(saved().lights.map((l) => l.tokenId).sort()).toEqual(["a", "g"]));
+  });
+
   it("gives a token a torch; with one lit, the menu offers the swap instead", async () => {
     obr.items = [token("a", { name: "Aria" })];
     scene(["a"]);
@@ -252,14 +263,17 @@ describe("the Light Tracker", () => {
     expect(left(0)).toBe(60 * MINUTE);
   });
 
-  it("players get no strip and no Light Tracker", async () => {
+  it("players get no strip; their flame opens their own view, without the GM's controls", async () => {
     obr.role = "PLAYER";
     scene([]);
     render(<App />);
     await screen.findByText("GM / Monsters");
     expect(screen.queryByRole("region", { name: "Lights" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Manage" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Light Tracker" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Light Tracker" }));
+    expect(await screen.findByText("No lights yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pause|Time passes|Put lights out/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back to tracker" }));
+    expect(await screen.findByText("GM / Monsters")).toBeInTheDocument();
   });
 });
 

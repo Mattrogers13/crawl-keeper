@@ -526,8 +526,10 @@ describe("parseSettings", () => {
       clearRollsOnCombat: true,
       showMarker: true,
       selectOnTurn: true,
+      showLights: true,
+      playersLight: false,
     });
-    const off = { encounterRolls: false, encounterMode: "clock", clockDice: 2, hideClock: true, showDanger: true, autoRoll: true, showRolls: true, followLight: false, hideRound: true, clearRollsOnCombat: false, showMarker: false, selectOnTurn: false };
+    const off = { encounterRolls: false, encounterMode: "clock", clockDice: 2, hideClock: true, showDanger: true, autoRoll: true, showRolls: true, followLight: false, hideRound: true, clearRollsOnCombat: false, showMarker: false, selectOnTurn: false, showLights: false, playersLight: true };
     expect(parseSettings(off)).toEqual(off);
     // Rooms saved while Table order existed keep working.
     expect(parseSettings({ orderMode: "table", hideRound: "yes", clearRollsOnCombat: "no", showMarker: 0 })).toEqual(DEFAULT_SETTINGS);
