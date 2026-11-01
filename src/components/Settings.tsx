@@ -140,7 +140,7 @@ const Settings = () => {
         />
         <Toggle
           label="Players light their own"
-          hint="From their panel: a torch, lantern or Light spell on a token they placed, one lit at a time, and put it out. Only while you're in the room: your Crawl Keeper makes the change."
+          hint="Players right-click a party token (a player on the list, or one they placed) → Crawl Keeper: a torch, lantern or Light spell, one lit at a time, or put it out; their panel shows their lights. Only while you're in the room: your Crawl Keeper checks and makes the change."
           checked={settings.value.playersLight}
           onChange={(playersLight) => set({ playersLight })}
         />

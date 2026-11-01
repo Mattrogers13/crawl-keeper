@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import OBR, { type Player } from "@owlbear-rodeo/sdk";
 
-import { LIGHTS_KEY, SETTINGS_KEY } from "./constants";
+import { LIGHTS_KEY, SETTINGS_KEY, TRACKER_KEY } from "./constants";
 import { MAX_LIGHTS, MINUTE, parseLights } from "./lights";
 import {
   NOT_ALLOWED,
+  PARTY_ONLY,
   REPLY_CHANNEL,
   REPLY_TIMEOUT_MS,
   REQUEST_CHANNEL,
@@ -14,13 +15,15 @@ import {
   requestLight,
   watchLightRequests,
 } from "./playerLights";
+import { GM_ENTRY, parseTracker } from "./tracker";
 import { obr, receiveBroadcast, token } from "./test/obrMock";
 
 const NOW = 1_000_000;
 let n = 0;
 const newId = () => `new-${++n}`;
 const greg = token("g", { name: "Greg", createdUserId: "greg" });
-const ok = { allowed: true, token: greg, playerId: "greg" };
+const party = parseTracker({ entries: [{ id: "b" }, { id: "m", monster: true }, { id: GM_ENTRY }] });
+const ok = { allowed: true, token: greg, playerId: "greg", tracker: party };
 const lit = (tokenId: string, kind = "torch") => ({ id: `l-${tokenId}`, kind, tokenId, status: "lit", remainingMs: 60 * MINUTE, endsAt: NOW + 60 * MINUTE });
 const none = parseLights({});
 const lightsOf = (r: ReturnType<typeof answerRequest>) => {
@@ -42,6 +45,17 @@ describe("answerRequest (the GM's client decides)", () => {
   it("lights a torch on the player's own token, named for it", () => {
     const after = lightsOf(answerRequest(none, NOW, newId, { id: "r", tokenId: "g", action: "light", kind: "torch" }, ok));
     expect(after.lights).toMatchObject([{ kind: "torch", tokenId: "g", carrier: "Greg", status: "lit" }]);
+  });
+
+  it("any party token: a player row lights for anyone, and records who lit it; a monster, or someone else's token off the list, doesn't", () => {
+    const borin = token("b", { name: "Borin", createdUserId: "gm" });
+    const lightB = { id: "r", tokenId: "b", action: "light", kind: "torch" } as const;
+    expect(lightsOf(answerRequest(none, NOW, newId, lightB, { ...ok, token: borin })).lights).toMatchObject([{ tokenId: "b", by: "greg" }]);
+    const goblin = token("m", { createdUserId: "gm" });
+    expect(answerRequest(none, NOW, newId, { ...lightB, tokenId: "m" }, { ...ok, token: goblin })).toEqual({ error: PARTY_ONLY });
+    // Greg's own token isn't on the list, but he placed it.
+    expect(answerRequest(none, NOW, newId, { ...lightB, tokenId: "g" }, { ...ok, playerId: "steve" })).toEqual({ error: PARTY_ONLY });
+    expect(answerRequest(none, NOW, newId, lightB, { ...ok, token: { ...borin, visible: false } })).toEqual({ error: PARTY_ONLY });
   });
 
   it("refused when the GM hasn't allowed it, or the token isn't theirs (or is a prop, or unknown)", () => {
@@ -87,6 +101,7 @@ describe("watchLightRequests (the GM's background)", () => {
     obr.connectionId = "gm-1";
     obr.party = [{ id: "greg", connectionId: "greg-1", role: "PLAYER" } as Player];
     obr.items = [greg];
+    obr.sceneMetadata = { [TRACKER_KEY]: { entries: [{ id: GM_ENTRY }] } };
     obr.metadata = { [SETTINGS_KEY]: settings };
     return watchLightRequests();
   };

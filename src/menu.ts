@@ -1,13 +1,15 @@
 // The map's right-click Crawl Keeper submenu (embedded by background.ts;
-// rows from mapMenu.ts). Plain DOM, no React, so it opens at once. Every
+// rows from mapMenu.ts). Plain DOM, no React, so it opens at once. Every GM
 // action reads the room fresh at click time and is a step in the GM's undo
-// history (same tab, same sessionStorage as the panel).
+// history (same tab, same sessionStorage as the panel). A player's (Players
+// light their own) asks the GM's client instead (playerLights.ts).
 import OBR from "@owlbear-rodeo/sdk";
 
 import { LIGHTS_KEY, TRACKER_KEY } from "./constants";
 import { toggleInitiative } from "./initiative";
 import { newLightId, parseLights, type Lights } from "./lights";
-import { menuRows, type MenuRow, type MenuToken } from "./mapMenu";
+import { menuRows, playerMenuRows, type MenuRow, type MenuToken } from "./mapMenu";
+import { requestLight } from "./playerLights";
 import { parseTracker } from "./tracker";
 import { record } from "./undo";
 import { errorMessage, notify } from "./utils";
@@ -25,13 +27,21 @@ const run = async (row: MenuRow) => {
   const a = row.action;
   if (a?.type === "initiative") await toggleInitiative(a.ids);
   else if (a?.type === "lights") await changeLights(a.step, a.fn);
+  else if (a?.type === "request")
+    for (const ask of a.asks) {
+      const error = await requestLight(ask);
+      if (error) return notify(error, "WARNING");
+    }
 };
 
 const read = async (): Promise<MenuRow[]> => {
   const ids = (await OBR.player.getSelection()) ?? [];
   const [items, scene, room] = await Promise.all([OBR.scene.items.getItems(ids), OBR.scene.getMetadata(), OBR.room.getMetadata()]);
-  const tokens: MenuToken[] = items.filter((i) => i.type === "IMAGE").map((i) => ({ id: i.id, name: i.name, layer: i.layer }));
-  return menuRows(parseTracker(scene[TRACKER_KEY]), parseLights(room[LIGHTS_KEY]), tokens, Date.now());
+  const tokens: MenuToken[] = items
+    .filter((i) => i.type === "IMAGE")
+    .map((i) => ({ id: i.id, name: i.name, layer: i.layer, owner: i.createdUserId }));
+  const [t, lights] = [parseTracker(scene[TRACKER_KEY]), parseLights(room[LIGHTS_KEY])];
+  return (await OBR.player.getRole()) === "GM" ? menuRows(t, lights, tokens, Date.now()) : playerMenuRows(t, lights, tokens, Date.now(), OBR.player.id);
 };
 
 export const render = async (root: HTMLElement) => {

@@ -6,14 +6,20 @@
 // reader keeps reading one doc. Players can light only while a GM is in the
 // room; the map light needs the GM's client anyway (tokenLights.ts).
 //
-// Owlbear says who sent each message (its connectionId), so the GM's client
-// checks the token is one that player placed. Requests aren't undo steps.
+// Which tokens (Matt, 2026-11-01: party tokens): a visible character or
+// mount image that's a player row on this map's initiative list (not a
+// monster or the GM row), or one the player placed; the player picks it
+// from the right-click menu (background.ts, menu.ts) or their panel. A
+// campfire stays the GM's. Owlbear says who sent each message (its
+// connectionId), so the light records who lit it (`by`) and shows in their
+// panel. Requests aren't undo steps.
 import OBR, { type Item, type Player } from "@owlbear-rodeo/sdk";
 
-import { ID, LIGHTS_KEY, SETTINGS_KEY } from "./constants";
+import { ID, LIGHTS_KEY, SETTINGS_KEY, TRACKER_KEY } from "./constants";
 import { LIGHT_KINDS, litOn, newLightId, parseLights, putOut, settle, swapLight, type LightKind, type Lights } from "./lights";
 import { isObject } from "./parse";
 import { parseSettings } from "./settings";
+import { GM_ENTRY, parseTracker, type Tracker } from "./tracker";
 import { errorMessage } from "./utils";
 
 export const REQUEST_CHANNEL = `${ID}/light-request`;
@@ -49,10 +55,23 @@ export const parseReply = (raw: unknown): LightReply | null => {
   return { id, error: typeof raw.error === "string" ? raw.error.slice(0, 200) : null };
 };
 
-// A token a player can light: an image on the character or mount layer that
-// they put on the map.
-export const ownsToken = (item: Item | undefined, playerId: string): item is Item =>
-  !!item && item.type === "IMAGE" && (item.layer === "CHARACTER" || item.layer === "MOUNT") && item.createdUserId === playerId;
+// A token a player can light: a visible image on the character or mount
+// layer (a hidden one they can't see, so a request for it is forged).
+export const lightable = (item: Item | undefined): item is Item =>
+  !!item && item.type === "IMAGE" && (item.layer === "CHARACTER" || item.layer === "MOUNT") && item.visible !== false;
+
+export const PARTY_ONLY = "Party tokens only: a player on the initiative list, or a token you placed.";
+
+// A party token: a player row on the list, or one this player placed.
+export const partyToken = (item: Item | undefined, t: Tracker, playerId: string): item is Item =>
+  lightable(item) && (item.createdUserId === playerId || t.entries.some((e) => e.id === item.id && e.id !== GM_ENTRY && !e.monster));
+
+// The tokens in a player's panel: ones they placed, and ones holding a
+// light they lit.
+export const theirTokens = (items: Item[], s: Lights, playerId: string) => {
+  const lit = new Set(s.lights.filter((l) => l.by === playerId).map((l) => l.tokenId));
+  return items.filter((i) => lightable(i) && (i.createdUserId === playerId || lit.has(i.id)));
+};
 
 export const NOT_ALLOWED = "Your GM hasn't allowed players to light their own.";
 
@@ -64,10 +83,12 @@ export const answerRequest = (
   now: number,
   newId: () => string,
   req: LightRequest,
-  ctx: { allowed: boolean; token: Item | undefined; playerId: string | null },
+  ctx: { allowed: boolean; token: Item | undefined; playerId: string | null; tracker: Tracker },
 ): { lights: Lights } | { error: string } => {
   if (!ctx.allowed) return { error: NOT_ALLOWED };
-  if (!ctx.playerId || !ownsToken(ctx.token, ctx.playerId)) return { error: "You can only light a token you placed." };
+  const by = ctx.playerId;
+  if (!by) return { error: "The GM's Crawl Keeper couldn't tell who asked. Try again." };
+  if (!partyToken(ctx.token, ctx.tracker, by)) return { error: PARTY_ONLY };
   const settled = settle(s, now);
   try {
     if (req.action === "putOut") {
@@ -75,7 +96,9 @@ export const answerRequest = (
       return { lights: held ? putOut(settled, now, held.id) : s };
     }
     if (litOn(settled, req.tokenId)?.kind === req.kind) return { lights: s };
-    return { lights: swapLight(settled, now, newId, { kind: req.kind, tokenId: req.tokenId, carrier: ctx.token.name }) };
+    const after = swapLight(settled, now, newId, { kind: req.kind, tokenId: req.tokenId, carrier: ctx.token.name });
+    // Theirs now (a lantern lit again too), for their panel.
+    return { lights: { ...after, lights: after.lights.map((l) => (l.tokenId === req.tokenId && l.status === "lit" ? { ...l, by } : l)) } };
   } catch (err) {
     return { error: errorMessage(err) };
   }
@@ -98,12 +121,13 @@ export const watchLightRequests = () => {
     const sender = players.find((p) => p.connectionId === from);
     let error: string | null;
     try {
-      const [room, [token]] = await Promise.all([OBR.room.getMetadata(), OBR.scene.items.getItems([req.tokenId])]);
+      const [room, scene, [token]] = await Promise.all([OBR.room.getMetadata(), OBR.scene.getMetadata(), OBR.scene.items.getItems([req.tokenId])]);
       const before = parseLights(room[LIGHTS_KEY]);
       const result = answerRequest(before, Date.now(), newLightId, req, {
         allowed: parseSettings(room[SETTINGS_KEY]).playersLight,
         token,
         playerId: sender?.id ?? null,
+        tracker: parseTracker(scene[TRACKER_KEY]),
       });
       if ("error" in result) error = result.error;
       else {

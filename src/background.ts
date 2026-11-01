@@ -5,8 +5,9 @@
 // with the panel closed too).
 import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 
-import { MENU_ID, TRACKER_KEY } from "./constants";
-import { MENU_ROWS } from "./mapMenu";
+import { MENU_ID, PLAYER_MENU_ID, SETTINGS_KEY, TRACKER_KEY } from "./constants";
+import { MENU_ROWS, PLAYER_MENU_ROWS } from "./mapMenu";
+import { parseSettings } from "./settings";
 import { watchLightNotices } from "./lightNotices";
 import { fixMarkerVisibility } from "./marker";
 import { watchLightRequests } from "./playerLights";
@@ -17,7 +18,7 @@ import { errorMessage, notify } from "./utils";
 
 // One Crawl Keeper item on a token's right-click menu, opening a submenu
 // (menu.html, rows in mapMenu.ts): Add / Remove initiative and the lights.
-// Props too, for a campfire. GM only until players own their lights.
+// Props too, for a campfire. The GM's; players get their own below.
 // The embed's height is fixed here: MENU_ROWS rows of 36 px plus padding.
 export const createMenu = () =>
   OBR.contextMenu.create({
@@ -39,6 +40,45 @@ export const createMenu = () =>
     ],
     embed: { url: "/menu", height: MENU_ROWS * 36 + 8 },
   });
+
+// The players' Crawl Keeper item: the three carried lights and Put out on
+// character tokens (menu.ts shows which they may light). There only while
+// the GM lets players light their own, so it's added and removed as the
+// setting changes, on each player's client.
+const createPlayerMenu = () =>
+  OBR.contextMenu.create({
+    id: PLAYER_MENU_ID,
+    icons: [
+      {
+        icon: "/img/menu-torch.svg",
+        label: "Crawl Keeper",
+        filter: {
+          roles: ["PLAYER"],
+          every: [
+            { key: "layer", value: "CHARACTER", coordinator: "||" },
+            { key: "layer", value: "MOUNT" },
+            { key: "type", value: "IMAGE" },
+          ],
+        },
+      },
+    ],
+    embed: { url: "/menu", height: PLAYER_MENU_ROWS * 36 + 8 },
+  });
+
+export const watchPlayerMenu = () => {
+  let shown: boolean | null = null;
+  const see = (allowed: boolean) => {
+    if (allowed === shown) return;
+    shown = allowed;
+    const change = allowed ? createPlayerMenu() : OBR.contextMenu.remove(PLAYER_MENU_ID);
+    change.catch((err) => console.error(`Couldn't update the players' menu: ${errorMessage(err)}`));
+  };
+  OBR.room
+    .getMetadata()
+    .then((m) => see(parseSettings(m[SETTINGS_KEY]).playersLight))
+    .catch((err) => console.warn(`Couldn't read the settings for the players' menu: ${errorMessage(err)}`));
+  return OBR.room.onMetadataChange((m) => see(parseSettings(m[SETTINGS_KEY]).playersLight));
+};
 
 export const COMBAT_ALERT = "ROLL FOR COMBAT INITIATIVE";
 
@@ -109,4 +149,5 @@ OBR.onReady(() => {
   watchTokenLights();
   watchLightNotices();
   watchLightRequests();
+  watchPlayerMenu();
 });

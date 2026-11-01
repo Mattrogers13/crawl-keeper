@@ -53,6 +53,12 @@ describe("Your light (player)", () => {
     await waitFor(() => expect(OBR.notification.show).toHaveBeenCalledWith("Up to 16 lights", "WARNING"));
   });
 
+  it("a party-mate's token they lit shows in their card too", async () => {
+    setup({ playersLight: true }, [{ ...torch("b"), by: "player-1" }]);
+    expect(await card()).toHaveTextContent("Borin");
+    expect(screen.getByRole("region", { name: "Your light" })).toHaveTextContent("Aria");
+  });
+
   it("no GM in the room: no buttons, and it says why", async () => {
     setup({ playersLight: true });
     await screen.findByRole("button", { name: "+ Torch" });
