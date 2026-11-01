@@ -71,12 +71,11 @@ const Homepage = () => {
         <Steps>
           <li>
             <b>Standard checks</b> (core p. 112): a d6 every 3 crawl rounds when Unsafe, every 2 when Risky, every round
-            when Deadly. Total darkness makes a place Deadly (p. 84): pick Deadly while the lights are out. An encounter on
-            a 1.
+            when Deadly. In total darkness, a check every crawl round (p. 84). An encounter on a 1.
           </li>
           <li>
-            <b>Crawling Clock</b>: a d20 clock that the crawling die wears down each crawl round (rules below). Settings
-            can make it two d20s, run down one at a time.
+            <b>Crawling Clock</b>: a d20 clock that the crawling die wears down each crawl round (rules below); a d8 in
+            total darkness. Settings can make it two d20s, run down one at a time.
           </li>
           <li>
             <b>Manual rolls</b> (Settings, "Encounter checks and the Crawling Clock" off): no clock and no auto roll. The
@@ -89,6 +88,38 @@ const Homepage = () => {
           It's outlined when a roll is due and filled when it's due on the GM's turn. Undo (under the list, or Cmd/Ctrl+Z) takes back the last roll, or any other change you made.
           Settings can roll it for you when ▶ reaches the GM's turn.
         </p>
+      </Section>
+
+      <Section title="Lights and darkness">
+        <Steps>
+          <li>
+            Give a token a light: right-click it on the map → <b>Crawl Keeper</b> → Light torch, Light lantern, Cast Light
+            or Light campfire, or use a row's menu. One lit light per token. With Dynamic Fog on, the token casts it: near
+            (30 ft), a lantern double near (60 ft). Every party token without one keeps 3 ft of dim light.
+          </li>
+          <li>
+            The flame beside the gear opens the <b>Light Tracker</b>: every light's time left (click a time to correct
+            it), <b>Time passes</b> (10m, 1h, 1:30), Pause, Put lights out, and how a second light burns (Ride along or
+            Separate timers, p. 84). Torches and lanterns last an hour of real time (p. 82).
+          </li>
+          <li>
+            A torch, Light spell or campfire is used up once lit: putting it out spends it. A lantern put out keeps its oil,
+            rounded down to the quarter hour. Undo takes back any light change.
+          </li>
+          <li>
+            <b>Follow light</b> (Settings, on): when no tracked light is shining, it's total darkness: a check every crawl
+            round, a d8 crawling die, and DIS on the party's rows (p. 84). With no lights tracked, the crawl card's
+            Torchlit / Darkness switch decides.
+          </li>
+          <li>
+            Everyone gets a notice when a light burns out or is put out, and when time passes.
+          </li>
+          <li>
+            <b>Players light their own</b> (Settings, off): players right-click a party token (a player on the list, or a
+            token they placed) → Crawl Keeper to light a torch, lantern or Light spell, or put it out. It works while the
+            GM is in the room.
+          </li>
+        </Steps>
       </Section>
 
       <Section title="Combat">
@@ -109,7 +140,9 @@ const Homepage = () => {
       <Section title="What players see">
         <p>
           The turn order, portraits, notes, whose turn it is, Crawl or Combat, and the round and the clock unless the GM
-          hides them. Tokens hidden on the map stay out of their list. Nothing in the panel is editable for players, and
+          hides them. Tokens hidden on the map stay out of their list. Their flame opens their own Light Tracker: whether
+          the party has light, every light's time and the badges on the rows (unless the GM turns off Show lights to
+          players), and their own lights. Besides lighting their own when the GM allows it, players change nothing, and
           nothing is truly secret: hiding is a display choice.
         </p>
       </Section>
