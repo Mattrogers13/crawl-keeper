@@ -6,6 +6,7 @@ Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript
 
 ## Setup and open items
 
+- **Start of every session: read `docs/ai/STATE.md`** (where work stopped, the next action). Update it at every checkpoint.
 - If `sources/sdk` is missing: `scripts/fetch-sources.sh`. Original ask: `BRIEF.md` (DONE).
 - Installs: live `https://crawl-keeper.editbag.workers.dev/manifest.json`, Dev `https://dev-crawl-keeper.editbag.workers.dev/manifest.json` (`docs/obr/deploy.md`). After a Dev rebuild, reload the Owlbear room: the background page loads once per room.
 - `main` deploys the live install on every push: merged = live for users, whatever the version number or CHANGELOG says. "Unreleased" means not tagged or announced.
@@ -22,6 +23,7 @@ npm run typecheck    # tsc --noEmit (no ESLint; this is the lint)
 npm run build        # typecheck + vite build
 npx wrangler deploy --dry-run   # validate Cloudflare config
 npx wrangler dev --port 8799    # serve dist/ like production
+grep -rn "pattern" src          # zsh: quote any --include="*.ts" glob, unquoted fails with "no matches found"
 scripts/render-png.sh art/x.svg public/img/x.png 256   # SVG → PNG via headless Chrome
 # Dev build live? The bundle carries dev's commit hash (footer label; dev gets merge commits):
 js=$(curl -s https://dev-crawl-keeper.editbag.workers.dev/ | grep -o 'assets/main-[^"]*\.js' | head -1); curl -s "https://dev-crawl-keeper.editbag.workers.dev/$js" | grep -c "$(git rev-parse --short origin/dev)"
@@ -84,3 +86,4 @@ Node 24 (`.node-version`; fnm auto-switches). Non-interactive shells: `eval "$(f
 - Versions: semver, same value in `package.json` and `public/manifest.json` (a test enforces it). In `package-lock.json` edit only its two own `version` fields by hand; `npm install` churns the rest.
 - A regression test must fail on the old code (`docs/obr/testing.md`).
 - No analytics or third-party requests without asking.
+- Release: one PR to `main` (version bump, CHANGELOG `## vX.Y.Z (date)`, new TESTING.md rows); walk Matt through the whole TESTING.md one section at a time and record each row's date; after "merge", tag and confirm live (`docs/obr/deploy.md` "Release").
