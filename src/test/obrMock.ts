@@ -39,6 +39,10 @@ const fresh = () => ({
   role: "GM" as Role,
   playerId: "player-1",
   playerName: "Test Player",
+  connectionId: "conn-1",
+  // The other players in the room (OBR.party), not this one.
+  party: [] as Player[],
+  partyListeners: [] as Listener<Player[]>[],
   theme: DARK_THEME,
   metadata: {} as Metadata,
   // Every setMetadata rejects while set (e.g. the room's 16 kB cap).
@@ -193,9 +197,16 @@ export const changeTheme = (theme: Theme) =>
   });
 
 /** A broadcast arrived from another client. */
-export const receiveBroadcast = (channel: string, data: unknown) =>
+export const receiveBroadcast = (channel: string, data: unknown, connectionId = "other") =>
   act(async () => {
-    (obr.broadcastListeners.get(channel) ?? []).forEach((l) => l({ data, connectionId: "other" }));
+    (obr.broadcastListeners.get(channel) ?? []).forEach((l) => l({ data, connectionId }));
+  });
+
+/** Someone joined, left or changed role. */
+export const setParty = (party: Partial<Player>[]) =>
+  act(async () => {
+    obr.party = party as Player[];
+    [...obr.partyListeners].forEach((l) => l(obr.party));
   });
 
 // --- The mocked SDK ------------------------------------------------------
@@ -255,6 +266,7 @@ export const OBR = {
       return obr.playerId;
     },
     getId: vi.fn(async () => obr.playerId),
+    getConnectionId: vi.fn(async () => obr.connectionId),
     getName: vi.fn(async () => obr.playerName),
     getRole: vi.fn(async () => {
       if (obr.failRoleLookups > 0) {
@@ -264,6 +276,7 @@ export const OBR = {
       return obr.role;
     }),
     onChange: vi.fn((cb: Listener<Player>) => subscribe(obr.playerListeners, cb)),
+    getSelection: vi.fn(async () => [...obr.selection]),
     select: vi.fn(async (ids: string[], replace?: boolean) => {
       obr.selection = replace ? [...ids] : [...new Set([...obr.selection, ...ids])];
     }),
@@ -273,6 +286,7 @@ export const OBR = {
     grid: {
       getDpi: vi.fn(async () => 150),
       getScale: vi.fn(async () => ({ raw: "5ft", parsed: { multiplier: 5, unit: "ft", digits: 0 } })),
+      onChange: vi.fn(() => () => {}),
     },
     isReady: vi.fn(async () => obr.sceneReady),
     onReadyChange: vi.fn((cb: Listener<boolean>) => subscribe(obr.sceneReadyListeners, cb)),
@@ -322,7 +336,20 @@ export const OBR = {
         applyItems(obr.items.filter((i) => !gone.has(i.id)));
       }),
       onChange: vi.fn((cb: Listener<Item[]>) => subscribe(obr.itemListeners, cb)),
+      // A 100-unit box around the items' positions.
+      getItemBounds: vi.fn(async (ids: string[]) => {
+        needScene();
+        const p = obr.items.find((i) => ids.includes(i.id))?.position ?? { x: 0, y: 0 };
+        return { min: { x: p.x - 50, y: p.y - 50 }, max: { x: p.x + 50, y: p.y + 50 }, width: 100, height: 100, center: p };
+      }),
     },
+  },
+  // An 800 x 600 view at zoom 2. Records only.
+  viewport: {
+    getScale: vi.fn(async () => 2),
+    getWidth: vi.fn(async () => 800),
+    getHeight: vi.fn(async () => 600),
+    animateTo: vi.fn(async () => undefined),
   },
   action: {
     setHeight: vi.fn(async () => undefined),
@@ -337,6 +364,10 @@ export const OBR = {
   },
   notification: {
     show: vi.fn(async () => "notification-id"),
+  },
+  party: {
+    getPlayers: vi.fn(async () => obr.party),
+    onChange: vi.fn((cb: Listener<Player[]>) => subscribe(obr.partyListeners, cb)),
   },
   broadcast: {
     // Records only. Simulate incoming messages with receiveBroadcast().

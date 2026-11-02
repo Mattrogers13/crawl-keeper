@@ -1,48 +1,59 @@
 // Background page: runs in every client while the extension is enabled.
-// Registers the GM's right-click "Add / Remove Initiative" on tokens, and
-// shows everyone the combat alert (it runs with the panel closed too).
+// Registers the GM's right-click Crawl Keeper menu on tokens, keeps the
+// lights on the map, answers players lighting their own (on the GM's
+// client), and shows everyone the combat alert and light notices (it runs
+// with the panel closed too).
 import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 
-import { MENU_ID, TRACKER_KEY } from "./constants";
-import { afterChange, fixMarkerVisibility, readSettings } from "./marker";
-import { watchTorchlight } from "./torchlight";
-import { clearHistory, record } from "./undo";
-import { MAX_ENTRIES, parseTracker, toggle, type Phase } from "./tracker";
+import { MENU_ID, PLAYER_MENU_ID, SETTINGS_KEY, TRACKER_KEY } from "./constants";
+import { MENU_ROWS, PLAYER_MENU_ROWS } from "./mapMenu";
+import { parseSettings } from "./settings";
+import { watchLightNotices } from "./lightNotices";
+import { fixMarkerVisibility } from "./marker";
+import { watchLightRequests } from "./playerLights";
+import { watchTokenLights } from "./tokenLights";
+import { clearHistory } from "./undo";
+import { parseTracker, type Phase } from "./tracker";
 import { errorMessage, notify } from "./utils";
 
-// Read the doc fresh at click time, so a click never writes a stale copy.
-// The panel may also be writing; both are the GM's own clicks, so they don't
-// overlap in practice (docs/design.md: GM is the only writer).
-export const toggleInitiative = async (ids: string[]) => {
-  const [scene, settings] = await Promise.all([OBR.scene.getMetadata(), readSettings()]);
-  const tracker = parseTracker(scene[TRACKER_KEY]);
-  const updated = toggle(tracker, ids);
-  // Adding stops at the cap: say which didn't fit rather than drop them
-  // quietly, once the rest are saved (a failed save reports on its own).
-  const tracked = new Set(updated.entries.map((e) => e.id));
-  const removing = updated.entries.length < tracker.entries.length;
-  const left = removing ? 0 : ids.filter((id) => !tracked.has(id)).length;
-  const full = () => left > 0 && notify(`Initiative is full (${MAX_ENTRIES} rows): ${left} token${left === 1 ? "" : "s"} not added.`, "WARNING");
-  if (updated === tracker) return full();
-  await OBR.scene.setMetadata({ [TRACKER_KEY]: updated });
-  // An undo step in the GM's history, shared with the panel (same tab).
-  await record(removing ? "Remove from initiative" : "Add to initiative", [{ store: "scene", key: TRACKER_KEY, before: scene[TRACKER_KEY], after: updated }], { toast: removing });
-  full();
-  // Removing the current token passed the turn on (the marker moves with it);
-  // removing a dead one takes its skull off.
-  await afterChange(tracker, updated, settings);
-};
-
-// Players and monsters alike; the GM marks monsters in the tracker.
+// One Crawl Keeper item on a token's right-click menu, opening a submenu
+// (menu.html, rows in mapMenu.ts): Add / Remove initiative and the lights.
+// Props too, for a campfire. The GM's; players get their own below.
+// The embed's height is fixed here: MENU_ROWS rows of 36 px plus padding.
 export const createMenu = () =>
   OBR.contextMenu.create({
     id: MENU_ID,
     icons: [
       {
         icon: "/img/initiative.svg",
-        label: "Add / Remove Initiative",
+        label: "Crawl Keeper",
         filter: {
           roles: ["GM"],
+          every: [
+            { key: "layer", value: "CHARACTER", coordinator: "||" },
+            { key: "layer", value: "MOUNT", coordinator: "||" },
+            { key: "layer", value: "PROP" },
+            { key: "type", value: "IMAGE" },
+          ],
+        },
+      },
+    ],
+    embed: { url: "/menu", height: MENU_ROWS * 36 + 8 },
+  });
+
+// The players' Crawl Keeper item: the three carried lights and Put out on
+// character tokens (menu.ts shows which they may light). There only while
+// the GM lets players light their own, so it's added and removed as the
+// setting changes, on each player's client.
+const createPlayerMenu = () =>
+  OBR.contextMenu.create({
+    id: PLAYER_MENU_ID,
+    icons: [
+      {
+        icon: "/img/menu-torch.svg",
+        label: "Crawl Keeper",
+        filter: {
+          roles: ["PLAYER"],
           every: [
             { key: "layer", value: "CHARACTER", coordinator: "||" },
             { key: "layer", value: "MOUNT" },
@@ -51,12 +62,23 @@ export const createMenu = () =>
         },
       },
     ],
-    onClick: (context) => {
-      toggleInitiative(context.items.map((i) => i.id)).catch((err) =>
-        notify(`Couldn't update initiative: ${errorMessage(err)}`, "ERROR"),
-      );
-    },
+    embed: { url: "/menu", height: PLAYER_MENU_ROWS * 36 + 8 },
   });
+
+export const watchPlayerMenu = () => {
+  let shown: boolean | null = null;
+  const see = (allowed: boolean) => {
+    if (allowed === shown) return;
+    shown = allowed;
+    const change = allowed ? createPlayerMenu() : OBR.contextMenu.remove(PLAYER_MENU_ID);
+    change.catch((err) => console.error(`Couldn't update the players' menu: ${errorMessage(err)}`));
+  };
+  OBR.room
+    .getMetadata()
+    .then((m) => see(parseSettings(m[SETTINGS_KEY]).playersLight))
+    .catch((err) => console.warn(`Couldn't read the settings for the players' menu: ${errorMessage(err)}`));
+  return OBR.room.onMetadataChange((m) => see(parseSettings(m[SETTINGS_KEY]).playersLight));
+};
 
 export const COMBAT_ALERT = "ROLL FOR COMBAT INITIATIVE";
 
@@ -124,5 +146,8 @@ OBR.onReady(() => {
   createMenu().catch((err) => console.error(`Couldn't add the initiative menu: ${errorMessage(err)}`));
   watchCombat();
   watchMarkerVisibility();
-  watchTorchlight();
+  watchTokenLights();
+  watchLightNotices();
+  watchLightRequests();
+  watchPlayerMenu();
 });

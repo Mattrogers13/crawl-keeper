@@ -26,6 +26,7 @@ export default defineConfig({
       input: {
         main: resolve("index.html"),
         background: resolve("background.html"),
+        menu: resolve("menu.html"),
       },
     },
   },

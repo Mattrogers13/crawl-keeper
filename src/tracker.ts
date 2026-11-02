@@ -215,16 +215,16 @@ export const previous = (t: Tracker): Tracker => {
 // The GM's "roll automatically" setting: ▶ onto the GM / Monsters turn in a
 // crawl round with a roll due rolls it (the check or the crawling die), in
 // the same write as the turn. Undo still works. `start` is the clock's size.
-export const nextWithAutoRoll = (t: Tracker, mode: EncounterMode, rand: Rand, start?: number): Tracker => {
+export const nextWithAutoRoll = (t: Tracker, mode: EncounterMode, rand: Rand, start?: number, dark = false): Tracker => {
   const moved = next(t);
-  if (mode === "manual" || moved.phase !== "crawl" || moved.current !== GM_ENTRY || !due(moved.crawl, mode)) return moved;
-  return { ...moved, crawl: rollFor(mode, start)(moved.crawl, rand) };
+  if (mode === "manual" || moved.phase !== "crawl" || moved.current !== GM_ENTRY || !due(moved.crawl, mode, dark)) return moved;
+  return { ...moved, crawl: rollFor(mode, start, dark)(moved.crawl, rand) };
 };
 
 // Encounter rolls off: the GM rolls at the table, so ▶ off the GM / Monsters
 // turn in a crawl round counts a due check as made (◀ back keeps it made).
-export const nextAfterManualCheck = (t: Tracker): Tracker =>
-  next(t.phase === "crawl" && t.current === GM_ENTRY ? updateCrawl(t, checkMade) : t);
+export const nextAfterManualCheck = (t: Tracker, dark = false): Tracker =>
+  next(t.phase === "crawl" && t.current === GM_ENTRY ? updateCrawl(t, (c) => checkMade(c, dark)) : t);
 
 // A change to this map's crawl (crawl.ts); the same object when nothing changed.
 export const updateCrawl = (t: Tracker, fn: (c: Crawl) => Crawl): Tracker => {

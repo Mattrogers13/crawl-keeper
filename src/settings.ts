@@ -19,9 +19,10 @@ export type Settings = {
   autoRoll: boolean;
   // Players see the last encounter check or crawling die roll.
   showRolls: boolean;
-  // Torchlight's lights drive darkness: all out = dark, Deadly, and a dim
-  // light on the party's tokens; a light back undoes it.
-  followTorchlight: boolean;
+  // The Light Tracker drives darkness: with lights tracked and none shining
+  // it's total darkness (isDark in lights.ts); off, or with no lights, the
+  // map's own Darkness switch decides.
+  followLight: boolean;
   // Hide the round counts from players.
   hideRound: boolean;
   // Switching to combat clears the rolls for the combat roll.
@@ -31,6 +32,12 @@ export type Settings = {
   // Select the current token on the GM's screen on each turn (tokens whose
   // turn marker is on; see Entry.marker).
   selectOnTurn: boolean;
+  // Players see the lights: the darkness card, the row badges and DIS tags.
+  // Off, they see only their own lights.
+  showLights: boolean;
+  // Players light and put out lights on their own tokens (asked of the
+  // GM's client, which checks this: playerLights.ts). Off like Torchlight's.
+  playersLight: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -41,11 +48,13 @@ export const DEFAULT_SETTINGS: Settings = {
   showDanger: false,
   autoRoll: false,
   showRolls: false,
-  followTorchlight: true,
+  followLight: true,
   hideRound: false,
   clearRollsOnCombat: true,
   showMarker: true,
   selectOnTurn: true,
+  showLights: true,
+  playersLight: false,
 };
 
 export const parseSettings = (raw: unknown): Settings => {
@@ -58,11 +67,13 @@ export const parseSettings = (raw: unknown): Settings => {
     showDanger: r.showDanger === true,
     autoRoll: r.autoRoll === true,
     showRolls: r.showRolls === true,
-    followTorchlight: r.followTorchlight !== false,
+    followLight: r.followLight !== false,
     hideRound: r.hideRound === true,
     clearRollsOnCombat: r.clearRollsOnCombat !== false,
     showMarker: r.showMarker !== false,
     selectOnTurn: r.selectOnTurn !== false,
+    showLights: r.showLights !== false,
+    playersLight: r.playersLight === true,
   };
 };
 

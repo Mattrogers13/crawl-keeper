@@ -7,8 +7,10 @@ import { CSS } from "@dnd-kit/utilities";
 
 import { cryptoRand } from "../crawl";
 import type { Change } from "./Tracker";
-import { D20Icon, FlameIcon, GmPortrait, GripIcon, MoreIcon, SkullIcon } from "./icons";
-import { SOURCE_LABEL, lightOn, type LightSource } from "../torchlight";
+import LightBadge from "./LightBadge";
+import { D20Icon, GmPortrait, GripIcon, MoreIcon, SkullIcon } from "./icons";
+import type { LightChange } from "../hooks/useLights";
+import type { Light } from "../lights";
 import {
   MOD_MAX,
   MOD_MIN,
@@ -22,9 +24,8 @@ import {
   type GmDie,
 } from "../tracker";
 
-// `owner`: the player who put the token on the map. `light`: what
-// Torchlight has burning on it.
-export type Token = { name: string; image: string | null; visible: boolean; owner: string; light: LightSource | null };
+// `owner`: the player who put the token on the map.
+export type Token = { name: string; image: string | null; visible: boolean; owner: string };
 
 // What the tracker shows for a token. Items are Owlbear data: don't trust
 // their shape beyond what's checked here.
@@ -35,7 +36,6 @@ export const tokenInfo = (item: Item | undefined): Token => {
     image: typeof image === "string" ? image : null,
     visible: item?.visible !== false,
     owner: typeof item?.createdUserId === "string" ? item.createdUserId : "",
-    light: lightOn(item),
   };
 };
 
@@ -46,6 +46,12 @@ const Row = (props: {
   gm: boolean;
   change: Change;
   show: (id: string) => void;
+  focus: (id: string) => void;
+  // The token's lights, and the GM's way to put one out or on (players: null).
+  lights?: Light[];
+  lightChange: LightChange | null;
+  // Disadvantage: total darkness, on a living player's row (p. 84).
+  dis?: boolean;
   openMenu: (id: string, x: number, y: number) => void;
   select: (id: string, mods: { shift: boolean; toggle: boolean }) => void;
   selected: boolean;
@@ -93,6 +99,16 @@ const Row = (props: {
             ? (e) => {
                 if ((e.target as HTMLElement).closest("input, button")) return;
                 props.select(entry.id, { shift: e.shiftKey, toggle: e.metaKey || e.ctrlKey });
+              }
+            : undefined
+        }
+        // GM: double-click to bring the token into view (the first click
+        // of the two selects, as a single click does).
+        onDoubleClick={
+          gm && token
+            ? (e) => {
+                if ((e.target as HTMLElement).closest("input, button")) return;
+                props.focus(entry.id);
               }
             : undefined
         }
@@ -145,20 +161,19 @@ const Row = (props: {
         ) : (
           <Portrait token={token} dead={entry.dead} small={props.small} />
         )}
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="relative flex min-w-0 flex-1 flex-col">
           <span className="flex min-w-0 items-center gap-1">
             <span className={`truncate leading-tight ${props.small ? "text-[13px]" : "font-medium"} ${entry.dead ? "line-through" : ""}`}>
               {name}
               {entry.dead && <span className="sr-only"> (dead)</span>}
             </span>
-            {token?.light && (
-              <span role="img" aria-label={`${SOURCE_LABEL[token.light]} lit`} title={`${SOURCE_LABEL[token.light]} lit (Torchlight)`} className="shrink-0">
-                <FlameIcon spell={token.light === "light-spell"} />
-              </span>
-            )}
           </span>
           {gm ? (
-            <span className="flex min-w-0 items-baseline gap-1.5">
+            // An empty note hangs under the name, out of the layout, so the
+            // name lines up with the portrait and badges (mockup ck-04).
+            <span
+              className={`flex min-w-0 items-baseline gap-1.5 ${!entry.note && !(!token && props.gmDie) ? "absolute inset-x-0 top-[calc(100%-3px)]" : ""}`}
+            >
               {!token && props.gmDie && <Equation die={props.gmDie} />}
               <NoteInput key={entry.note} name={name} value={entry.note} save={(n) => change("Note", (t) => setNote(t, entry.id, n))} />
             </span>
@@ -166,6 +181,12 @@ const Row = (props: {
             entry.note && <span className="text-xs whitespace-pre-wrap text-obr-text-secondary">{entry.note}</span>
           )}
         </div>
+        {props.lights && <LightBadge lights={props.lights} change={props.lightChange} />}
+        {props.dis && (
+          <span title="Total darkness: disadvantage on tasks that need sight (p. 84)" className="shrink-0 rounded bg-red-600/15 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-red-700 dark:text-red-300">
+            DIS
+          </span>
+        )}
         {gm ? (
           <>
             <span className={`${INIT_SLOT} flex items-center justify-end gap-1`}>

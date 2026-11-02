@@ -1,19 +1,25 @@
 import { useState } from "react";
 
+import { FlameIcon } from "./icons";
+import LightTracker from "./LightTracker";
+import PlayerLights from "./PlayerLights";
 import Loading from "./Loading";
 import ResizeGrip from "./ResizeGrip";
 import Settings from "./Settings";
 import Tracker from "./Tracker";
 import UndoBar from "./UndoBar";
+import { useLights } from "../hooks/useLights";
 import type { Role } from "../hooks/useRole";
-import { useSceneReady } from "../hooks/useScene";
+import { useSceneItems, useSceneReady } from "../hooks/useScene";
 import { VERSION } from "../version";
 
 const Panel = ({ role }: { role: Role }) => {
   const scene = useSceneReady();
-  // Settings are the GM's only.
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const showSettings = settingsOpen && role === "GM";
+  // Settings is the GM's only; the Light Tracker is everyone's (players get
+  // their own, PlayerLights). Each replaces the tracker, with a back arrow.
+  const [view, setView] = useState<"tracker" | "settings" | "lights">("tracker");
+  const shown = role === "GM" || view !== "settings" ? view : "tracker";
+  const away = shown !== "tracker";
   // Under the title, part of the top bar: the tracker puts the crawl
   // controls here (a portal), so they sit with the title.
   const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
@@ -25,36 +31,58 @@ const Panel = ({ role }: { role: Role }) => {
     <div className="flex h-screen flex-col gap-3 p-3 pb-0">
       <header className="flex shrink-0 flex-col gap-2.5 border-b border-obr-text/10 pb-3">
         <div className="flex items-center gap-2">
-          {showSettings && (
+          {away && (
             <button
               type="button"
               aria-label="Back to tracker"
               title="Back to tracker"
               className="flex h-9 w-9 items-center justify-center rounded-full text-obr-text-secondary hover:bg-obr-bg hover:text-obr-text"
-              onClick={() => setSettingsOpen(false)}
+              onClick={() => setView("tracker")}
             >
               <BackIcon />
             </button>
           )}
-          {!showSettings && <KeyIcon />}
-          <h1 className="text-[17px] font-medium tracking-[0.01em]">{showSettings ? "Settings" : "Crawl Keeper"}</h1>
-          {!showSettings && <span ref={setTitleSlot} className="min-w-0 truncate text-xs text-obr-text-secondary empty:hidden" />}
-          {role === "GM" && !showSettings && (
-            <button
-              type="button"
-              aria-label="Settings"
-              title="Settings"
-              className="ml-auto flex h-9 w-9 items-center justify-center rounded-full text-obr-text-secondary hover:bg-obr-bg hover:text-obr-text"
-              onClick={() => setSettingsOpen(true)}
-            >
-              <GearIcon />
-            </button>
+          {!away && <KeyIcon />}
+          <h1 className="text-[17px] font-medium tracking-[0.01em]">{TITLES[shown]}</h1>
+          {!away && <span ref={setTitleSlot} className="min-w-0 truncate text-xs text-obr-text-secondary empty:hidden" />}
+          {role !== "GM" && !away && (
+            <div className="ml-auto flex">
+              <LightsButton open={() => setView("lights")} />
+            </div>
+          )}
+          {role === "GM" && !away && (
+            <div className="ml-auto flex">
+              <LightsButton open={() => setView("lights")} />
+              <button
+                type="button"
+                aria-label="Settings"
+                title="Settings"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-obr-text-secondary hover:bg-obr-bg hover:text-obr-text"
+                onClick={() => setView("settings")}
+              >
+                <GearIcon />
+              </button>
+            </div>
           )}
         </div>
-        {!showSettings && <div ref={setHeaderSlot} className="empty:hidden" />}
+        {!away && <div ref={setHeaderSlot} className="flex flex-col gap-2.5 empty:hidden" />}
       </header>
       <main className="flex min-h-0 flex-1 flex-col">
-        {showSettings ? (
+        {shown === "lights" ? (
+          <div className="relative min-h-0 flex-1 overflow-y-auto">
+            {role !== "GM" ? (
+              scene.ready ? (
+                <PlayerLightsOnMap key={scene.opened} />
+              ) : (
+                <PlayerLights items={[]} />
+              )
+            ) : scene.ready ? (
+              <LightsOnMap key={scene.opened} />
+            ) : (
+              <LightTracker names={NO_NAMES} />
+            )}
+          </div>
+        ) : shown === "settings" ? (
           // relative: the switches' hidden inputs (sr-only, absolute) are
           // placed in here; otherwise against the page, which then scrolls
           // too (a second scrollbar, Matt's room pass 2026-10-31).
@@ -75,6 +103,44 @@ const Panel = ({ role }: { role: Role }) => {
       <ResizeGrip />
     </div>
   );
+};
+
+// The way into the Light Tracker, always here; dim while no lights are
+// tracked.
+const LightsButton = ({ open }: { open: () => void }) => {
+  const { loaded, lights } = useLights();
+  const none = !loaded || lights.lights.length === 0;
+  return (
+    <button
+      type="button"
+      aria-label="Light Tracker"
+      title={none ? "Light Tracker (no lights yet)" : "Light Tracker"}
+      className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-obr-bg"
+      onClick={open}
+    >
+      <span className={none ? "opacity-40 grayscale" : ""}>
+        <FlameIcon className="block h-5 w-4" />
+      </span>
+    </button>
+  );
+};
+
+const TITLES = { tracker: "Crawl Keeper", settings: "Settings", lights: "Light Tracker" };
+
+// The Light Tracker with the open map's token names (lights cross maps; a
+// token not on this one shows the name it was lit with).
+const NO_NAMES = new Map<string, string>();
+const LightsOnMap = () => {
+  const items = useSceneItems();
+  if (items === null) return <Loading />;
+  return <LightTracker names={new Map(items.map((i) => [i.id, i.name?.trim() || "Unnamed"]))} />;
+};
+
+// The players' view needs the open map's tokens (which are theirs, names).
+const PlayerLightsOnMap = () => {
+  const items = useSceneItems();
+  if (items === null) return <Loading />;
+  return <PlayerLights items={items} />;
 };
 
 // The Keeper's key: a key with a torch-flame bow, beside the turn order. The

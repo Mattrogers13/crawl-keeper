@@ -211,6 +211,9 @@ describe("Tracker (GM)", () => {
       "Mark dead",
       "Turn marker off",
       "Show on map",
+      "Give torch",
+      "Give lantern",
+      "Give Light spell",
       "Remove from initiative",
     ]);
     expect(within(menu).getByRole("menuitem", { name: "Mark as monster" })).toHaveFocus();
@@ -547,6 +550,16 @@ describe("Tracker (GM)", () => {
     expect(await screen.findByText("Crawling Clock rules")).toBeInTheDocument();
   });
 
+  it("double-clicking a row centers the camera on its token at the same zoom, and selects it", async () => {
+    obr.items = [token("a", { name: "Aria", position: { x: 300, y: 100 } })];
+    scene([{ id: "a" }, { id: GM_ENTRY }]);
+    render(<App />);
+    fireEvent.doubleClick(await screen.findByText("Aria"));
+    // Map point (300, 100) at zoom 2 lands mid-screen (400, 300).
+    await waitFor(() => expect(OBR.viewport.animateTo).toHaveBeenCalledWith({ scale: 2, position: { x: 400 - 600, y: 300 - 200 } }));
+    expect(OBR.player.select).toHaveBeenCalledWith(["a"], true);
+  });
+
   it("a row's checkbox adds it to the selection or takes it out", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
@@ -619,13 +632,14 @@ describe("Tracker (GM)", () => {
       await waitFor(() => expect(saved().crawl).toMatchObject({ lastCheck: 0, last: null }));
     });
 
-    it("standard: the danger level saves with the map; no darkness switch (darkness is Deadly, p. 84)", async () => {
+    it("standard: the danger level saves with the map; darkness doesn't change it", async () => {
       scene([{ id: GM_ENTRY }]);
       render(<App />);
       const card = await screen.findByRole("region", { name: "Encounter checks" });
       fireEvent.change(within(card).getByLabelText("Danger level"), { target: { value: "deadly" } });
       await waitFor(() => expect(saved().crawl.danger).toBe("deadly"));
-      expect(within(card).queryByRole("button", { name: "Darkness" })).not.toBeInTheDocument();
+      fireEvent.click(within(card).getByRole("button", { name: "Darkness" }));
+      await waitFor(() => expect(saved().crawl).toMatchObject({ dark: true, danger: "deadly" }));
     });
 
     it("clock: darkness saves with the map and makes the crawling die a d8", async () => {
@@ -845,17 +859,6 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(saved().entries[0].dead).toBe(false));
   });
 
-  it("a token Torchlight lit shows a flame; in the dark the standard card says why it's Deadly", async () => {
-    obr.items = [
-      { ...token("a", { name: "Aria" }), metadata: { "io.github.mattrogers13.torchlight/token": { source: "lantern", saved: null } } },
-      token("b", { name: "Borin" }),
-    ];
-    scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }], null, 0, { crawl: { danger: "deadly", dark: true, dangerBeforeDark: "unsafe" } });
-    render(<App />);
-    expect(await screen.findByRole("img", { name: "Lantern lit" })).toBeInTheDocument();
-    expect(within(rowOf("Borin")).queryByRole("img", { name: /lit$/ })).not.toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "Encounter checks" })).getByText("Darkness")).toBeInTheDocument();
-  });
 
   it("a dead token wears a skull on the map until it's alive again or leaves the tracker", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
@@ -900,7 +903,8 @@ describe("Tracker (player)", () => {
     expect(await screen.findByText("Blessed until round 4")).toBeInTheDocument();
     expect(screen.getByText("Round 3")).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    // Only the way to their Light Tracker.
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Light Tracker"]);
   });
 
   it("sees the Crawling Clock unless the GM hides it; never the card", async () => {

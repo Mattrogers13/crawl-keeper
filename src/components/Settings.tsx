@@ -3,6 +3,7 @@ import OBR from "@owlbear-rodeo/sdk";
 
 import ClockRules from "./ClockRules";
 import Loading from "./Loading";
+import Segmented from "./Segmented";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import { useRoomValue } from "../hooks/useRoomValue";
 import { syncTurnFromScene } from "../marker";
@@ -16,7 +17,7 @@ import { parseSettings, type Settings as SettingsDoc } from "../settings";
 // The undo step's name for each setting (short forms of the switches' labels).
 const SETTING_LABELS: Partial<Record<keyof SettingsDoc, string>> = {
   encounterRolls: "encounter method",
-  followTorchlight: "Follow Torchlight",
+  followLight: "Follow light",
   autoRoll: "roll automatically",
   showRolls: "show rolls",
   hideRound: "hide rounds",
@@ -25,6 +26,8 @@ const SETTING_LABELS: Partial<Record<keyof SettingsDoc, string>> = {
   clearRollsOnCombat: "clear rolls on combat",
   showMarker: "turn marker",
   selectOnTurn: "select token",
+  showLights: "show lights",
+  playersLight: "players light their own",
 };
 
 // The four ways to run encounters, as the web toolkit shows them: one choice
@@ -115,10 +118,31 @@ const Settings = () => {
 
       <Group title="Darkness (p. 84)">
         <Toggle
-          label="Follow Torchlight"
-          hint="When the last light on a tracked token goes out in Torchlight, it's total darkness: Deadly, a d8 crawling die, and a 3 ft light on the party's tokens so players still see themselves. The first light back undoes it. Off: set danger and darkness yourself."
-          checked={settings.value.followTorchlight}
-          onChange={(followTorchlight) => set({ followTorchlight })}
+          label="Follow light"
+          hint="When the Light Tracker has no light lit, it's total darkness: a check every crawl round in Interval mode, a d8 crawling die in clock modes, and DIS on the party's rows. The danger level stays. With no lights tracked, or off: set darkness yourself."
+          checked={settings.value.followLight}
+          onChange={(followLight) => set({ followLight })}
+        />
+        {/* The switch itself is on the crawl card: darkness is per map, in
+            the map's tracker doc, which only the tracker writes. */}
+        <p className="px-4 py-3 text-xs text-obr-text-secondary">
+          <span className="font-medium text-obr-text">Darkness by hand:</span> the Torchlit / Darkness switch on the crawl card, for each map.
+          {settings.value.followLight && " Locked while there are lights to follow."}
+        </p>
+      </Group>
+
+      <Group title="Players' lights">
+        <Toggle
+          label="Show lights to players"
+          hint="Players see whether the party has light, the badges on the rows and DIS in darkness. Off: only their own lights."
+          checked={settings.value.showLights}
+          onChange={(showLights) => set({ showLights })}
+        />
+        <Toggle
+          label="Players light their own"
+          hint="Players right-click a party token (a player on the list, or one they placed) → Crawl Keeper: a torch, lantern or Light spell, one lit at a time, or put it out; their panel shows their lights. Only while you're in the room: your Crawl Keeper checks and makes the change."
+          checked={settings.value.playersLight}
+          onChange={(playersLight) => set({ playersLight })}
         />
       </Group>
 
@@ -274,30 +298,6 @@ const InstallLink = () => {
     </div>
   );
 };
-
-// A segmented pill of choices (radios underneath, for the keyboard and
-// screen readers).
-const Segmented = <T extends string | number>(props: {
-  label: string;
-  name: string;
-  value: T;
-  options: [T, string][];
-  onChange: (v: T) => void;
-}) => (
-  <div role="radiogroup" aria-label={props.label} className="flex rounded-full bg-obr-paper p-[3px]">
-    {props.options.map(([value, label]) => (
-      <label
-        key={value}
-        className={`flex h-8 flex-1 cursor-pointer items-center justify-center rounded-full font-medium has-focus-visible:ring-2 has-focus-visible:ring-obr-primary ${
-          props.value === value ? "bg-obr-primary text-obr-primary-contrast" : "hover:bg-obr-text/10"
-        }`}
-      >
-        <input type="radio" name={props.name} className="sr-only" checked={props.value === value} onChange={() => props.onChange(value)} />
-        {label}
-      </label>
-    ))}
-  </div>
-);
 
 // One setting: label and hint on the left, a switch on the right (a real
 // checkbox underneath, so the label, keyboard and screen readers work).
