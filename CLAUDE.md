@@ -10,7 +10,7 @@ Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript
 - Installs: live `https://crawl-keeper.editbag.workers.dev/manifest.json`, Dev `https://dev-crawl-keeper.editbag.workers.dev/manifest.json` (`docs/obr/deploy.md`). After a Dev rebuild, reload the Owlbear room: the background page loads once per room.
 - `main` deploys the live install on every push: merged = live for users, whatever the version number or CHANGELOG says. "Unreleased" means not tagged or announced.
 - Tracked tasks and undecided review candidates: `docs/design.md` "Releases".
-- Status (2026-11-01): v0.3.0 ready on `release/v0.3.0` (the Torchlight merge: Light Tracker, darkness from lights, map lights, right-click menu, players' lights; v0.2.0 released 2026-10-31). Next: effects: focus, conditions, timed effects (v0.4, `docs/effects.md`); then Dice+, morale, encounter tables, End tracker (v0.5) (`docs/design.md`).
+- Status (2026-11-02): v0.3.0 released (tag `v0.3.0`, `ee30f22`): the Torchlight merge (Light Tracker, darkness from lights, map lights, right-click menu, players' lights); full TESTING.md pass 2026-11-01/02. Next: effects: focus, conditions, timed effects (v0.4, `docs/effects.md`, build order step 1: the Dev-only scene size test); then Dice+, morale, encounter tables, End tracker (v0.5) (`docs/design.md`).
 
 ## Commands
 
