@@ -15,15 +15,13 @@
 //   badge (the fire is the token) and never a row in the initiative list.
 //
 // Paused lights still shine (a table break). Burn-outs need no write: a
-// timer re-syncs when the next light runs out. Tokens Torchlight lights are
-// left to Torchlight while both are installed.
+// timer re-syncs when the next light runs out.
 import OBR, { buildImage, type Image, type Item, type Metadata } from "@owlbear-rodeo/sdk";
 
 import { BADGE_KEY, ID, LIGHTS_KEY, TRACKER_KEY } from "./constants";
 import { isOurBadge, tokenCells } from "./marker";
 import { msToNextBurnOut, parseLights, shining, type LightKind, type Lights } from "./lights";
 import { isObject } from "./parse";
-import { lightOn } from "./torchlight";
 import { parseTracker, type Tracker } from "./tracker";
 import { errorMessage, notify } from "./utils";
 
@@ -85,7 +83,7 @@ export const planTokenLights = (t: Tracker, items: Item[], s: Lights, now: numbe
   const dimPx = px(DIM_FT);
   const changes: TokenChange[] = [];
   for (const i of items) {
-    if (i.type !== "IMAGE" || lightOn(i) !== null) continue;
+    if (i.type !== "IMAGE") continue;
     const df = i.metadata[DF_LIGHT_KEY];
     const mark = parseMark(i.metadata[LIT_KEY]);
     const ourDim = i.metadata[DIM_KEY] === true;

@@ -8,10 +8,9 @@ import { CSS } from "@dnd-kit/utilities";
 import { cryptoRand } from "../crawl";
 import type { Change } from "./Tracker";
 import LightBadge from "./LightBadge";
-import { D20Icon, FlameIcon, GmPortrait, GripIcon, MoreIcon, SkullIcon } from "./icons";
+import { D20Icon, GmPortrait, GripIcon, MoreIcon, SkullIcon } from "./icons";
 import type { LightChange } from "../hooks/useLights";
 import type { Light } from "../lights";
-import { SOURCE_LABEL, lightOn, type LightSource } from "../torchlight";
 import {
   MOD_MAX,
   MOD_MIN,
@@ -25,9 +24,8 @@ import {
   type GmDie,
 } from "../tracker";
 
-// `owner`: the player who put the token on the map. `light`: what
-// Torchlight has burning on it.
-export type Token = { name: string; image: string | null; visible: boolean; owner: string; light: LightSource | null };
+// `owner`: the player who put the token on the map.
+export type Token = { name: string; image: string | null; visible: boolean; owner: string };
 
 // What the tracker shows for a token. Items are Owlbear data: don't trust
 // their shape beyond what's checked here.
@@ -38,7 +36,6 @@ export const tokenInfo = (item: Item | undefined): Token => {
     image: typeof image === "string" ? image : null,
     visible: item?.visible !== false,
     owner: typeof item?.createdUserId === "string" ? item.createdUserId : "",
-    light: lightOn(item),
   };
 };
 
@@ -170,11 +167,6 @@ const Row = (props: {
               {name}
               {entry.dead && <span className="sr-only"> (dead)</span>}
             </span>
-            {token?.light && (
-              <span role="img" aria-label={`${SOURCE_LABEL[token.light]} lit`} title={`${SOURCE_LABEL[token.light]} lit (Torchlight)`} className="shrink-0">
-                <FlameIcon spell={token.light === "light-spell"} />
-              </span>
-            )}
           </span>
           {gm ? (
             // An empty note hangs under the name, out of the layout, so the
