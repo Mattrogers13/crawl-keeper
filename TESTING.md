@@ -6,7 +6,7 @@ Automated tests run against an in-memory SDK; these checks need real Owlbear. On
 
 The per-PR checklists for v0.1 (PRs 1–4) are in git history (`git log -p -- TESTING.md`).
 
-## Release checklist (current as of v0.2.0)
+## Release checklist (current as of v0.3.0)
 
 v0.1.0 was room-tested PR by PR (the old lists in git history plus checks on #7–#9), not with this list as a whole. First full end-to-end pass: 2026-10-17 (Dev, GM + player), all rows passed.
 
@@ -96,7 +96,7 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
 | 41 | GM: Crawl, standard, Unsafe; ▶ through 3 crawl rounds; click the d6; Undo | The d20 counts 3 → 2 → 1 → "!", ring segments fill; the card lights on the GM turn; the d6 shows the pips, "No encounter" / red "Encounter!" under it; Undo clears it | 2026-10-17 |
-| 42 | GM: danger dropdown to Deadly; switch to Crawling Clock, Darkness, roll; switch back | Deadly: one segment (every round), no darkness switch in standard; clock mode: the d20 shows the clock (no label under it), Darkness makes it "Roll d8", the d6 shows its total and "Clock 20 → N"; back in standard the d6 doesn't show the clock roll | 2026-10-17 |
+| 42 | GM: danger dropdown to Deadly; switch to Crawling Clock, Darkness, roll; switch back | Deadly: one segment (every round); the Torchlit / Darkness switch is on the card in every mode (v0.3); clock mode: the d20 shows the clock (no label under it), Darkness makes it "Roll d8", the d6 shows its total and "Clock 20 → N"; back in standard the d6 doesn't show the clock roll | 2026-10-17 |
 | 43 | GM: the GM row's d20 → − / + / type a DEX → Roll d20+N | The row opens under the GM row; Roll fills the roll and shows `d20 X + N` under the name; typing a roll by hand drops it | 2026-10-17 |
 | 44 | GM: tick checkboxes on two rows; right-click one | Both tinted and in the menu; checkboxes stay visible while any is ticked | 2026-10-17 |
 | 45 | GM and player: fold the monsters; reload; Combat, ▶ to a monster | Folded ("N monsters" + portraits), still folded after reload; opens on a monster's turn, folds again after | 2026-10-17 |
@@ -117,7 +117,7 @@ Rows 51–55 retired (Matt, 2026-10-31): the Torchlight merge (v0.3) replaces Fo
 | 53 | Light one torch again | Back to Risky, chip gone, the 3 ft lights come off (the lit token keeps its torch) | Retired (v0.3) |
 | 54 | Crawling Clock: lights out, then back | The torch toggle flips to Darkness (Roll d8) and back | Retired (v0.3) |
 | 55 | Settings → Follow Torchlight off; put out the lights | Nothing changes on its own; the 3 ft lights come off | Retired (v0.3) |
-| 56 | A room without Torchlight | Never goes dark on its own | 2026-10-31 |
+| 56 | A room with no lights in the Light Tracker (v0.3: was "without Torchlight") | Never goes dark on its own; only the card's switch darkens it | 2026-10-31 |
 
 ### New in v0.2.0
 
@@ -132,3 +132,21 @@ Rows 51–55 retired (Matt, 2026-10-31): the Torchlight merge (v0.3) replaces Fo
 | 63 | GM: Settings → Clock 2d20; roll until the clock passes 20 and 0 | Starts at 40, worn down one d20 at a time; the omen and the encounter on the last die; the overflow carries into a fresh 40. Player: "Crawling Clock", "The clock is at N" of 40 | 2026-10-31 |
 | 64 | GM: Settings at a short and a tall panel height; pick each of Interval / Clock 1d20 / Clock 2d20 / Manual | Cards like the web toolkit (Encounters, Darkness, What players see, Turns and combat, About); one scrollbar only; each choice is one undo step | 2026-10-31 |
 | 65 | Player: a clock mode with the clock shown | The card's title reads "Crawling Clock" | 2026-10-31 |
+
+### New in v0.3.0 (the Torchlight merge)
+
+Torchlight uninstalled. Dynamic Fog on for rows 72–74. Rows 66–76 sum up the per-PR room tests of #28–#35.
+
+| # | Steps | Expect | Last pass |
+|---|---|---|---|
+| 66 | GM: a row's menu → Give torch; the same menu again; the flame beside the gear | The strip and a counting badge on the row; the menu reads "Put out the torch, light the lantern"; the Light Tracker lists "Torch · <name>" | |
+| 67 | GM, Light Tracker: Time passes `10m` (and `abc`); click a time, type `31:00`; Pause and resume; switch Ride along / Separate and light a second token | Lit lights lose 10 min, `abc` is explained; the time is corrected; times freeze while paused; Ride along matches the first timer, Separate starts a full hour. Everyone gets "Time passes: 10 minutes." | |
+| 68 | GM: put out a torch (badge or Light Tracker); a lantern at 0:40 left, put out, light again | The torch is spent; the lantern keeps 0:30 and lights again from there | |
+| 69 | GM: Put lights out, then the toast's Undo; Undo / Redo a light change | All out, red strip "No light · total darkness"; Undo brings them back; each step names itself | |
+| 70 | GM: every light out, Follow light on; Interval, then a clock mode; light one again | Red "Total darkness" on the crawl card, a check every crawl round, the switch reads "Darkness · following light" and is locked, DIS on living players' rows (player sees it too), the danger level unchanged; clocks roll a d8; one light clears it all | |
+| 71 | GM: Remove all lights, press the card's switch; then Settings → Follow light off, light and put out a light | The switch unlocks and darkens by hand; with Follow light off, lights never darken the map | |
+| 72 | GM: right-click a party token → Crawl Keeper → Light torch, Light lantern, Put out; a token outside initiative; a prop; several tokens at once | 30 ft light, then 60 ft (the torch spent), then back to 3 ft; badge icons on the token; no row added for the outside token; a prop offers only Light campfire (no icon); each selected token lit; Undo moves the map light back | |
+| 73 | GM: a token with its own Dynamic Fog light: light a torch, put it out | Its own light comes back | |
+| 74 | Player: their party token, lights out | A 3 ft dim light shows their token through the fog | |
+| 75 | GM: Settings → Players light their own on. Player: right-click their token → Crawl Keeper → Light torch; the flame in their header → Your light → Light lantern (asks first), Put out; GM leaves the room, player tries again | Each works and the GM sees it; the swap asks; without the GM: "The GM isn't in the room". GM lights an NPC torch after the player's, then Undo: the player's torch stays | |
+| 76 | Player: Settings → Show lights to players off, then on; a light burns out (set one to `0:05`) | Off: only their Your light card; on: party light, every light, badges, DIS. Everyone gets the burn-out notice; the strip says "<light> burned out" | |
