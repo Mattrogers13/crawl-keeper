@@ -45,7 +45,7 @@ Learned building Torchlight (github.com/Mattrogers13/obr-torchlight), 2026-10. E
 
 ## Manifest and hosting
 
-- Manifest `name` ≤ 45 chars, `description` ≤ 128, or the install fails (`src/manifest.test.ts`). **Torchlight** (hit it)
+- Manifest `name` ≤ 45 chars, `description` ≤ 128, `version` ≤ 16, or the install fails (`src/manifest.test.ts`, `src/devManifest.test.ts`). **Torchlight** (hit it); version: **verified** (Crawl Keeper Dev, `0.3.0-dev.b6c669f` = 17, 2026-11-05)
 - Owlbear fetches the manifest and pages cross-origin. Cloudflare Workers send no CORS header by default: `public/_headers` sets `Access-Control-Allow-Origin: *`. The Vite dev server needs `server.cors: true`. **Torchlight**
 - Cloudflare serves `page.html` as a 307 to `/page`. Use extensionless URLs in the manifest (`background_url: "/background"`) and for embeds (`/menu`). **Torchlight**
 - Cloudflare preview URLs don't apply the SPA fallback, so deep links 404 on previews (production is fine). Keep the panel on `/` and switch views in-app. **Torchlight**

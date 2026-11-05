@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { existsSync } from "node:fs";
 import manifest from "../public/manifest.json";
-import { buildLabel, manifestForBranch } from "./devManifest";
+import { VERSION_MAX, buildLabel, manifestForBranch } from "./devManifest";
 
 describe("manifestForBranch", () => {
   it("leaves main and local builds alone", () => {
@@ -17,10 +17,15 @@ describe("manifestForBranch", () => {
     expect(dev.name.length).toBeLessThanOrEqual(45);
   });
 
-  it("puts the commit in the version, so two Dev installs differ on their cards", () => {
-    expect(manifestForBranch(manifest, "dev", "382d2fb9abc").version).toBe(`${manifest.version}-dev.382d2fb`);
-    expect(manifestForBranch(manifest, "dev").version).toBe(`${manifest.version}-dev`);
-    expect(manifestForBranch(manifest, "feat/scene-size-test", "abc1234ff").version).toBe(`${manifest.version}-feat-scene-size-test.abc1234`);
+  it("puts the commit in the version, within Owlbear's 16-character limit", () => {
+    const v = (version: string, branch: string, sha?: string) => manifestForBranch({ ...manifest, version }, branch, sha).version;
+    expect(v("0.3.0", "dev", "b6c669f12ab")).toBe("0.3.0-dev.b6c669");
+    expect(v("0.3.0", "dev")).toBe("0.3.0-dev");
+    expect(v("0.3.0", "feat/effects-panel", "566d983ff")).toBe("0.3.0-dev.566d98");
+    expect(v("0.10.0", "dev", "b6c669f")).toBe("0.10.0-dev.b6c66");
+    expect(v("10.10.10", "dev", "b6c669f")).toBe("10.10.10-dev");
+    for (const branch of ["dev", "feat/a-really-long-branch-name-for-testing"])
+      expect(manifestForBranch(manifest, branch, "b6c669f12ab").version.length).toBeLessThanOrEqual(VERSION_MAX);
   });
 
   it("names any branch other than dev, cut to Owlbear's name limit", () => {
