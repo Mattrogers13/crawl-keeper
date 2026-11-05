@@ -16,7 +16,7 @@ Shadowdark crawl companion for Owlbear Rodeo: initiative tracker, crawl round lo
 | Room metadata | `${ID}/settings` | encounter rolls on/off, encounter mode (`standard` \| `clock`), clock size (1 \| 2 d20s), roll automatically, hide clock, show danger level, hide rounds, clear rolls on combat, select on turn | GM |
 | Room metadata (v0.2) | `${ID}/tables` | custom encounter tables | GM |
 
-- Caps: 40 entries, notes 200 chars. Worst case about 12.3 kB in the scene doc (with a full crawl roll). Settings shows the live size (tracker, whole scene, whole room). The undocumented scene limit: a full tracker (about 12 kB) saved fine in a real room, 2026-10-16.
+- Caps: 40 entries, notes 200 chars. Worst case about 12.3 kB in the scene doc (with a full crawl roll). Settings shows the live size (tracker, whole scene, whole room). The scene limit is undocumented but above 65 kB (Dev scene size test, 2026-11-05); not the room's shared 16 kB.
 - Entries whose token no longer exists are dropped on read.
 - Changes that belong together (turn + round + crawl roll) go out in one write.
 

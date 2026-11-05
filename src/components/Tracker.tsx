@@ -14,13 +14,27 @@ import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifi
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 
 import Confirm from "./Confirm";
+import { AddEffect, EffectStrip, Reminders, RowEffects, type EffectsChange } from "./Effects";
 import CrawlBar, { ClockDial, FOCUS, PlayerRoll } from "./CrawlBar";
 import { clockLeft, clockStart, cryptoRand, due, lastFor, rollFor } from "../crawl";
 import { ChevronIcon, PlayIcon, SortIcon } from "./icons";
 import Loading from "./Loading";
 import RowMenu from "./RowMenu";
 import Row, { INIT_SLOT, tokenInfo, type ButtonProps, type Token } from "./TrackerRow";
-import { MONSTERS_FOLDED_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
+import { EFFECTS_KEY, MONSTERS_FOLDED_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
+import {
+  endingNow,
+  focusChecks,
+  parseEffects,
+  playerEffects,
+  pruneEffects,
+  resetEffectRounds,
+  settle,
+  shown as shownEffects,
+  type Effect,
+  type Effects,
+} from "../effects";
+import type { Change as HistoryChange } from "../history";
 import type { Role } from "../hooks/useRole";
 import LightStrip from "./LightStrip";
 import { useLightStatus, useLights } from "../hooks/useLights";
@@ -58,7 +72,10 @@ import {
 // A GM edit to the tracker: a pure change, saved, and an undo step named
 // `label` ("Undo: Next turn"); `toast` offers Undo for a few seconds after
 // bigger actions.
-export type Change<T = TrackerDoc> = (label: string, fn: (t: T) => T, opts?: { toast?: boolean }) => void;
+// `effects`: a change to this map's effects in the same write and undo step
+// (Mark dead ends focus, Reset rounds keeps rounds left).
+export type ChangeOpts = { toast?: boolean; effects?: (e: Effects, before: TrackerDoc, after: TrackerDoc) => Effects };
+export type Change<T = TrackerDoc> = (label: string, fn: (t: T) => T, opts?: ChangeOpts) => void;
 
 // headerSlot: where the crawl controls go (the panel's top bar); titleSlot:
 // beside the title, for the round count.
@@ -66,6 +83,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   const { role, headerSlot = null, titleSlot = null } = props;
   const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   const doc = useSceneValue(TRACKER_KEY, parseTracker);
+  const effectsDoc = useSceneValue(EFFECTS_KEY, parseEffects);
   // The GM gives lights from the row menu; everyone sees them on the rows.
   const lights = useLights();
   const lightStatus = useLightStatus(lights.lights);
@@ -80,6 +98,10 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   // (right-click or ⋯), which acts on the selection.
   const [picked, setPicked] = useState<Selection>(NO_SELECTION);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  // The GM's Add effect form, for these rows (none: free-standing).
+  const [adding, setAdding] = useState<string[] | null>(null);
+  // Focus checks the GM called for now (damage, distraction): this panel only.
+  const [checkNow, setCheckNow] = useState<string[]>([]);
   // The monsters folded under the GM row: this viewer's choice, remembered
   // in this browser.
   const [folded, setFolded] = useState(() => readLocal(MONSTERS_FOLDED_KEY) === "1");
@@ -114,6 +136,27 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
     });
   }, [gmReady, items, docValue, writeDoc, settings.value]);
 
+  // The same for effects: a deleted token's effects go, and what ends with
+  // its focus (automatic, not an undo step).
+  const lastEffectsPrune = useRef("");
+  const { value: effectsValue, write: writeEffects } = effectsDoc;
+  const effectsReady = gmReady && effectsDoc.loaded;
+  useEffect(() => {
+    if (!effectsReady) return;
+    const present = new Set(items.map((i) => i.id));
+    const pruned = pruneEffects(effectsValue, (id) => present.has(id));
+    if (pruned === effectsValue) return;
+    const json = JSON.stringify(pruned);
+    if (json === lastEffectsPrune.current) return;
+    lastEffectsPrune.current = json;
+    void writeEffects(pruned).then((saved) => {
+      if (saved) lastEffectsPrune.current = "";
+    });
+  }, [effectsReady, items, effectsValue, writeEffects]);
+
+  // A called-for focus check lasts until the turn moves.
+  useEffect(() => setCheckNow([]), [docValue.current, docValue.round]);
+
   // The GM's hotkeys while the panel has focus (Owlbear keeps keys typed on
   // the map): N next turn, B back, R the encounter roll when one is due (a
   // stray R can't replace a roll already made). Not while typing, dragging
@@ -136,26 +179,45 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
     return () => window.removeEventListener("keydown", onKey);
   }, [role]);
 
-  if (!settings.loaded || !doc.loaded || items === null) return <Loading />;
+  if (!settings.loaded || !doc.loaded || !effectsDoc.loaded || items === null) return <Loading />;
 
   const byId = new Map(items.map((i) => [i.id, i]));
   // Tokens deleted from the map drop out. Writes save this pruned version.
   const tracker = prune(doc.value, (id) => byId.has(id));
+  const effects = pruneEffects(effectsDoc.value, (id) => byId.has(id));
   const gm = role === "GM";
 
   // Every GM edit: apply a pure change and save it if anything changed. A
   // new turn also moves the marker and the selection once it's saved (GM
   // clicks only; see marker.ts). A failed save reverts the doc and leaves the
   // marker where it was. Saved, it's an undo step named `label`.
+  // With `effects`, both are saved in one write (both or neither), one step.
   const change: Change = (label, fn, opts) => {
     const before = doc.value;
     const updated = fn(tracker);
-    if (updated === before) return;
-    void doc.write(updated).then((saved) => {
+    const effectsBefore = effectsDoc.value;
+    const changedEffects = opts?.effects?.(effects, tracker, updated) ?? effects;
+    const effectsAfter = changedEffects === effects ? effectsBefore : settle(changedEffects, updated);
+    if (updated === before && effectsAfter === effectsBefore) return;
+    const steps: HistoryChange[] = [];
+    if (updated !== before) steps.push({ store: "scene", key: TRACKER_KEY, before, after: updated });
+    if (effectsAfter !== effectsBefore) steps.push({ store: "scene", key: EFFECTS_KEY, before: effectsBefore, after: effectsAfter });
+    const write =
+      updated === before
+        ? effectsDoc.write(effectsAfter)
+        : doc.write(updated, effectsAfter !== effectsBefore ? { [EFFECTS_KEY]: effectsAfter } : undefined);
+    void write.then((saved) => {
       if (!saved) return;
-      void record(label, [{ store: "scene", key: TRACKER_KEY, before, after: updated }], opts);
-      return afterChange(tracker, updated, settings.value);
+      void record(label, steps, opts);
+      if (updated !== before) return afterChange(tracker, updated, settings.value);
     });
+  };
+  // An effects change on its own. `fn` runs now: what the rules refuse
+  // throws to the caller (the Add effect form asks before ending a focus).
+  const changeEffects: EffectsChange = (label, fn) => {
+    const changed = fn(effects, tracker);
+    if (changed === effects) return;
+    change(label, (t) => t, { effects: () => changed });
   };
 
   const { entries: shown, current } = gm
@@ -193,6 +255,19 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   const seeLights = gm || settings.value.showLights;
   const lightProps = (e: Entry) =>
     seeLights ? { lights: lightsOf.get(e.id), dis: dark && e.id !== GM_ENTRY && !e.monster && !e.dead } : { lights: undefined, dis: false };
+  // Effects (docs/effects.md): players see none hidden, nor any on tokens
+  // hidden from them. On a row when the holder is listed; else the strip.
+  const names = new Map(items.map((i) => [i.id, tokenInfo(i).name]));
+  const seenEffects = gm ? effects : playerEffects(effects, (id) => tokenInfo(byId.get(id)).visible);
+  const listedEffects = shownEffects(seenEffects, tracker);
+  const rowIds = new Set(shown.map((e) => e.id));
+  const effectsOf = new Map<string, Effect[]>();
+  for (const e of listedEffects) if (e.holder !== null && rowIds.has(e.holder)) effectsOf.set(e.holder, [...(effectsOf.get(e.holder) ?? []), e]);
+  const looseEffects = listedEffects.filter((e) => e.holder === null || !rowIds.has(e.holder));
+  const effectChange = gm ? changeEffects : null;
+  const dueChecks = focusChecks(seenEffects, tracker);
+  const calledChecks = seenEffects.effects.filter((e) => checkNow.includes(e.id) && !dueChecks.includes(e));
+  const rowEffects = (e: Entry) => <RowEffects effects={effectsOf.get(e.id) ?? []} tracker={tracker} change={effectChange} />;
   const rowProps = { gm, change, show, focus, openMenu, lightChange: gm ? lights.change : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker) };
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
   const round = tracker.round;
@@ -279,8 +354,12 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
             label="Reset rounds"
             question="Reset the round count to 0? Encounter checks start over too."
             action="Reset"
-            onConfirm={() => change("Reset rounds", resetRounds, { toast: true })}
+            onConfirm={() => change("Reset rounds", resetRounds, { toast: true, effects: resetEffectRounds })}
           />
+          {/* A free-standing effect (a row's own: its menu). */}
+          <button type="button" className="py-1.5 text-xs text-obr-text-secondary underline hover:text-obr-text" onClick={() => setAdding([])}>
+            Add effect
+          </button>
           {/* After a fight: clear the monsters out (kept until then, so a fight can resume). */}
           {!combat && tracker.entries.some((e) => e.monster) && (
             <Confirm
@@ -376,8 +455,30 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
           headerSlot,
         )}
 
+      {/* Under the crawl card: the turn's reminders, then effects not on a row. */}
+      {headerSlot &&
+        createPortal(
+          <Reminders
+            checks={[...dueChecks, ...calledChecks]}
+            ending={endingNow(seenEffects, tracker)}
+            tracker={tracker}
+            names={names}
+            change={effectChange}
+            extra={calledChecks.map((e) => e.id)}
+            dismiss={(id) => setCheckNow((c) => c.filter((x) => x !== id))}
+          />,
+          headerSlot,
+        )}
+      {headerSlot && createPortal(<EffectStrip effects={looseEffects} tracker={tracker} names={names} change={effectChange} />, headerSlot)}
+
       {/* Only the list scrolls: the controls above stay in view. */}
       <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pt-px">
+        {/* The Add effect form scrolls with the list (the panel is short). */}
+        {gm && adding && (
+          <div className="pb-2">
+            <AddEffect key={adding.join()} holders={adding} names={names} tracker={tracker} effects={effects} change={changeEffects} close={() => setAdding(null)} />
+          </div>
+        )}
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -405,6 +506,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
               {top.map((entry) => (
                 <Row
                   key={entry.id}
+                  effects={rowEffects(entry)}
                   {...lightProps(entry)}
                   entry={entry}
                   token={tokenFor(entry)}
@@ -438,7 +540,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
                       {showMonsters && (
                         <ol aria-label="Monsters" className="flex flex-col">
                           {monsters.map((m) => (
-                            <Row key={m.id} {...lightProps(m)} entry={m} token={tokenFor(m)} current={m.id === current} selected={selection.ids.includes(m.id)} small {...rowProps} />
+                            <Row key={m.id} effects={rowEffects(m)} {...lightProps(m)} entry={m} token={tokenFor(m)} current={m.id === current} selected={selection.ids.includes(m.id)} small {...rowProps} />
                           ))}
                         </ol>
                       )}
@@ -474,6 +576,9 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
           lights={lights.loaded ? lights : null}
           show={show}
           clear={() => setPicked(NO_SELECTION)}
+          effects={effects}
+          addEffect={(ids) => setAdding(ids)}
+          checkFocus={(id) => setCheckNow((c) => (c.includes(id) ? c : [...c, id]))}
         />
       )}
     </div>

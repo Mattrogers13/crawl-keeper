@@ -5,7 +5,8 @@
 // GM actions only; players never record.
 import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 
-import { HISTORY_KEY, LIGHTS_KEY, SCENE_ID_KEY, SETTINGS_KEY, TRACKER_KEY } from "./constants";
+import { EFFECTS_KEY, HISTORY_KEY, LIGHTS_KEY, SCENE_ID_KEY, SETTINGS_KEY, TRACKER_KEY } from "./constants";
+import { parseEffects, restoreEffects } from "./effects";
 import { EMPTY, afterUndo, afterRedo, parseHistory, pushStep, trim, type Change, type History, type Step } from "./history";
 import { parseLights, restoreLights } from "./lights";
 import { afterChange, syncTurnFromScene } from "./marker";
@@ -96,6 +97,10 @@ const apply = async (step: Step, side: "before" | "after"): Promise<"ok" | "othe
   for (const c of step.changes)
     if (c.store === "room" && c.key === LIGHTS_KEY)
       updates.room[LIGHTS_KEY] = restoreLights(parseLights(room[LIGHTS_KEY]), parseLights(c[other]), parseLights(c[side]));
+    else if (c.store === "scene" && c.key === EFFECTS_KEY && scene)
+      // Effects drop by themselves (a deleted token's): only the effects
+      // this step changed go back.
+      updates.scene[EFFECTS_KEY] = restoreEffects(parseEffects(scene[EFFECTS_KEY]), parseEffects(c[other]), parseEffects(c[side]));
   await write("room", updates.room);
   await write("scene", updates.scene);
   // Put the map in line with what's restored: the ring, the skulls, and the

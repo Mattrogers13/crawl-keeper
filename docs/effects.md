@@ -30,10 +30,11 @@ Focus, ADV, DIS, Blinded, Paralyzed, Invisible, Stuck, Unconscious. Picked by ho
 
 ## Timing, derived on read
 
-Nothing is written when ▶ or ◀ moves the turn. A rounds effect stores where it started (`{ round, at }`: the round and the counts-on row) and its length; how many rounds are left is worked out from the tracker's round and current turn, like `isDark` and lights' `endsAt`. So ◀ brings an effect back, undo needs nothing extra, and the tracker doc is untouched.
+Nothing is written when ▶ or ◀ moves the turn. A rounds effect stores where it ends (`end: { round, at }`: the start of the counts-on row's turn in that round, or the round's top) and its length (built 2026-11-05: storing the end, not the start, makes Reset rounds and editing rounds left one assignment); how many rounds are left is worked out from the tracker's round and current turn, like `isDark` and lights' `endsAt`. So ◀ brings an effect back, undo needs nothing extra, and the tracker doc is untouched.
 
 - An effect added during round R on row X's turn, for N rounds, ends at the start of X's turn in round R + N.
 - Added between rounds (round 0, or after a phase switch): it starts with the next round's top and ends at the top of that round + N.
+- Counted on a row whose turn is still to come this round (chosen by hand): that turn is the first count, so it ends on that row's turn in R + N − 1.
 - Counting row not taking turns: a monster while crawling counts on the GM / Monsters turn; a dead row's turn passes to the next living row (the tracker's `turnFor`); a row no longer in initiative counts at the round's top.
 - Dragging rows can move an effect's end by a turn within a round. Accepted: the book times it no finer.
 - **Reset rounds** moves every rounds effect's start back with the count, so each keeps the rounds it had left.
@@ -68,8 +69,8 @@ Nothing is written when ▶ or ◀ moves the turn. A rounds effect stores where 
 - Scene metadata, its own key `${ID}/effects` (per map, like the tracker; the party's effects stay behind when the GM changes maps). Only the GM writes it. Parsed on every read.
 - Removing a token drops its effects (automatic, not an undo step). Undo restores only the effects a step changed, like lights.
 - Some GM actions write the tracker and the effects together (Mark dead ends focus; Time passes writes lights and effects). One undo step, recorded after both writes land; if one fails it reverts and says so.
-- **Cap:** 24 effects per map, about 150 bytes each worst case (3.6 kB). Measure before building.
-- **The scene budget is the risk.** The tracker's worst case is about 12.7 kB; with effects about 16.3 kB. The scene limit isn't documented; 12 kB is verified. **First step:** a Dev-only Settings button writes a 20 kB test key to the open scene, reads it back and deletes it. If scenes share a 16 kB cap, lower the tracker's note cap from 200 to 80 characters (as the lights did) before adding effects.
+- **Cap:** 24 effects per map. Measured worst case (`src/effects.test.ts`): about 270 bytes each, 6.5 kB in all (8-character effect ids, 36-character item ids).
+- **The scene budget:** the tracker's worst case is about 12.7 kB; with effects about 19 kB. Tested 2026-11-05 (Dev scene size test): a scene accepted 65 kB with no cap reached, so effects fit and tracker notes stay at 200 characters.
 
 ## Saving and backups
 
@@ -96,8 +97,8 @@ Room and scene data live on Owlbear's servers with the room, not in the browser.
 
 ## Build order (v0.4, after v0.3 ships)
 
-1. Scene limit test on Dev (above); note caps if needed.
-2. Pure rules `src/effects.ts` + tests (parse, add, remove, derived rounds left, Reset rounds, Time passes, focus and ends-with).
-3. Panel: chips, strip, reminders, Add effect form, row menu; players' view.
+1. Scene limit test on Dev (above). Done 2026-11-05: no cap up to 65 kB, no cap changes.
+2. Pure rules `src/effects.ts` + tests (parse, add, remove, derived rounds left, Reset rounds, Time passes, focus and ends-with). Built 2026-11-05.
+3. Panel: chips, strip, reminders, Add effect form, row menu; players' view. Built 2026-11-05 (`src/components/Effects.tsx`): chips sit on a line under the row's name (three, then "+N"); "Until removed" is labeled **Ongoing** in the form; free-standing effects are added from an **Add effect** link under the turn bar; Nat 1's critical-failure reminder is an Owlbear notice on the GM's screen; the form scrolls with the list. Mark dead, Reset rounds and the tracker write the effects in the same scene write; Time passes writes lights then effects, one undo step, lights put back if the effects fail. TESTING.md rows 77–84.
 4. Map icons (art: 8 condition icons + "+", WebP), notices, right-click entry.
 5. Room test (GM + player), then the death timer can reuse it later (rounds on the holder's turn, a d20 prompt).

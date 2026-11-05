@@ -13,10 +13,10 @@ kind: web-app         # web-app | obsidian-plugin | script-utility | config-back
 
 **Latest release:** v0.3.0 (2026-11-02): the Torchlight merge. Squash `ee30f22` on `main` (#36), tag `v0.3.0`, live manifest reads 0.3.0. Full TESTING.md pass 2026-11-01/02, every row passed (51–55 retired).
 
-**Resume here:** v0.4 step 1 built: PR #39 (`feat/scene-size-test`), on Dev as `382d2fb`. Waiting on Matt to run Settings → About → Scene size test (Dev) in a room and report the line it prints. Then: record the cap in `docs/obr/gotchas.md` (and whether `undefined` deletes a key), decide on the 80-character note cap if scenes cap at 16 kB, merge #39 on Matt's word, start step 2 (`src/effects.ts`). Effects add about 3.6 kB per scene on top of the tracker's ~12.7 kB worst case.
+**Resume here:** v0.4 step 3 (the effects panel) built 2026-11-05 on `feat/effects-panel`, PR open, on Dev. Waiting on Matt's room test: TESTING.md rows 77–84 (GM + player), one section at a time. Then merge on his word, and step 4: map icons (art: 8 condition icons + "+", WebP; design canvas in memory), ended notices from the GM's background, right-click Add effect, Settings → Effect icons on the map.
 
 **In flight right now:**
-- PR #39, the Dev-only scene size test (removed or kept Dev-only after the result; it never shows on live).
+- The effects panel PR (`feat/effects-panel`), on Dev. Steps 1 (#39) and 2 (#40) are merged.
 
 **Working agreements (cold start):**
 - Merge only on Matt's explicit "merge". Before asking him to test: confirm the Dev bundle has the commit and remind him to reload the room.
