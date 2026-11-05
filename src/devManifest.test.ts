@@ -15,7 +15,19 @@ describe("manifestForBranch", () => {
     expect(dev.name).toBe(`${manifest.name} (Dev)`);
     expect(dev.action.title).toBe(`${manifest.action.title} (Dev)`);
     expect(dev.name.length).toBeLessThanOrEqual(45);
-    expect(dev.version).toBe(manifest.version);
+  });
+
+  it("puts the commit in the version, so two Dev installs differ on their cards", () => {
+    expect(manifestForBranch(manifest, "dev", "382d2fb9abc").version).toBe(`${manifest.version}-dev.382d2fb`);
+    expect(manifestForBranch(manifest, "dev").version).toBe(`${manifest.version}-dev`);
+    expect(manifestForBranch(manifest, "feat/scene-size-test", "abc1234ff").version).toBe(`${manifest.version}-feat-scene-size-test.abc1234`);
+  });
+
+  it("names any branch other than dev, cut to Owlbear's name limit", () => {
+    expect(manifestForBranch(manifest, "torchlight-merge").name).toBe(`${manifest.name} (Dev: torchlight-merge)`);
+    const long = manifestForBranch(manifest, "feat/a-really-long-branch-name-for-testing").name;
+    expect(long.length).toBe(45);
+    expect(long).toMatch(/^Crawl Keeper \(Dev: feat\/a-really-.*…\)$/);
   });
 
   it("gives Dev its own toolbar icon, and the file exists", () => {

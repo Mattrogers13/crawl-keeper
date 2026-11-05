@@ -20,6 +20,7 @@ Build logs aren't reachable from the CLI (the GitHub check has no log): download
 
 - **Live:** `https://<name>.<subdomain>.workers.dev/manifest.json`
 - **Dev:** a long-lived `dev` branch → `https://dev-<name>.<subdomain>.workers.dev/manifest.json`. Its manifest is renamed "(Dev)" automatically (`src/devManifest.ts`), so the two can't be confused.
+  Its version carries the commit (`0.3.0-dev.382d2fb`, shown on Owlbear's extension card), and a build of any other branch is named for it ("Crawl Keeper (Dev: feat/x)"), so a stale second Dev install stands out.
 
 To review open PRs in Owlbear, merge the branch into `dev` and push (no force-push: auto mode blocks it). After squash-merges `dev`'s history differs from main, so the merge can conflict; if `dev`'s files match main's, take the branch's files:
 

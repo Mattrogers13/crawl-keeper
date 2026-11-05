@@ -1,13 +1,16 @@
 // Build-time only (used by vite.config.ts). Cloudflare Workers Builds sets
 // WORKERS_CI_BRANCH; any branch other than main is a dev build, and gets a
 // different name and toolbar icon (action-dev.svg next to the live one) so it
-// can't be mistaken for the live extension in Owlbear.
+// can't be mistaken for the live extension in Owlbear. Its version carries the
+// commit (0.3.0-dev.382d2fb) and a branch other than dev is named, so two Dev
+// installs can be told apart on Owlbear's extension cards.
 
 export const PRODUCTION_BRANCH = "main";
 export const DEV_SUFFIX = " (Dev)";
 
 interface Manifest {
   name: string;
+  version: string;
   action: { title: string; icon: string };
 }
 
@@ -20,11 +23,28 @@ const isDevBranch = (branch: string | undefined) => !!branch && branch !== PRODU
 export const buildLabel = (branch: string | undefined, sha: string | undefined) =>
   isDevBranch(branch) ? ["DEV", branch, sha?.slice(0, 7)].filter(Boolean).join(" · ") : "";
 
-export const manifestForBranch = <M extends Manifest>(manifest: M, branch: string | undefined): M =>
+// Owlbear's name limit.
+const NAME_MAX = 45;
+
+// "Crawl Keeper (Dev)" for dev; "Crawl Keeper (Dev: feat/x)" for any other
+// branch, the branch cut to fit.
+const devName = (name: string, branch: string) => {
+  if (branch === "dev") return name + DEV_SUFFIX;
+  const room = NAME_MAX - name.length - " (Dev: )".length;
+  return `${name} (Dev: ${branch.length > room ? branch.slice(0, room - 1) + "…" : branch})`;
+};
+
+// Semver pre-release: "0.3.0" → "0.3.0-dev.382d2fb" (the branch, letters,
+// digits and hyphens only, then the short commit if known).
+const devVersion = (version: string, branch: string, sha: string | undefined) =>
+  [`${version}-${branch.replace(/[^0-9A-Za-z-]+/g, "-")}`, sha?.slice(0, 7)].filter(Boolean).join(".");
+
+export const manifestForBranch = <M extends Manifest>(manifest: M, branch: string | undefined, sha?: string): M =>
   !isDevBranch(branch)
     ? manifest
     : {
         ...manifest,
-        name: manifest.name + DEV_SUFFIX,
+        name: devName(manifest.name, branch!),
+        version: devVersion(manifest.version, branch!, sha),
         action: { ...manifest.action, title: manifest.action.title + DEV_SUFFIX, icon: devIcon(manifest.action.icon) },
       };
