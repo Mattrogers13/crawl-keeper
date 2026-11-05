@@ -41,6 +41,9 @@ git push origin dev
 - Bump `version` in both `package.json` and `public/manifest.json` (semver).
 - Branch + PR per change; squash-merge after CI and Workers Builds both pass.
 - Features that need in-Owlbear testing stay open until a manual pass in a real room (GM + a player in a private window).
+- Release PR: from the release branch (or a long-lived feature branch) to `main`: version in `package.json`, `public/manifest.json` and the lockfile's own two `version` fields; CHANGELOG "Unreleased" heading becomes `## vX.Y.Z (YYYY-MM-DD)`; TESTING.md rows for the new features, stale rows reworded. A long-lived branch squashes into one commit; keep the branch for the per-PR history.
+- Before "merge": the whole TESTING.md on Dev (GM + player), every row's last column dated, plus a summary line under the checklist heading.
+- After merge: `git tag -a vX.Y.Z -m vX.Y.Z <sha> && git push origin vX.Y.Z` (tags only since v0.2.0, no GitHub release); live check: `curl -s https://crawl-keeper.editbag.workers.dev/manifest.json | grep version`.
 
 ## Publishing to the Owlbear extension store
 
