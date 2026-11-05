@@ -24,7 +24,7 @@ Learned building Torchlight (github.com/Mattrogers13/obr-torchlight), 2026-10. E
 - `setMetadata` is a shallow merge of top-level keys: `{ [key]: value }` replaces that key's whole value. Two clients writing the same key = last write wins. Use one key per writer when several clients write (Torchlight: one key per player). **Torchlight**
 - Your own writes come back to you as change events (echoes). **Torchlight**
 - Never write before the first read lands: a default written back wipes the room's real value. **Torchlight** (it happened)
-- Deleting a key: believed to be `setMetadata({ [key]: undefined })`. **unverified**
+- Deleting a key: `setMetadata({ [key]: undefined })` removes it (scene metadata; the read-back has no key). **verified** (Crawl Keeper scene size test, 2026-11-05)
 - Change events are believed to arrive in the order the room applied them. Nothing observed contradicted it. **unverified**
 - Multi-writer sync is hard. Read `room-sync.md` before having more than one client write the same data.
 
@@ -67,7 +67,7 @@ Learned building Torchlight (github.com/Mattrogers13/obr-torchlight), 2026-10. E
 - TypeScript stays on 5.x: TS 7 (native rewrite) was too new to trust with Vite tooling at setup time. Revisit. **decision**
 - `navigator.clipboard.writeText` inside Owlbear's iframe: **unverified** (may be blocked by the iframe's permissions). Crawl Keeper's Copy button falls back to selecting the text.
 - **Attachments don't take their parent's visibility.** A ring attached to a hidden token showed to players. Create attachments with `.visible(parent.visible)` and re-match on item changes (GM only). **verified** (Crawl Keeper, 2026-10-16). WebP attachments draw fine. **verified**
-- Scene metadata size limit: **not documented** (checked 2026-10-16 via docs mirrors on GitHub; docs.owlbear.rodeo blocks bots). The docs give 16 kB for room metadata ("in total") and for one broadcast message; the Scene page states none. If scenes share a 16 kB total like rooms, other extensions' scene data counts against it too. Crawl Keeper's worst case is about 12.7 kB; about 12 kB is verified in a real room.
+- Scene metadata size limit: **not documented** (checked 2026-10-16 via docs mirrors on GitHub; docs.owlbear.rodeo blocks bots). The docs give 16 kB for room metadata ("in total") and for one broadcast message; the Scene page states none. Scenes don't share the room's 16 kB cap: one scene accepted a 64 kB key (65 kB total) and read it back intact; no cap was reached, so the real limit is above 65 kB. **verified** (Crawl Keeper's Dev-only Settings → Scene size test, `src/sceneSizeTest.ts`, 2026-11-05). Every client still downloads the whole scene doc, so keep it small anyway.
 - SDK calls can reject with a plain object from the host, not an Error: `String(err)` gives "[object Object]". Read `.message` (see `errorMessage` in src/utils.ts). **verified**
 - Overlapping item syncs (quick clicks) that each act on the same item list race: both delete the same item, and the second delete fails. Run such syncs one at a time, each reading items fresh. **suspected cause of a real-room error, 2026-10-16**
 - **Items you act on by tag.** A metadata tag (e.g. our marker key) proves nothing: any client can tag any item. Before the GM's client deletes or re-shows an item because of a tag, check the item is really yours too (type, layer, image URL under your origin). Crawl Keeper's `isOurMarker`, 2026-10-17. **verified (unit tests)**

@@ -69,7 +69,7 @@ Nothing is written when ▶ or ◀ moves the turn. A rounds effect stores where 
 - Removing a token drops its effects (automatic, not an undo step). Undo restores only the effects a step changed, like lights.
 - Some GM actions write the tracker and the effects together (Mark dead ends focus; Time passes writes lights and effects). One undo step, recorded after both writes land; if one fails it reverts and says so.
 - **Cap:** 24 effects per map, about 150 bytes each worst case (3.6 kB). Measure before building.
-- **The scene budget is the risk.** The tracker's worst case is about 12.7 kB; with effects about 16.3 kB. The scene limit isn't documented; 12 kB is verified. **First step:** a Dev-only Settings button writes a 20 kB test key to the open scene, reads it back and deletes it. If scenes share a 16 kB cap, lower the tracker's note cap from 200 to 80 characters (as the lights did) before adding effects.
+- **The scene budget:** the tracker's worst case is about 12.7 kB; with effects about 16.3 kB. Tested 2026-11-05 (Dev scene size test): a scene accepted 65 kB with no cap reached, so effects fit and tracker notes stay at 200 characters.
 
 ## Saving and backups
 
@@ -96,7 +96,7 @@ Room and scene data live on Owlbear's servers with the room, not in the browser.
 
 ## Build order (v0.4, after v0.3 ships)
 
-1. Scene limit test on Dev (above); note caps if needed.
+1. Scene limit test on Dev (above). Done 2026-11-05: no cap up to 65 kB, no cap changes.
 2. Pure rules `src/effects.ts` + tests (parse, add, remove, derived rounds left, Reset rounds, Time passes, focus and ends-with).
 3. Panel: chips, strip, reminders, Add effect form, row menu; players' view.
 4. Map icons (art: 8 condition icons + "+", WebP), notices, right-click entry.

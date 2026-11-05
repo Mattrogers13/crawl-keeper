@@ -12,7 +12,7 @@ const devManifest = (): Plugin => ({
   closeBundle() {
     const path = resolve("dist/manifest.json");
     const manifest = JSON.parse(readFileSync(path, "utf8"));
-    const out = manifestForBranch(manifest, process.env.WORKERS_CI_BRANCH);
+    const out = manifestForBranch(manifest, process.env.WORKERS_CI_BRANCH, process.env.WORKERS_CI_COMMIT_SHA);
     if (out !== manifest) writeFileSync(path, JSON.stringify(out, null, 2) + "\n");
   },
 });

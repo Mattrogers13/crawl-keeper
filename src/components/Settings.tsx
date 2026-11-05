@@ -7,6 +7,7 @@ import Segmented from "./Segmented";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import { useRoomValue } from "../hooks/useRoomValue";
 import { syncTurnFromScene } from "../marker";
+import { describeResult, runSceneSizeTest } from "../sceneSizeTest";
 import { record } from "../undo";
 import { errorMessage } from "../utils";
 import { parseSettings, type Settings as SettingsDoc } from "../settings";
@@ -210,6 +211,7 @@ const Settings = () => {
 
       <Group title="About">
         <DataSize />
+        {(import.meta.env.VITE_BUILD_LABEL || import.meta.env.DEV) && <SceneSizeTest />}
         <InstallLink />
       </Group>
     </div>
@@ -253,6 +255,38 @@ const DataSize = () => {
           : sizes
             ? `This map: ${sizes.tracker} tracker, ${sizes.scene} all extensions (limit not documented). Room: ${sizes.room} of 16 kB, all extensions.`
             : "Reading…"}
+      </span>
+    </div>
+  );
+};
+
+// Dev builds only (v0.4 step 1, docs/effects.md): how much scene metadata
+// Owlbear accepts. Writes and deletes a test key on the open map.
+const SceneSizeTest = () => {
+  const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
+  const run = () => {
+    setBusy(true);
+    setStatus("Testing…");
+    runSceneSizeTest()
+      .then((r) => {
+        console.info("Scene size test", r);
+        setStatus(describeResult(r));
+      })
+      .catch((err) => setStatus(`Couldn't run: ${errorMessage(err)}`))
+      .finally(() => setBusy(false));
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5 px-4 py-3">
+      <div className="flex items-center gap-3">
+        <span className="flex-1 font-medium">Scene size test (Dev)</span>
+        <button type="button" disabled={busy} className="h-8 rounded-full bg-obr-paper px-4 text-xs font-medium hover:bg-obr-text/10 disabled:opacity-50" onClick={run}>
+          Run
+        </button>
+      </div>
+      <span className="text-xs text-obr-text-secondary" role="status">
+        {status || "Writes 15, 20, 32 and 64 kB to this map, reads each back, stops at the first rejected, then deletes it."}
       </span>
     </div>
   );
