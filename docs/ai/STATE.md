@@ -13,7 +13,7 @@ kind: web-app         # web-app | obsidian-plugin | script-utility | config-back
 
 **Latest release:** v0.3.0 (2026-11-02): the Torchlight merge. Squash `ee30f22` on `main` (#36), tag `v0.3.0`, live manifest reads 0.3.0. Full TESTING.md pass 2026-11-01/02, every row passed (51–55 retired).
 
-**Resume here:** v0.4 step 1 built: PR #39 (`feat/scene-size-test`), on Dev as `382d2fb`. Waiting on Matt to run Settings → About → Scene size test (Dev) in a room and report the line it prints. Then: record the cap in `docs/obr/gotchas.md` (and whether `undefined` deletes a key), decide on the 80-character note cap if scenes cap at 16 kB, merge #39 on Matt's word, start step 2 (`src/effects.ts`). Effects add about 3.6 kB per scene on top of the tracker's ~12.7 kB worst case.
+**Resume here:** v0.4 step 1 done 2026-11-05: Matt's Dev run accepted 65 kB on one scene, no cap reached, and `undefined` deletes a key (recorded in gotchas, effects, design). No cap changes needed. PR #39 (the test button plus Dev manifests showing `0.3.0-dev.<sha>`) waits on Matt's "merge". Then step 2: pure rules `src/effects.ts` + tests (`docs/effects.md`).
 
 **In flight right now:**
 - PR #39, the Dev-only scene size test (removed or kept Dev-only after the result; it never shows on live).
