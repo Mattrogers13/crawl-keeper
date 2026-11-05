@@ -7,6 +7,7 @@ describe("manifest.json", () => {
   it("fits Owlbear Rodeo's field limits", () => {
     expect(manifest.name.length).toBeLessThanOrEqual(45);
     expect(manifest.description.length).toBeLessThanOrEqual(128);
+    expect(manifest.version.length).toBeLessThanOrEqual(16);
   });
 
   it("has the fields Owlbear Rodeo needs to load the extension", () => {
