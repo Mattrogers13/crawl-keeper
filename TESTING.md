@@ -150,3 +150,16 @@ Torchlight uninstalled. Dynamic Fog on for rows 72–74. Rows 66–76 sum up the
 | 74 | Player: their party token, lights out | A 3 ft dim light shows their token through the fog | 2026-11-02 |
 | 75 | GM: Settings → Players light their own on. Player: right-click their token → Crawl Keeper → Light torch; the flame in their header → Your light → Light lantern (asks first), Put out; GM leaves the room, player tries again | Each works and the GM sees it; the swap asks; without the GM: "The GM isn't in the room". GM lights an NPC torch after the player's, then Undo: the player's torch stays | 2026-11-02 |
 | 76 | Player: Settings → Show lights to players off, then on; a light burns out (set one to `0:05`) | Off: only their Your light card; on: party light, every light, badges, DIS. Everyone gets the burn-out notice; the strip says "<light> burned out" | 2026-11-02 |
+
+### Effects (v0.4)
+
+| # | Steps | Expect | Last pass |
+|---|---|---|---|
+| 77 | GM: ▶ to a player's turn; right-click their row → Add effect… → "Bless", Rounds 2, Add; ▶ through two rounds | A "Bless 2" chip under the name; 1 (amber) after their next turn starts; "ended" and "Bless on … ends now" under the crawl card on the turn it ends; gone on the next ▶; ◀ brings it back | – |
+| 78 | GM: Add effect (the link under the turn bar) → "Cloudkill", Roll 1d6; a token not in initiative → Add effect from its row before removing it, or keep one on a removed row | Both in the EFFECTS strip under the crawl card; the token's with its name | – |
+| 79 | GM: select two rows → right-click → Add effect to 2… → DIS, Ongoing | A red DIS chip on each; the name filled itself | – |
+| 80 | GM: on a caster's row: Add effect… → "Hold Person", Focus. On a monster: "Paralyzed", Ends with Hold Person. Then Add effect… → "Web", Focus on the caster | ◎ Hold Person chip; asks "End Hold Person, focus on Web?"; End and focus: Hold Person and Paralyzed go | – |
+| 81 | GM: ▶ to the caster's turn with a focus: Lost; again with Nat 1; then a focusing monster while crawling; then row menu → Focus check now off their turn → Kept | The reminder on their turn (a monster's on the GM turn); Lost ends it and what ends with it; Nat 1 adds the critical-failure notice (p. 45); Kept dismisses | – |
+| 82 | GM: Mark dead a focusing caster; Undo. Reset rounds with a rounds effect running. Light Tracker → Time passes 10m | Dead ends the focus (and Paralyzed); one Undo brings all back. Reset: the chip keeps its rounds left. Time passes: rounds effects go, focus and Ongoing stay; one Undo brings them back | – |
+| 83 | GM: click a chip → Rounds left 5 → Set; click again → Remove. Delete a token holding effects from the map | The chip reads 5, then goes; the token's effects go (and what ends with its focus) | – |
+| 84 | Player (private window): GM adds a hidden effect, one on a hidden token, one free-standing, and a focus on the player's token | The player sees the chips, strip and their focus check, no buttons, nothing hidden | – |

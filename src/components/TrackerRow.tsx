@@ -63,6 +63,8 @@ const Row = (props: {
   gmDie: GmDie | null;
   // The GM row's monsters, listed under it.
   children?: ReactNode;
+  // The token's effects, under its name.
+  effects?: ReactNode;
   // A monster under the GM row: indented, a smaller portrait.
   small?: boolean;
 }) => {
@@ -168,6 +170,7 @@ const Row = (props: {
               {entry.dead && <span className="sr-only"> (dead)</span>}
             </span>
           </span>
+          {token && props.effects}
           {gm ? (
             // An empty note hangs under the name, out of the layout, so the
             // name lines up with the portrait and badges (mockup ck-04).

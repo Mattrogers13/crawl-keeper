@@ -80,13 +80,16 @@ export const useMetadataValue = <T>(store: MetadataStore, key: string, parse: (r
     });
   }, [store, take]);
 
+  // `also`: other keys of the same store saved in the same call, so two
+  // values change together or not at all (the tracker and the effects).
+  // Their own hooks see them when the change comes back.
   const write = useCallback(
-    async (value: T): Promise<boolean> => {
+    async (value: T, also?: Metadata): Promise<boolean> => {
       if (!loaded.current) return false;
       lastRaw.current = JSON.stringify(value) ?? "undefined";
       setState({ key, loaded: true, value });
       try {
-        await store.setMetadata({ [key]: value });
+        await store.setMetadata({ ...also, [key]: value });
         return true;
       } catch (err) {
         notify(`Couldn't save: ${errorMessage(err)}`, "ERROR");

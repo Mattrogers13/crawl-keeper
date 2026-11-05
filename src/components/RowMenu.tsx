@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from
 import type { Change } from "./Tracker";
 import type { LightChange } from "../hooks/useLights";
 import { LIGHT_KINDS, addLight, formatRemaining, litOn, newLightId, outOn, relight, renew, swapLight, type LightKind, type Lights } from "../lights";
+import { endFocusOf, focusOf, type Effects } from "../effects";
 import { GM_ENTRY, remove, setDead, setMarker, setMonster, type Entry } from "../tracker";
 
 // What a row can be given (a campfire goes on any token from the map's
@@ -24,6 +25,11 @@ const RowMenu = (props: {
   lights: { lights: Lights; change: LightChange } | null;
   show: (id: string) => void;
   clear: () => void;
+  // This map's effects; open the Add effect form for these rows; call a
+  // focus check now (damage or distraction, p. 50).
+  effects: Effects;
+  addEffect: (ids: string[]) => void;
+  checkFocus: (effectId: string) => void;
 }) => {
   const { entries, close, change } = props;
   const ids = entries.map((e) => e.id);
@@ -51,11 +57,14 @@ const RowMenu = (props: {
   const items: [string, boolean, () => void][] = [
     ["Mark as monster", some((e) => !e.monster), () => change("Mark as monster", (t) => setMonster(t, ids, true))],
     ["Mark as player or ally", some((e) => e.monster), () => change("Mark as player or ally", (t) => setMonster(t, ids, false))],
-    ["Mark dead", some((e) => !e.dead), () => change("Mark dead", (t) => setDead(t, ids, true))],
+    // Death ends a focus, and what ends with it, in the same step.
+    ["Mark dead", some((e) => !e.dead), () => change("Mark dead", (t) => setDead(t, ids, true), { effects: (s) => endFocusOf(s, ids) })],
     ["Mark alive", some((e) => e.dead), () => change("Mark alive", (t) => setDead(t, ids, false))],
     ["Turn marker on", some((e) => !e.marker), () => change("Turn marker on", (t) => setMarker(t, ids, true))],
     ["Turn marker off", some((e) => e.marker), () => change("Turn marker off", (t) => setMarker(t, ids, false))],
     ["Show on map", ids.length === 1, () => props.show(ids[0])],
+    [ids.length === 1 ? "Add effect…" : `Add effect to ${ids.length}…`, true, () => props.addEffect(ids.filter((id) => id !== GM_ENTRY))],
+    ...focusCheck(),
     ...giveLight(),
     [
       ids.length === 1 ? "Remove from initiative" : `Remove ${ids.length} from initiative`,
@@ -66,6 +75,11 @@ const RowMenu = (props: {
       },
     ],
   ];
+  // One focusing token: its check now (taking damage or being distracted).
+  function focusCheck(): [string, boolean, () => void][] {
+    const f = ids.length === 1 ? focusOf(props.effects, ids[0]) : null;
+    return f ? [["Focus check now", true, () => props.checkFocus(f.id)]] : [];
+  }
   // One token: Give torch / lantern / Light spell. A token holds one lit
   // light (p. 84), so with one already lit the item says the swap: "Put out
   // the torch, light the lantern". A lantern the token has out offers its

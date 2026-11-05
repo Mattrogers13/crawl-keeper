@@ -211,6 +211,7 @@ describe("Tracker (GM)", () => {
       "Mark dead",
       "Turn marker off",
       "Show on map",
+      "Add effect…",
       "Give torch",
       "Give lantern",
       "Give Light spell",

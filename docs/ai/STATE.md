@@ -13,10 +13,10 @@ kind: web-app         # web-app | obsidian-plugin | script-utility | config-back
 
 **Latest release:** v0.3.0 (2026-11-02): the Torchlight merge. Squash `ee30f22` on `main` (#36), tag `v0.3.0`, live manifest reads 0.3.0. Full TESTING.md pass 2026-11-01/02, every row passed (51–55 retired).
 
-**Resume here:** v0.4 step 2 built 2026-11-05: `src/effects.ts` + 25 tests on `feat/effects-rules` (PR open, waits on Matt's "merge"; pure rules, nothing in the UI, no room test). Step 1's result: scenes take 65 kB+, no cap changes. Next: step 3, the panel (chips, strip, reminders, Add effect form, row menu, players' view), wiring `${ID}/effects` into undo (`restoreEffects`), Reset rounds, Time passes and Mark dead. That step needs a Dev room test.
+**Resume here:** v0.4 step 3 (the effects panel) built 2026-11-05 on `feat/effects-panel`, PR open, on Dev. Waiting on Matt's room test: TESTING.md rows 77–84 (GM + player), one section at a time. Then merge on his word, and step 4: map icons (art: 8 condition icons + "+", WebP; design canvas in memory), ended notices from the GM's background, right-click Add effect, Settings → Effect icons on the map.
 
 **In flight right now:**
-- The effects rules PR (`feat/effects-rules`). Stores each rounds effect's end, not its start (noted in `docs/effects.md`). Worst case measured at 6.5 kB per map, not 3.6.
+- The effects panel PR (`feat/effects-panel`), on Dev. Steps 1 (#39) and 2 (#40) are merged.
 
 **Working agreements (cold start):**
 - Merge only on Matt's explicit "merge". Before asking him to test: confirm the Dev bundle has the commit and remind him to reload the room.
