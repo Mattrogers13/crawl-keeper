@@ -2,12 +2,14 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import OBR from "@owlbear-rodeo/sdk";
 
 import ClockRules from "./ClockRules";
+import Confirm from "./Confirm";
 import { ScrollIcon } from "./icons";
 import Loading from "./Loading";
 import Segmented from "./Segmented";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import { useRoomValue } from "../hooks/useRoomValue";
 import { syncTurnFromScene } from "../marker";
+import { resetAll } from "../resetAll";
 import { describeResult, runSceneSizeTest } from "../sceneSizeTest";
 import { record } from "../undo";
 import { errorMessage } from "../utils";
@@ -104,6 +106,17 @@ const Settings = (props: { openLog?: () => void }) => {
           </span>
         </button>
       )}
+
+      {/* A fresh session: one undo step, asked first. */}
+      <Group title="Session">
+        <div className="flex flex-col gap-1 px-4 py-3">
+          <ResetAll />
+          <span className="text-xs text-obr-text-secondary">
+            Removes every token from this map's tracker (the GM row stays), all its effects and every light in the room; resets rounds, phase and the
+            clock. The danger level stays. Undo brings it all back.
+          </span>
+        </div>
+      </Group>
 
       <Group title="Encounters">
         <div className="flex flex-col gap-2 px-4 py-3">
@@ -243,6 +256,28 @@ const Settings = (props: { openLog?: () => void }) => {
         <InstallLink />
       </Group>
     </div>
+  );
+};
+
+const ResetAll = () => {
+  const [error, setError] = useState("");
+  return (
+    <span className="flex flex-col gap-1">
+      <Confirm
+        label="Reset all…"
+        question="Clear the tracker, effects and lights for a new session?"
+        action="Reset all"
+        onConfirm={() => {
+          setError("");
+          resetAll().catch((err) => setError(`Couldn't reset, so nothing changed: ${errorMessage(err)}`));
+        }}
+      />
+      {error && (
+        <span role="alert" className="text-xs text-red-700 dark:text-red-300">
+          {error}
+        </span>
+      )}
+    </span>
   );
 };
 

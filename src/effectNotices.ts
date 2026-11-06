@@ -28,16 +28,25 @@ export const newlyEnded = (before: Reading, after: Reading, told: ReadonlySet<st
     return !!was && statusOf(was, before.tracker).state === "active";
   });
 
+// Pure: the effects that went away between two readings (removed, a focus
+// lost and what ended with it, Time passes, a token deleted, Reset all),
+// not counting those already ended (told when they ended). Logged only: the
+// GM did it, so no notice.
+export const newlyGone = (before: Reading, after: Reading): Effect[] =>
+  before.effects.effects.filter(
+    (e) => statusOf(e, before.tracker).state === "active" && !after.effects.effects.some((a) => a.id === e.id),
+  );
+
 // What a client says, or "" for nothing. Players don't hear of hidden
 // effects or of effects on tokens hidden from them (or gone); the GM hears
 // everything.
-export const endedMessage = (ended: Effect[], items: Pick<Item, "id" | "name" | "visible">[], gm: boolean) =>
+export const endedMessage = (ended: Effect[], items: Pick<Item, "id" | "name" | "visible">[], gm: boolean, verb = "ended") =>
   ended
     .flatMap((e) => {
       const holder = e.holder === null ? null : items.find((i) => i.id === e.holder);
       if (!gm && (e.hidden || (e.holder !== null && (!holder || !holder.visible)))) return [];
       const on = holder?.name.trim() ? ` on ${holder.name.trim()}` : "";
-      return [`${e.name}${on} ended.`];
+      return [`${e.name}${on} ${verb}.`];
     })
     .join(" ");
 
@@ -63,13 +72,22 @@ export const watchEffectNotices = () => {
     logEvent(text, "effect");
     await OBR.notification.show(text, "INFO");
   };
+  const logGone = async (gone: Effect[]) => {
+    const holders = [...new Set(gone.flatMap((e) => (e.holder === null ? [] : [e.holder])))];
+    // A deleted token is gone too: its name is lost (GM: just the effect).
+    const items = holders.length ? await OBR.scene.items.getItems(holders) : [];
+    const text = endedMessage(gone, items, gm, "removed");
+    if (text) logEvent(text, "effect");
+  };
   const see = (m: Metadata) => {
     const raw = JSON.stringify([m[TRACKER_KEY], m[EFFECTS_KEY]]);
     if (raw === lastRaw) return;
     lastRaw = raw;
     const reading = { tracker: parseTracker(m[TRACKER_KEY]), effects: parseEffects(m[EFFECTS_KEY]) };
     const ended = held ? newlyEnded(held, reading, told) : [];
+    const gone = held ? newlyGone(held, reading) : [];
     held = reading;
+    if (gone.length) logGone(gone).catch((err) => console.warn(`Couldn't log removed effects: ${errorMessage(err)}`));
     if (!ended.length) return;
     for (const e of ended) told.add(endKey(e));
     say(ended).catch((err) => console.warn(`Couldn't tell an effect ended: ${errorMessage(err)}`));
