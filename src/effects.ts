@@ -329,8 +329,21 @@ export const startDying = (state: Effects, t: Tracker, newId: () => string, hold
   if (s.effects.length + 1 > MAX_EFFECTS) throw new RangeError(`Up to ${MAX_EFFECTS} effects on a map; remove one first`);
   const end = endFor(t, holder, t.current === holder ? rounds : rounds + 1);
   const dying: Effect = { id: newId(), name: "Dying", icon: "dying", holder, kind: "rounds", rounds, end, dice: null, endsWith: null, hidden: false };
-  return { ...s, effects: [...s.effects, dying] };
+  // Dying again after being stabilized: Unconscious goes (dying is unconscious too; they don't stack).
+  const rest = s.effects.filter((e) => !(e.icon === "unconscious" && e.holder === holder));
+  return { ...s, effects: [...rest, dying] };
 };
+
+// The GM keeps the death timer to themselves (Settings → What players see):
+// Dying reads as hidden, for the panel, the map and the notices.
+export const hideDeath = (s: Effects, show: boolean): Effects =>
+  show || !s.effects.some((e) => e.icon === "dying" && !e.hidden)
+    ? s
+    : { ...s, effects: s.effects.map((e) => (e.icon === "dying" ? { ...e, hidden: true } : e)) };
+
+// The timer ran out at the start of this turn: whose (null: nobody's).
+export const timerOutOnTurn = (s: Effects, t: Tracker): string | null =>
+  s.effects.find((e) => e.icon === "dying" && e.holder !== null && e.holder === t.current && statusOf(e, t).state === "ended")?.holder ?? null;
 
 export const stopDying = (s: Effects, holder: string): Effects => {
   const d = dyingOf(s, holder);

@@ -6,8 +6,9 @@
 // repeat it while the room stays loaded.
 import OBR, { type Item, type Metadata } from "@owlbear-rodeo/sdk";
 
-import { EFFECTS_KEY, TRACKER_KEY } from "./constants";
-import { parseEffects, statusOf, type Effect, type Effects } from "./effects";
+import { EFFECTS_KEY, SETTINGS_KEY, TRACKER_KEY } from "./constants";
+import { hideDeath, parseEffects, statusOf, type Effect, type Effects } from "./effects";
+import { parseSettings } from "./settings";
 import { parseTracker, type Tracker } from "./tracker";
 import { logEvent } from "./sessionLog";
 import { errorMessage } from "./utils";
@@ -68,8 +69,9 @@ export const watchEffectNotices = () => {
   const told = new Set<string>();
   const say = async (ended: Effect[]) => {
     const holders = [...new Set(ended.flatMap((e) => (e.holder === null ? [] : [e.holder])))];
-    const items = holders.length ? await OBR.scene.items.getItems(holders) : [];
-    const text = endedMessage(ended, items, gm);
+    const [items, room] = await Promise.all([holders.length ? OBR.scene.items.getItems(holders) : [], OBR.room.getMetadata()]);
+    // The GM can keep the death timer from players.
+    const text = endedMessage(hideDeath({ effects: ended }, parseSettings(room[SETTINGS_KEY]).showDeath).effects, items, gm);
     if (!text) return;
     logEvent(text, "effect");
     await OBR.notification.show(text, "INFO");

@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import OBR from "@owlbear-rodeo/sdk";
 
 import App from "./App";
-import { EFFECTS_KEY, TRACKER_KEY } from "../constants";
+import { EFFECTS_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import { DYING_CHANNEL } from "../deathNotices";
 import { parseEffects } from "../effects";
 import { GM_ENTRY, parseTracker } from "../tracker";
@@ -22,6 +22,7 @@ const die = (value: number) =>
 const effects = () => parseEffects(obr.sceneMetadata[EFFECTS_KEY]).effects;
 const tracker = () => parseTracker(obr.sceneMetadata[TRACKER_KEY]);
 const sent = () => vi.mocked(OBR.broadcast.sendMessage).mock.calls.filter((c) => c[0] === DYING_CHANNEL).map((c) => c[1]);
+const destinations = () => vi.mocked(OBR.broadcast.sendMessage).mock.calls.filter((c) => c[0] === DYING_CHANNEL).map((c) => c[2]?.destination);
 const rowName = async (name: string) => (await screen.findAllByText(name)).find((el) => el.closest("li"))!;
 const menu = async (name: string) => {
   fireEvent.contextMenu(await rowName(name));
@@ -116,6 +117,42 @@ describe("the death timer (GM)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Undo: Mark dead" }));
     await waitFor(() => expect(tracker().entries[0].dead).toBe(false));
     expect(effects()).toMatchObject([{ id: "d1" }]);
+  });
+});
+
+describe("the death timer runs out on ▶", () => {
+  it("marks them dead in the same step: skull, Dying gone, everyone told; Undo brings them back", async () => {
+    // Round 3, Gob's turn (the last); Aria's timer ends at the start of her turn in round 4.
+    setup([dying], "g", 3);
+    fireEvent.click(await screen.findByLabelText("Next turn"));
+    await waitFor(() => expect(tracker().entries.find((e) => e.id === "a")?.dead).toBe(true));
+    // The dead are skipped: the turn passes on to Borin.
+    expect(tracker()).toMatchObject({ round: 4, current: "b" });
+    expect(effects()).toEqual([]);
+    await waitFor(() => expect(sent()).toEqual([{ event: "died", name: "Aria" }]));
+    fireEvent.click(screen.getByRole("button", { name: "Undo: Next turn" }));
+    await waitFor(() => expect(tracker().entries.find((e) => e.id === "a")?.dead).toBe(false));
+    expect(effects()).toMatchObject([{ id: "d1" }]);
+  });
+});
+
+describe("the death timer kept from players (Settings)", () => {
+  it("players see no Dying line; the GM sees it marked hidden; the events go to the GM's client only", async () => {
+    obr.metadata = { [SETTINGS_KEY]: { showDeath: false } };
+    setup([dying], "a", 2);
+    const line = await screen.findByRole("button", { name: /^Dying · .*hidden from players/ });
+    expect(line).toHaveClass("border-dashed");
+    fireEvent.click(within(await screen.findByRole("group", { name: "Aria dying" })).getByRole("button", { name: "Healed" }));
+    await waitFor(() => expect(destinations()).toEqual(["LOCAL"]));
+  });
+
+  it("the player's panel shows nothing of it", async () => {
+    obr.role = "PLAYER";
+    obr.metadata = { [SETTINGS_KEY]: { showDeath: false } };
+    setup([dying], "a", 2);
+    await rowName("Aria");
+    expect(screen.queryByRole("group", { name: "Aria dying" })).toBeNull();
+    expect(screen.queryByText("Dying")).toBeNull();
   });
 });
 

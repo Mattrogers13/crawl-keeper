@@ -4,6 +4,8 @@ import {
   addEffects,
   AlreadyFocusingError,
   canDie,
+  hideDeath,
+  timerOutOnTurn,
   deathRollDue,
   deathTimer,
   dyingOf,
@@ -405,5 +407,21 @@ describe("the death timer (p. 89)", () => {
   it("parses back from scene metadata", () => {
     const s = startDying(emptyEffects(), at(2, "a"), newId, "a", 2);
     expect(parseEffects(JSON.parse(JSON.stringify(s)))).toEqual(s);
+  });
+
+  it("dying again after being stabilized: Unconscious goes, they don't stack", () => {
+    const t = at(2, "a");
+    const stable = stabilize(startDying(emptyEffects(), t, newId, "a", 2), t, newId, "a");
+    const again = startDying(stable, t, newId, "a", 3);
+    expect(again.effects.map((e) => e.name)).toEqual(["Dying"]);
+  });
+
+  it("hidden when the GM keeps the death timer; whose ran out on this turn", () => {
+    const t = at(3, "a");
+    const s = startDying(emptyEffects(), t, newId, "a", 1);
+    expect(hideDeath(s, true)).toBe(s);
+    expect(hideDeath(s, false).effects[0].hidden).toBe(true);
+    expect(timerOutOnTurn(s, t)).toBeNull();
+    expect(timerOutOnTurn(s, at(4, "a"))).toBe("a");
   });
 });

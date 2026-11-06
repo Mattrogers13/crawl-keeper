@@ -37,6 +37,8 @@ import {
   settle,
   shown as shownEffects,
   stopDying,
+  hideDeath,
+  timerOutOnTurn,
   type Effect,
   type Effects,
 } from "../effects";
@@ -298,7 +300,9 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   // Effects (docs/effects.md): players see none hidden, nor any on tokens
   // hidden from them. On a row when the holder is listed; else the strip.
   const names = new Map(items.map((i) => [i.id, tokenInfo(i).name]));
-  const seenEffects = gm ? effects : playerEffects(effects, (id) => tokenInfo(byId.get(id)).visible);
+  // The death timer reads as hidden when the GM keeps it to themselves.
+  const shownDeath = hideDeath(effects, settings.value.showDeath);
+  const seenEffects = gm ? shownDeath : playerEffects(shownDeath, (id) => tokenInfo(byId.get(id)).visible);
   const listedEffects = shownEffects(seenEffects, tracker);
   const rowIds = new Set(shown.map((e) => e.id));
   const effectsOf = new Map<string, Effect[]>();
@@ -331,10 +335,16 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   const showDanger = !gm && !combat && mode !== "clock" && settings.value.showDanger;
   // Manual: the GM's rolls stay the GM's.
   const playerRoll = !gm && mode !== "manual" && settings.value.showRolls ? lastFor(tracker.crawl, mode) : null;
-  const goNext = () =>
-    change("Next turn", (t) =>
-      mode === "manual" ? nextAfterManualCheck(t, dark) : settings.value.autoRoll ? nextWithAutoRoll(t, mode, cryptoRand, start, dark) : next(t),
-    );
+  const advance = (t: TrackerDoc) =>
+    mode === "manual" ? nextAfterManualCheck(t, dark) : settings.value.autoRoll ? nextWithAutoRoll(t, mode, cryptoRand, start, dark) : next(t);
+  // A death timer that runs out at the start of this turn marks them dead
+  // in the same step (skull on the row and the token; Undo brings them back).
+  const goNext = () => {
+    const holder = timerOutOnTurn(effects, next(tracker));
+    if (!holder) return change("Next turn", advance);
+    change("Next turn", (t) => setDead(advance(t), [holder], true), { effects: (s) => stopDying(endFocusOf(s, [holder]), holder) });
+    void sayDeath({ event: "died", name: names.get(holder) ?? "A character" });
+  };
   hotkeys.current = {
     n: goNext,
     b: () => change("Back", previous),
