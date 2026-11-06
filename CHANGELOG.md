@@ -15,6 +15,7 @@ Versions follow semver; the same number is in `package.json` and `public/manifes
 - Settings → Reset all (last on the page): one warning, then a new session: this map's tracker back to the GM row (rounds, phase, clock, rolls, danger level reset), its effects and the lights on its tokens removed, and the session log cleared (download it first). Undo brings back all but the log.
 - Entering a roll sorts the tracker by roll at once (the GM row's Roll d20+N too); clearing one leaves the order alone.
 - A small green eye on the GM's crawl card marks what players can see: the Crawling Clock, the danger level, the rolls.
+- Settings no longer shows the install link (the how-to guide has it) or the Dev-only scene size test.
 - Dev builds keep the manifest version within Owlbear's 16 characters.
 
 ## v0.3.0 (2026-11-01)

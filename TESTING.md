@@ -14,15 +14,15 @@ v0.1.0 was room-tested PR by PR (the old lists in git history plus checks on #7�
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 1 | GM: right-click tokens on the map → "Add / Remove Initiative" (a multi-select too); right-click one again | Added in order; a second click removes it. The player's right-click has no such item | 2026-11-01 |
-| 2 | GM: click a roll number, type, Enter; add a note (row menu → Add note; the GM row: hover to see "Add a note"); clear a note | Both save; the player sees them live, with no inputs; a token row with no note has nothing under its name or chips; a cleared note goes | 2026-11-05 |
-| 3 | GM: drag a row out of roll order; Sort (☰) | Highest roll first, unrolled last (entering a roll sorts by itself: row 102) | 2026-11-01 |
-| 4 | GM: hover a row; drag it by its grip; focus a grip, Space, ↓, Space | Grip and ⋯ appear on hover; the row moves and stays; the player follows. On a touch screen grip and ⋯ always show | 2026-11-01 |
-| 5 | GM: right-click a row (or ⋯) → Mark as monster; click, Shift-click, Cmd-click rows, then right-click inside the selection | Monsters move into the GM / Monsters card ("Monsters · N", smaller portraits); the menu acts on all selected rows | 2026-11-01 |
-| 6 | GM: row menu → Mark dead on the current token; ▶ through a round | The turn passes on; the dead row fades with a skull and is skipped | 2026-11-01 |
-| 7 | GM: delete a tracked token from the map (current, and not current) | It drops out; if current, the turn and ring pass on | 2026-11-01 |
-| 8 | GM: type the monsters' DEX (+2) in the GM row; click its d20 | The roll fills with d20 + 2; typing "2" shows "+2" | 2026-11-01 |
-| 9 | **Size:** 40 tokens (copy-paste one token until 40), all added, the note below in every note, a few dead, Combat with clear rolls on | No "Couldn't save"; a reload shows everything | 2026-11-01 |
+| 1 | GM: right-click tokens on the map → "Add / Remove Initiative" (a multi-select too); right-click one again | Added in order; a second click removes it. The player's right-click has no such item | 2026-11-06 |
+| 2 | GM: click a roll number, type, Enter; add a note (row menu → Add note; the GM row: hover to see "Add a note"); clear a note | Both save; the player sees them live, with no inputs; a token row with no note has nothing under its name; a cleared note goes | 2026-11-06 |
+| 3 | GM: drag a row out of roll order; Sort (☰) | Highest roll first, unrolled last (entering a roll sorts by itself: row 102) | 2026-11-06 |
+| 4 | GM: hover a row; drag it by its grip; focus a grip, Space, ↓, Space | Grip and ⋯ appear on hover; the row moves and stays; the player follows. On a touch screen grip and ⋯ always show | 2026-11-06 |
+| 5 | GM: right-click a row (or ⋯) → Mark as monster; click, Shift-click, Cmd-click rows, then right-click inside the selection | Monsters move into the GM / Monsters card ("Monsters · N", smaller portraits); the menu acts on all selected rows | 2026-11-06 |
+| 6 | GM: row menu → Mark dead on the current token; ▶ through a round | The turn passes on; the dead row fades with a skull and is skipped | 2026-11-06 |
+| 7 | GM: delete a tracked token from the map (current, and not current) | It drops out; if current, the turn and ring pass on | 2026-11-06 |
+| 8 | GM: type the monsters' DEX (+2) in the GM row; click its d20 | The roll fills with d20 + 2; typing "2" shows "+2" | 2026-11-06 |
+| 9 | **Size:** 40 tokens (copy-paste one token until 40), all added, the note below in every note, a few dead, Combat with clear rolls on | No "Couldn't save"; a reload shows everything | 2026-11-06 |
 
 Note for row 9 (200 characters):
 
@@ -34,54 +34,54 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 10 | GM: fresh map; ▶ through two rounds; ◀ once | "Not started" beside the title, then "Round 1", "Round 2"; ◀ greyed before the first ▶ | 2026-11-02 |
-| 11 | GM: ▶ onto a player's token; move, resize and rotate it | A gold ring follows it; the token is selected on the GM's screen | 2026-11-02 |
-| 12 | GM: ▶ onto GM / Monsters, and onto a monster in combat | No ring (unless that monster's turn marker is on) | 2026-11-02 |
-| 13 | GM: hide the current token (Owlbear visibility), then show it | GM sees the ring faded like the token; the player never sees a hidden token or its ring | 2026-11-02 |
-| 14 | GM: click in the panel, then N, N, B; open the row menu and press N; type "n" in a note | Next, next, back; nothing while the menu is open or while typing | 2026-11-02 |
-| 15 | GM: ▶ quickly several times, switch Combat / Crawl quickly | One ring, on the right token; no warnings | 2026-11-02 |
+| 10 | GM: fresh map; ▶ through two rounds; ◀ once | "Not started" beside the title, then "Round 1", "Round 2"; ◀ greyed before the first ▶ | 2026-11-06 |
+| 11 | GM: ▶ onto a player's token; move, resize and rotate it | A gold ring follows it; the token is selected on the GM's screen | 2026-11-06 |
+| 12 | GM: ▶ onto GM / Monsters, and onto a monster in combat | No ring (unless that monster's turn marker is on) | 2026-11-06 |
+| 13 | GM: hide the current token (Owlbear visibility), then show it | GM sees the ring faded like the token; the player never sees a hidden token or its ring | 2026-11-06 |
+| 14 | GM: click in the panel, then N, N, B; open the row menu and press N; type "n" in a note | Next, next, back; nothing while the menu is open or while typing | 2026-11-06 |
+| 15 | GM: ▶ quickly several times, switch Combat / Crawl quickly | One ring, on the right token; no warnings | 2026-11-06 |
 
 ### Crawling: standard checks
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 16 | GM, Standard, Unsafe: ▶ through 3 crawl rounds | The roll button is plain, then outlined in round 3, filled on the GM / Monsters turn; "Due this round" in the accent color | 2026-11-02 |
-| 17 | GM: Roll check; Undo | Big result: the die, then "No encounter" or a red "Encounter!"; Undo clears it | 2026-11-02 |
-| 18 | GM: an extra roll in round 2 (Unsafe) | It rolls, but the check is still due in round 3 | 2026-11-02 |
-| 19 | GM: R when no roll is due; R when one is | Nothing, then the roll | 2026-11-02 |
-| 20 | GM: Risky, Deadly, Darkness | Checks every 2 rounds, every round, every round | 2026-11-02 |
+| 16 | GM, Standard, Unsafe: ▶ through 3 crawl rounds | The roll button is plain, then outlined in round 3, filled on the GM / Monsters turn; "check now" in the accent color | 2026-11-06 |
+| 17 | GM: Roll check; Undo | The die shows the roll, with "No encounter" or a red "Encounter!" beside it; Undo clears it | 2026-11-06 |
+| 18 | GM: an extra roll in round 2 (Unsafe) | It rolls, but the check is still due in round 3 | 2026-11-06 |
+| 19 | GM: R when no roll is due; R when one is | Nothing, then the roll | 2026-11-06 |
+| 20 | GM: Risky, Deadly, then the card's Darkness switch | Checks every 2 rounds, every round, every round | 2026-11-06 |
 
 ### Crawling: the Crawling Clock
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 21 | GM: Settings → Crawling Clock; open "Crawling Clock rules" | The card shows the d20 dial at 20; the rules sheet opens | 2026-11-02 |
-| 22 | GM: ▶ to the GM turn; Roll d6 | Dice chips, "= total", "Clock 20 → N"; a 6 rolls again and adds; the dial empties to N | 2026-11-02 |
-| 23 | GM: Darkness; roll | The die is a d8 | 2026-11-02 |
-| 24 | GM: get the clock to 5 or lower | An amber "Omen · N" chip and an amber ring | 2026-11-02 |
-| 25 | GM: roll past 0 (clock 3, roll 5) | Red "Encounter!" with "Next clock 18" | 2026-11-02 |
-| 26 | GM: Combat with the clock at 9, then Crawl | Still 9 (fights never reset the clock) | 2026-11-02 |
-| 27 | GM: Reset clock → Cancel; → Reset; right-click the dial → Reset | Cancel keeps it; Reset puts it back to 20 | 2026-11-02 |
-| 28 | Switch to another map and back | Each map keeps its own clock, danger level and darkness | 2026-11-02 |
+| 21 | GM: Settings → Clock 1d20; open "Crawling Clock rules" | The card shows the d20 dial at 20; the rules sheet opens | 2026-11-06 |
+| 22 | GM: ▶ to the GM turn; Roll d6 | The die shows the total (a 6 rolls again and adds) with "Clock 20 → N" beside it; the dial empties to N | 2026-11-06 |
+| 23 | GM: Darkness; roll | The die is a d8 | 2026-11-06 |
+| 24 | GM: get the clock to 5 or lower | An amber "Omen · N" on the card and an amber ring | 2026-11-06 |
+| 25 | GM: roll past 0 (clock 3, roll 5) | Red "Encounter!" with "Next clock 18" | 2026-11-06 |
+| 26 | GM: Combat with the clock at 9, then Crawl | Still 9 (fights never reset the clock) | 2026-11-06 |
+| 27 | GM: Reset clock → Cancel; → Reset; right-click the dial → Reset | Cancel keeps it; Reset puts it back to 20 | 2026-11-06 |
+| 28 | Switch to another map and back | Each map keeps its own clock, danger level and darkness | 2026-11-06 |
 
 ### Combat
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 29 | GM: Combat (player's panel closed) | "Roll for combat initiative" pops up for GM and player; rolls clear; no crawl card | 2026-11-02 |
-| 30 | GM: rolls, GM d20, Sort, ▶ through a round | GM / Monsters, then each living monster, then the next player; combat rounds don't count toward checks | 2026-11-02 |
-| 31 | GM: Crawl; Remove monsters → Remove | Order and rolls stay; monsters and the DEX box clear; Remove monsters isn't offered in Combat | 2026-11-02 |
-| 32 | Player: reload during combat | No alert on reload | 2026-11-02 |
+| 29 | GM: Combat (player's panel closed) | "Roll for combat initiative" pops up for GM and player; rolls clear; the crawl card becomes "Combat · encounter checks paused"; the log says "Combat: roll for initiative." | 2026-11-06 |
+| 30 | GM: rolls (the list sorts itself), the GM row's d20, ▶ through a round | GM / Monsters, then each living monster, then the next player; combat rounds don't count toward checks | 2026-11-06 |
+| 31 | GM: Crawl; Remove monsters → Remove | Order and rolls stay; monsters and the DEX box clear; Remove monsters isn't offered in Combat | 2026-11-06 |
+| 32 | Player: reload during combat | No alert on reload | 2026-11-06 |
 
 ### Settings and panel
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 33 | GM: gear | Cards: Encounters (segmented pill), Darkness, Players' lights (v0.3), What players see, Turns and combat, About; switches on the right; the how-to card opens the guide in a new tab | 2026-11-02 |
-| 34 | GM: each switch (hide rounds, hide clock / show danger, clear rolls, turn marker, select token, roll automatically) | Each does what its line says; the turn marker switch adds or removes the ring at once | 2026-11-02 |
-| 35 | GM: Reset rounds → Cancel; → Reset | Cancel changes nothing; Reset says checks start over and zeroes both counts | 2026-11-02 |
-| 36 | Overflow the list; drag the bottom grip; close and reopen | Header and controls stay put, only the list scrolls; the height is kept | 2026-11-02 |
-| 37 | Install link → Copy | "Copied" (or the text is selected with a Cmd+C hint); the URL is this build's manifest | 2026-11-02 |
+| 33 | GM: gear | The how-to card (opens the guide in a new tab) and the Session log card, then Encounters (segmented pill), Darkness, Players' lights, What players see, Turns and combat (with Show effect icons on the map), About, and Session (Reset all) last; switches on the right. The guide has Effects and Session log and Reset all sections | 2026-11-06 |
+| 34 | GM: each switch (hide rounds, hide clock / show danger, show rolls, clear rolls, turn marker, select token, roll automatically) | Each does what its line says; the turn marker switch adds or removes the ring at once; the green eyes on the crawl card follow the What players see switches | 2026-11-06 |
+| 35 | GM: Reset rounds → Cancel; → Reset | Cancel changes nothing; Reset says checks start over and zeroes both counts | 2026-11-06 |
+| 36 | Overflow the list; drag the bottom grip; close and reopen | Header and controls stay put, only the list scrolls; the height is kept | 2026-11-06 |
+| 37 | Install link → Copy | "Copied" (or the text is selected with a Cmd+C hint); the URL is this build's manifest | Retired (v0.4: the install link left Settings; the guide has it) |
 
 ### Players and themes
 
