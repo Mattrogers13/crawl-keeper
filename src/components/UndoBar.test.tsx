@@ -31,7 +31,7 @@ describe("the GM's undo in the panel", () => {
     render(<App />);
     fireEvent.click(await screen.findByLabelText("Next turn"));
     await screen.findByRole("button", { name: "Undo: Next turn" });
-    fireEvent.keyDown(screen.getByLabelText("Note for Aria"), { key: "z", metaKey: true });
+    fireEvent.keyDown(screen.getByLabelText("Note for GM / Monsters"), { key: "z", metaKey: true });
     expect(saved().current).toBe("a");
     fireEvent.keyDown(document.body, { key: "z", metaKey: true });
     await waitFor(() => expect(saved().current).toBeNull());
