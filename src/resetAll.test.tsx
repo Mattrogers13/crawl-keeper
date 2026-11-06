@@ -38,9 +38,9 @@ const setup = () => {
 };
 
 describe("Reset all", () => {
-  it("pure: the GM row alone, rounds, phase and clock reset; the danger level stays", () => {
-    const after = resetTracker(parseTracker(obr.sceneMetadata[TRACKER_KEY] ?? { entries, crawl: { danger: "risky", clock: 3 } }));
-    expect(after).toEqual({ ...emptyTracker(), crawl: { ...emptyTracker().crawl, danger: "risky" } });
+  it("pure: as new, the danger level back to Unsafe", () => {
+    expect(resetTracker()).toEqual(emptyTracker());
+    expect(resetTracker().crawl.danger).toBe("unsafe");
   });
 
   it("clears tracker, effects and the tracker's lights in one undo step; a new log starts; undo brings the rest back", async () => {
@@ -49,7 +49,7 @@ describe("Reset all", () => {
     await resetAll();
     const t = parseTracker(obr.sceneMetadata[TRACKER_KEY]);
     expect(t.entries.map((e) => e.id)).toEqual([GM_ENTRY]);
-    expect(t).toMatchObject({ round: 0, current: null, phase: "crawl", gmMod: 0, crawl: { danger: "deadly", crawlRounds: 0 } });
+    expect(t).toMatchObject({ round: 0, current: null, phase: "crawl", gmMod: 0, crawl: { danger: "unsafe", crawlRounds: 0 } });
     expect(obr.sceneMetadata[EFFECTS_KEY]).toEqual({ effects: [] });
     // The campfire prop isn't in initiative: it keeps burning (and paused).
     expect(obr.metadata[LIGHTS_KEY]).toMatchObject({ paused: true, lights: [{ id: "l2" }] });

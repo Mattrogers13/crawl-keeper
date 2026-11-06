@@ -108,17 +108,6 @@ const Settings = (props: { openLog?: () => void }) => {
         </button>
       )}
 
-      {/* A fresh session: one undo step, asked first. */}
-      <Group title="Session">
-        <div className="flex flex-col gap-1 px-4 py-3">
-          <ResetAll />
-          <span className="text-xs text-obr-text-secondary">
-            A new session: clears this map's tracker (the GM row stays), its effects, the lights on its tokens and the session log. The danger level
-            stays.
-          </span>
-        </div>
-      </Group>
-
       <Group title="Encounters">
         <div className="flex flex-col gap-2 px-4 py-3">
           <Segmented
@@ -255,6 +244,17 @@ const Settings = (props: { openLog?: () => void }) => {
         <DataSize />
         {(import.meta.env.VITE_BUILD_LABEL || import.meta.env.DEV) && <SceneSizeTest />}
         <InstallLink />
+      </Group>
+
+      {/* A fresh session, last on the page (Matt): one big warning first. */}
+      <Group title="Session">
+        <div className="flex flex-col gap-1 px-4 py-3">
+          <ResetAll />
+          <span className="text-xs text-obr-text-secondary">
+            A new session: clears this map's tracker (the GM row stays), its effects, the lights on its tokens and the session log, and sets the danger
+            level back to Unsafe.
+          </span>
+        </div>
       </Group>
     </div>
   );

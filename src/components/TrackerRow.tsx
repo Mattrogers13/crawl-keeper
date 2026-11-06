@@ -16,10 +16,11 @@ import {
   MOD_MIN,
   NOTE_MAX,
   parseRoll,
+  enterRoll,
   rollGmInitiative,
   setGmMod,
   setNote,
-  setRoll,
+  sortByRoll,
   type Entry,
   type GmDie,
 } from "../tracker";
@@ -229,7 +230,7 @@ const Row = (props: {
               )}
               {/* Monsters act on the GM / Monsters roll. */}
               {!entry.monster && (
-                <RollInput key={entry.roll ?? ""} name={name} value={entry.roll} save={(r) => change("Initiative roll", (t) => setRoll(t, entry.id, r))} />
+                <RollInput key={entry.roll ?? ""} name={name} value={entry.roll} save={(r) => change("Initiative roll", (t) => enterRoll(t, entry.id, r))} />
               )}
             </span>
             {/* The row menu (also on right-click). The GM row has none: a gap keeps the columns lined up. */}
@@ -269,7 +270,7 @@ const Row = (props: {
           mod={props.gmMod}
           setMod={(m) => change("Monsters' DEX", (t) => setGmMod(t, m))}
           roll={() => {
-            change("Monsters' initiative roll", (t) => rollGmInitiative(t, cryptoRand));
+            change("Monsters' initiative roll", (t) => sortByRoll(rollGmInitiative(t, cryptoRand)));
             setRolling(false);
           }}
           close={() => setRolling(false)}
