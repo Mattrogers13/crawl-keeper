@@ -171,7 +171,7 @@ describe("the Light Tracker", () => {
     scene(["a"]);
     render(<App />);
     await screen.findByText("Aria");
-    expect(screen.queryByRole("region", { name: "Lights" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Notices" })).not.toBeInTheDocument();
     // Dim, but there.
     expect(screen.getByRole("button", { name: "Light Tracker" })).toHaveAttribute("title", "Light Tracker (no lights yet)");
     fireEvent.click(screen.getByRole("button", { name: "Light Tracker" }));
@@ -268,7 +268,7 @@ describe("the Light Tracker", () => {
     scene([]);
     render(<App />);
     await screen.findByText("GM / Monsters");
-    expect(screen.queryByRole("region", { name: "Lights" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Notices" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Light Tracker" }));
     expect(await screen.findByText("No lights yet.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Pause|Time passes|Put lights out/ })).not.toBeInTheDocument();
@@ -278,7 +278,7 @@ describe("the Light Tracker", () => {
 });
 
 describe("the strip, badges and DIS", () => {
-  const strip = () => screen.getByRole("region", { name: "Lights" });
+  const strip = () => screen.getByRole("region", { name: "Notices" });
   const rowOf = (name: string) => screen.getAllByRole("listitem").reverse().find((r) => within(r).queryByText(name))!;
 
   it("the GM clicks a torch's badge to put it out (spent), then for a new one", async () => {
@@ -346,7 +346,7 @@ describe("the strip, badges and DIS", () => {
     };
     render(<App />);
     await screen.findByText("Aria");
-    expect(strip()).toHaveTextContent("No light · total darkness");
+    expect(strip()).toHaveTextContent("Total darkness (p. 84)");
     expect(within(rowOf("Aria")).getByText("DIS")).toBeInTheDocument();
     expect(within(rowOf("Dead Dan")).queryByText("DIS")).not.toBeInTheDocument();
     expect(within(rowOf("Goblin")).queryByText("DIS")).not.toBeInTheDocument();
@@ -358,7 +358,7 @@ describe("the strip, badges and DIS", () => {
     scene(["a"]);
     render(<App />);
     await screen.findByText("Aria");
-    expect(screen.queryByRole("region", { name: "Lights" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Notices" })).not.toBeInTheDocument();
     expect(screen.queryByText("DIS")).not.toBeInTheDocument();
   });
 
@@ -380,12 +380,12 @@ describe("the strip, badges and DIS", () => {
     scene(["a"]);
     render(<App />);
     const card = await screen.findByRole("region", { name: "Encounter checks" });
-    expect(card).toHaveTextContent("Total darkness (p. 84)");
-    expect(card).toHaveTextContent("Total darkness: a check every crawl round");
+    expect(strip()).toHaveTextContent("Total darkness (p. 84)");
+    expect(card).toHaveTextContent("Every crawl round");
     expect(within(card).getByLabelText("Danger level")).toHaveValue("unsafe");
     const toggle = within(card).getByRole("button", { name: /Darkness/ });
     expect(toggle).toBeDisabled();
-    expect(toggle).toHaveTextContent("following light");
+    expect(toggle).toHaveTextContent("(following light)");
     expect(toggle).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -394,9 +394,10 @@ describe("the strip, badges and DIS", () => {
     scene(["a"]);
     render(<App />);
     const card = await screen.findByRole("region", { name: "Encounter checks" });
-    expect(card).toHaveTextContent("A check every 3 crawl rounds");
+    expect(card).toHaveTextContent("Every 3 rounds");
     fireEvent.click(within(card).getByRole("button", { name: /Darkness/ }));
-    await waitFor(() => expect(card).toHaveTextContent("Total darkness: a check every crawl round"));
+    await waitFor(() => expect(card).toHaveTextContent("Every crawl round"));
+    expect(strip()).toHaveTextContent("Total darkness (p. 84)");
     expect(obr.sceneMetadata[TRACKER_KEY]).toMatchObject({ crawl: { dark: true, danger: "unsafe" } });
     expect(within(rowOf("Aria")).getByText("DIS")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Undo: Darkness" })).toBeInTheDocument();
@@ -413,7 +414,7 @@ describe("the strip, badges and DIS", () => {
     const card = await screen.findByRole("region", { name: "Crawling Clock" });
     expect(card).toHaveTextContent("Crawling die d6");
     expect(screen.queryByText("DIS")).not.toBeInTheDocument();
-    expect(strip()).not.toHaveTextContent("total darkness");
+    expect(screen.queryByText(/Total darkness/)).not.toBeInTheDocument();
     // The die is drawn as a d6 (no diamond) until it's dark.
     expect(within(card).getByRole("button", { name: "Roll d6" }).querySelector("svg")).toBeNull();
     fireEvent.click(within(card).getByRole("button", { name: "Darkness" }));
@@ -425,14 +426,22 @@ describe("the strip, badges and DIS", () => {
     expect(screen.queryByText(/No light: total darkness/)).not.toBeInTheDocument();
   });
 
-  it("Time passes from the strip", async () => {
+  it("Time passes from the ⏳ sheet: any time typed, Esc closes it", async () => {
     obr.items = [token("a", { name: "Aria" })];
     obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a")] } };
     scene(["a"]);
     render(<App />);
     await screen.findByText("Aria");
-    fireEvent.change(within(strip()).getByLabelText("Time passes"), { target: { value: "15m" } });
-    fireEvent.click(within(strip()).getByRole("button", { name: "Time passes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Time passes" }));
+    fireEvent.keyDown(screen.getByLabelText("How long"), { key: "Escape" });
+    expect(screen.queryByRole("form", { name: "Time passes" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Time passes" }));
+    const sheet = screen.getByRole("form", { name: "Time passes" });
+    fireEvent.change(within(sheet).getByLabelText("How long"), { target: { value: "nonsense" } });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Time passes" }));
+    expect(within(sheet).getByRole("alert")).toHaveTextContent("Try 10m");
+    fireEvent.change(within(sheet).getByLabelText("How long"), { target: { value: "15m" } });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Pass 15m" }));
     await waitFor(() => expect(left(0)).toBe(45 * MINUTE));
   });
 });
