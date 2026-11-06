@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from
 import type { Change } from "./Tracker";
 import type { LightChange } from "../hooks/useLights";
 import { LIGHT_KINDS, addLight, formatRemaining, litOn, newLightId, outOn, relight, renew, swapLight, type LightKind, type Lights } from "../lights";
-import { endFocusOf, focusOf, type Effects } from "../effects";
+import { dyingOf, endFocusOf, focusOf, stopDying, type Effects } from "../effects";
 import { GM_ENTRY, remove, setDead, setMarker, setMonster, type Entry } from "../tracker";
 
 // What a row can be given (a campfire goes on any token from the map's
@@ -32,6 +32,8 @@ const RowMenu = (props: {
   // Open the row's empty note to type in.
   addNote: (id: string) => void;
   checkFocus: (effectId: string) => void;
+  // Open the Dying sheet for this row (the death timer, p. 89).
+  startDying: (id: string) => void;
 }) => {
   const { entries, close, change } = props;
   const ids = entries.map((e) => e.id);
@@ -59,8 +61,12 @@ const RowMenu = (props: {
   const items: [string, boolean, () => void][] = [
     ["Mark as monster", some((e) => !e.monster), () => change("Mark as monster", (t) => setMonster(t, ids, true))],
     ["Mark as player or ally", some((e) => e.monster), () => change("Mark as player or ally", (t) => setMonster(t, ids, false))],
-    // Death ends a focus, and what ends with it, in the same step.
-    ["Mark dead", some((e) => !e.dead), () => change("Mark dead", (t) => setDead(t, ids, true), { effects: (s) => endFocusOf(s, ids) })],
+    // Death ends a focus, and what ends with it, and a death timer, in the same step.
+    [
+      "Mark dead",
+      some((e) => !e.dead),
+      () => change("Mark dead", (t) => setDead(t, ids, true), { effects: (s) => ids.reduce(stopDying, endFocusOf(s, ids)) }),
+    ],
     ["Mark alive", some((e) => e.dead), () => change("Mark alive", (t) => setDead(t, ids, false))],
     ["Turn marker on", some((e) => !e.marker), () => change("Turn marker on", (t) => setMarker(t, ids, true))],
     ["Turn marker off", some((e) => e.marker), () => change("Turn marker off", (t) => setMarker(t, ids, false))],
@@ -68,6 +74,12 @@ const RowMenu = (props: {
     ["Add note", ids.length === 1 && !entries[0].note, () => props.addNote(ids[0])],
     [ids.length === 1 ? "Add effect…" : `Add effect to ${ids.length}…`, true, () => props.addEffect(ids.filter((id) => id !== GM_ENTRY))],
     ...focusCheck(),
+    // A player at 0 HP (monsters at 0 just die).
+    [
+      "Dying…",
+      ids.length === 1 && ids[0] !== GM_ENTRY && !entries[0].monster && !entries[0].dead && !dyingOf(props.effects, ids[0]),
+      () => props.startDying(ids[0]),
+    ],
     ...giveLight(),
     [
       ids.length === 1 ? "Remove from initiative" : `Remove ${ids.length} from initiative`,

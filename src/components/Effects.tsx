@@ -8,6 +8,7 @@ import { FOCUS } from "./CrawlBar";
 import { ChevronIcon, EyeIcon, HiddenIcon } from "./icons";
 import { iconOf } from "../effectIcons";
 import { cryptoRand } from "../crawl";
+import { sayDeath } from "../deathNotices";
 import {
   addEffects,
   AlreadyFocusingError,
@@ -20,7 +21,9 @@ import {
   removeEffects,
   ROUNDS_MAX,
   setRoundsLeft,
+  stabilize,
   statusOf,
+  stopDying,
   type Condition,
   type Dice,
   type Effect,
@@ -50,7 +53,7 @@ export const describe = (e: Effect, t: Tracker, holder?: string) => {
 };
 
 // The GM's actions for one effect.
-const ChipMenu = (props: { effect: Effect; tracker: Tracker; x: number; y: number; close: () => void; change: EffectsChange }) => {
+const ChipMenu = (props: { effect: Effect; tracker: Tracker; x: number; y: number; close: () => void; change: EffectsChange; holderName?: string }) => {
   const { effect: e, close, change } = props;
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: props.x, top: props.y });
@@ -69,14 +72,17 @@ const ChipMenu = (props: { effect: Effect; tracker: Tracker; x: number; y: numbe
     document.addEventListener("pointerdown", outside);
     return () => document.removeEventListener("pointerdown", outside);
   }, [close]);
-  const run = (label: string, fn: (s: Effects, t: Tracker) => Effects) => {
+  const run = (label: string, fn: (s: Effects, t: Tracker) => Effects, after?: () => void) => {
     try {
       change(label, fn);
+      after?.();
     } catch (err) {
       notify(errorMessage(err), "WARNING");
     }
     close();
   };
+  // Dying can stop on anyone's turn (a heal, first aid): everyone hears it.
+  const who = props.holderName ?? "A character";
   const saveLeft = (ev: FormEvent) => {
     ev.preventDefault();
     const n = Number(left);
@@ -112,7 +118,27 @@ const ChipMenu = (props: { effect: Effect; tracker: Tracker; x: number; y: numbe
           </button>
         </form>
       )}
-      {e.kind === "focus" ? (
+      {e.icon === "dying" && e.holder !== null ? (
+        <>
+          <button
+            type="button"
+            role="menuitem"
+            className={item}
+            onClick={() => run(`Healed: ${who}`, (s) => stopDying(s, e.holder!), () => void sayDeath({ event: "healed", name: who }))}
+          >
+            Healed (no longer dying)
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={item}
+            title="DC 15 INT first aid (p. 89): no longer dying, still unconscious"
+            onClick={() => run(`Stabilized: ${who}`, (s, t) => stabilize(s, t, newEffectId, e.holder!), () => void sayDeath({ event: "stabilized", name: who }))}
+          >
+            Stabilized
+          </button>
+        </>
+      ) : e.kind === "focus" ? (
         <button type="button" role="menuitem" className={item} onClick={() => run(`End focus: ${e.name}`, (s) => endFocus(s, e.id))}>
           End focus
         </button>
@@ -150,7 +176,7 @@ const EffectIcon = ({ effect, className = "h-4 w-4" }: { effect: Effect; classNa
 // One effect under its row (or in the notices, with its holder): icon, name, time left. The GM clicks it for its
 // menu (rounds left, end, remove).
 // `holder`: its token's name, said in full; `tag`: shown after the name.
-export const EffectLine = (props: { effect: Effect; tracker: Tracker; change: EffectsChange | null; holder?: string; tag?: string }) => {
+export const EffectLine = (props: { effect: Effect; tracker: Tracker; change: EffectsChange | null; holder?: string; tag?: string; holderName?: string }) => {
   const { effect: e, tracker: t, change } = props;
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const what = describe(e, t, props.holder);
@@ -189,7 +215,7 @@ export const EffectLine = (props: { effect: Effect; tracker: Tracker; change: Ef
       >
         {body}
       </button>
-      {menu && <ChipMenu effect={e} tracker={t} x={menu.x} y={menu.y} close={() => setMenu(null)} change={change} />}
+      {menu && <ChipMenu effect={e} tracker={t} x={menu.x} y={menu.y} close={() => setMenu(null)} change={change} holderName={props.holderName ?? props.holder} />}
     </li>
   );
 };
@@ -197,7 +223,7 @@ export const EffectLine = (props: { effect: Effect; tracker: Tracker; change: Ef
 // A row's effects, under it (like the monsters under the GM row). One shows
 // as its line; two or more fold to one line (their icons and the soonest
 // end), open on the row's turn or when clicked.
-export const RowEffects = (props: { effects: Effect[]; tracker: Tracker; change: EffectsChange | null; current: boolean }) => {
+export const RowEffects = (props: { effects: Effect[]; tracker: Tracker; change: EffectsChange | null; current: boolean; name?: string }) => {
   const { effects, tracker: t } = props;
   // The GM's or player's own choice, until the turn comes to or leaves the row.
   const [chosen, setChosen] = useState<boolean | null>(null);
@@ -242,7 +268,7 @@ export const RowEffects = (props: { effects: Effect[]; tracker: Tracker; change:
       {open && (
         <ul className={`flex flex-col ${foldable ? "ml-[7px] border-l border-obr-text/15 pl-1.5" : ""}`}>
           {effects.map((e) => (
-            <EffectLine key={e.id} effect={e} tracker={t} change={props.change} />
+            <EffectLine key={e.id} effect={e} tracker={t} change={props.change} holderName={props.name} />
           ))}
         </ul>
       )}
@@ -390,7 +416,7 @@ export const AddEffect = (props: {
         </button>
       </div>
       <div role="group" aria-label="Conditions" className="flex flex-wrap gap-1">
-        {CONDITION_IDS.filter((c) => c !== "focus").map((c) => {
+        {CONDITION_IDS.filter((c) => c !== "focus" && c !== "dying").map((c) => {
           const on = drafts.some((d) => d.icon === c);
           return (
             <button

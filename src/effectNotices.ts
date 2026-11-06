@@ -34,7 +34,8 @@ export const newlyEnded = (before: Reading, after: Reading, told: ReadonlySet<st
 // GM did it, so no notice.
 export const newlyGone = (before: Reading, after: Reading): Effect[] =>
   before.effects.effects.filter(
-    (e) => statusOf(e, before.tracker).state === "active" && !after.effects.effects.some((a) => a.id === e.id),
+    // Dying: the death events tell it (rises, stabilized, healed, died).
+    (e) => e.icon !== "dying" && statusOf(e, before.tracker).state === "active" && !after.effects.effects.some((a) => a.id === e.id),
   );
 
 // What a client says, or "" for nothing. Players don't hear of hidden
@@ -46,6 +47,7 @@ export const endedMessage = (ended: Effect[], items: Pick<Item, "id" | "name" | 
       const holder = e.holder === null ? null : items.find((i) => i.id === e.holder);
       if (!gm && (e.hidden || (e.holder !== null && (!holder || !holder.visible)))) return [];
       const on = holder?.name.trim() ? ` on ${holder.name.trim()}` : "";
+      if (e.icon === "dying" && verb === "ended") return [`${holder?.name.trim() || "A character"}'s death timer ran out.`];
       return [`${e.name}${on} ${verb}.`];
     })
     .join(" ");

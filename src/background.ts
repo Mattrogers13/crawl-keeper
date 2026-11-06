@@ -9,6 +9,7 @@ import { MENU_ID, PLAYER_MENU_ID, SETTINGS_KEY, TRACKER_KEY } from "./constants"
 import { MENU_ROWS, PLAYER_MENU_ROWS } from "./mapMenu";
 import { parseSettings } from "./settings";
 import { watchEffectIcons } from "./effectIcons";
+import { watchDeathNotices } from "./deathNotices";
 import { watchEffectNotices } from "./effectNotices";
 import { watchLightNotices } from "./lightNotices";
 import { fixMarkerVisibility } from "./marker";
@@ -156,6 +157,7 @@ OBR.onReady(() => {
   watchEffectIcons();
   watchLightNotices();
   watchEffectNotices();
+  watchDeathNotices();
   watchLightRequests();
   watchPlayerMenu();
 });
