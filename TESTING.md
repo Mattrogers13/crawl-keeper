@@ -14,15 +14,15 @@ v0.1.0 was room-tested PR by PR (the old lists in git history plus checks on #7�
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 1 | GM: right-click tokens on the map → "Add / Remove Initiative" (a multi-select too); right-click one again | Added in order; a second click removes it. The player's right-click has no such item | 2026-11-01 |
-| 2 | GM: click a roll number, type, Enter; add a note (row menu → Add note; the GM row: hover to see "Add a note"); clear a note | Both save; the player sees them live, with no inputs; a token row with no note has nothing under its name; a cleared note goes | 2026-11-05 |
-| 3 | GM: drag a row out of roll order; Sort (☰) | Highest roll first, unrolled last (entering a roll sorts by itself: row 102) | 2026-11-01 |
-| 4 | GM: hover a row; drag it by its grip; focus a grip, Space, ↓, Space | Grip and ⋯ appear on hover; the row moves and stays; the player follows. On a touch screen grip and ⋯ always show | 2026-11-01 |
-| 5 | GM: right-click a row (or ⋯) → Mark as monster; click, Shift-click, Cmd-click rows, then right-click inside the selection | Monsters move into the GM / Monsters card ("Monsters · N", smaller portraits); the menu acts on all selected rows | 2026-11-01 |
-| 6 | GM: row menu → Mark dead on the current token; ▶ through a round | The turn passes on; the dead row fades with a skull and is skipped | 2026-11-01 |
-| 7 | GM: delete a tracked token from the map (current, and not current) | It drops out; if current, the turn and ring pass on | 2026-11-01 |
-| 8 | GM: type the monsters' DEX (+2) in the GM row; click its d20 | The roll fills with d20 + 2; typing "2" shows "+2" | 2026-11-01 |
-| 9 | **Size:** 40 tokens (copy-paste one token until 40), all added, the note below in every note, a few dead, Combat with clear rolls on | No "Couldn't save"; a reload shows everything | 2026-11-01 |
+| 1 | GM: right-click tokens on the map → "Add / Remove Initiative" (a multi-select too); right-click one again | Added in order; a second click removes it. The player's right-click has no such item | 2026-11-06 |
+| 2 | GM: click a roll number, type, Enter; add a note (row menu → Add note; the GM row: hover to see "Add a note"); clear a note | Both save; the player sees them live, with no inputs; a token row with no note has nothing under its name; a cleared note goes | 2026-11-06 |
+| 3 | GM: drag a row out of roll order; Sort (☰) | Highest roll first, unrolled last (entering a roll sorts by itself: row 102) | 2026-11-06 |
+| 4 | GM: hover a row; drag it by its grip; focus a grip, Space, ↓, Space | Grip and ⋯ appear on hover; the row moves and stays; the player follows. On a touch screen grip and ⋯ always show | 2026-11-06 |
+| 5 | GM: right-click a row (or ⋯) → Mark as monster; click, Shift-click, Cmd-click rows, then right-click inside the selection | Monsters move into the GM / Monsters card ("Monsters · N", smaller portraits); the menu acts on all selected rows | 2026-11-06 |
+| 6 | GM: row menu → Mark dead on the current token; ▶ through a round | The turn passes on; the dead row fades with a skull and is skipped | 2026-11-06 |
+| 7 | GM: delete a tracked token from the map (current, and not current) | It drops out; if current, the turn and ring pass on | 2026-11-06 |
+| 8 | GM: type the monsters' DEX (+2) in the GM row; click its d20 | The roll fills with d20 + 2; typing "2" shows "+2" | 2026-11-06 |
+| 9 | **Size:** 40 tokens (copy-paste one token until 40), all added, the note below in every note, a few dead, Combat with clear rolls on | No "Couldn't save"; a reload shows everything | 2026-11-06 |
 
 Note for row 9 (200 characters):
 
