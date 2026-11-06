@@ -10,10 +10,10 @@ kind: web-app         # web-app | obsidian-plugin | script-utility | config-back
 # Current State
 
 **Updated:** 2026-11-06
-**In flight:** v0.4.0 release (PR #50): full TESTING.md pass 2026-11-06; merging, tagging `v0.4.0`.
-**Waiting on:** nothing (Matt said "merge" 2026-11-06).
-**Resume here:** continue the walkthrough at the next unrecorded section. After v0.4.0: step 5 of `docs/effects.md` (death timer), then v0.5 (Dice+, morale, encounter tables, End tracker).
+**In flight:** nothing. v0.4.0 released 2026-11-06 (tag `v0.4.0`, `d9fee97`, live).
+**Waiting on:** Matt to pick the next piece.
+**Resume here:** step 5 of `docs/effects.md` (the death timer: rounds on the holder's turn, a d20 prompt), then v0.5 (Dice+, morale, encounter tables, End tracker; `docs/design.md`).
 
 **Notes:**
-- Latest release: v0.3.0 (2026-11-02), tag `v0.3.0`, `ee30f22`.
+- Latest release: v0.4.0 (2026-11-06), tag `v0.4.0`, `d9fee97`. Before it: v0.3.0 (2026-11-02), `ee30f22`.
 - Working agreements (also in CLAUDE.md): merge only on Matt's "merge"; confirm the Dev bundle and remind him to reload before a test; room tests one section at a time, results in TESTING.md. Order: v0.4 effects, then v0.5 Dice+, morale, encounter tables, End tracker.
