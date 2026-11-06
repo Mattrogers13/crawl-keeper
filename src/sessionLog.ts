@@ -10,12 +10,12 @@ import OBR from "@owlbear-rodeo/sdk";
 import { ID } from "./constants";
 import { readLocal, writeLocal } from "./storage";
 
-export type LogKind = "light" | "time" | "effect" | "combat" | "focus";
+export type LogKind = "light" | "time" | "effect" | "combat" | "focus" | "session";
 export type LogEntry = { at: number; text: string; kind: LogKind };
 
 export const LOG_MAX = 500;
 const TEXT_MAX = 300;
-const KINDS: LogKind[] = ["light", "time", "effect", "combat", "focus"];
+const KINDS: LogKind[] = ["light", "time", "effect", "combat", "focus", "session"];
 
 const key = () => `${ID}/log/${OBR.room.id}`;
 
@@ -54,6 +54,9 @@ export const logEvent = (text: string, kind: LogKind, at = Date.now()) => {
 };
 
 export const clearLog = () => save([]);
+
+// The log as it was (a failed Reset all).
+export const replaceLog = (entries: LogEntry[]) => save(entries.slice(0, LOG_MAX));
 
 // Any change, from this page or another. Returns the unsubscribe.
 export const onLogChange = (listener: () => void) => {

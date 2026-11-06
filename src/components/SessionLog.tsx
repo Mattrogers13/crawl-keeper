@@ -5,12 +5,12 @@ import { useEffect, useState } from "react";
 import Confirm from "./Confirm";
 import { clearLog, logText, onLogChange, readLog, type LogEntry, type LogKind } from "../sessionLog";
 
-const ICON: Record<LogKind, string> = { light: "🔥", time: "⏳", effect: "⏱", combat: "⚔️", focus: "◎" };
+const ICON: Record<LogKind, string> = { light: "🔥", time: "⏳", effect: "⏱", combat: "⚔️", focus: "◎", session: "↺" };
 
 const day = (at: number) => new Date(at).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 const time = (at: number) => new Date(at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 
-const download = (entries: LogEntry[]) => {
+export const downloadLog = (entries: LogEntry[]) => {
   const url = URL.createObjectURL(new Blob([logText(entries)], { type: "text/plain" }));
   const a = document.createElement("a");
   a.href = url;
@@ -60,7 +60,7 @@ const SessionLog = () => {
           {entries.length} entries, this browser only
         </span>
         <span className="flex items-center gap-3">
-          <button type="button" className="py-1.5 text-obr-text-secondary underline hover:text-obr-text" onClick={() => download(entries)}>
+          <button type="button" className="py-1.5 text-obr-text-secondary underline hover:text-obr-text" onClick={() => downloadLog(entries)}>
             Download
           </button>
           <Confirm label="Clear" question="Clear the whole log in this browser?" action="Clear" onConfirm={clearLog} />

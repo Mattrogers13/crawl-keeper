@@ -18,6 +18,7 @@ import {
   setDead,
   setNote,
   setRoll,
+  enterRoll,
   sortByRoll,
   removeMonsters,
   setMarker,
@@ -302,6 +303,13 @@ describe("monsters", () => {
   it("sorting moves players and the GM row; monsters keep their order", () => {
     const t = sortByRoll(tracker({ a: 3, gm: 12, b: 9, m2: null, m1: null }));
     expect(ids(t.entries)).toEqual(["gm", "b", "a", "m2", "m1"]);
+  });
+
+  it("a roll entered sorts the list; a cleared roll or the same roll changes nothing", () => {
+    const t = tracker({ a: 3, gm: 12, b: null, m1: null });
+    expect(ids(enterRoll(t, "b", 15).entries)).toEqual(["b", "gm", "a", "m1"]);
+    expect(ids(enterRoll(t, "a", null).entries)).toEqual(["a", "gm", "b", "m1"]);
+    expect(enterRoll(t, "a", 3)).toBe(t);
   });
 
   it("remove monsters: all of them, nothing else; none to remove keeps the object", () => {

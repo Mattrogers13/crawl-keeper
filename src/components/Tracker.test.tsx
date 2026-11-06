@@ -40,21 +40,30 @@ describe("Tracker (GM)", () => {
     expect(screen.getByText("Round 2")).toBeInTheDocument();
   });
 
-  it("edits rolls and notes, and sorts by roll", async () => {
+  it("edits rolls and notes; a roll entered sorts the list (clearing one doesn't); Sort by roll still works", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
     render(<App />);
     const roll = await screen.findByLabelText("Initiative for Borin");
     fireEvent.change(roll, { target: { value: "17" } });
     fireEvent.blur(roll);
-    await waitFor(() => expect(saved().entries[1].roll).toBe(17));
+    await waitFor(() => expect(saved().entries.map((e) => [e.id, e.roll])).toEqual([["b", 17], ["a", null], [GM_ENTRY, null]]));
     await pick("Aria", "Add note");
     const note = screen.getByLabelText("Note for Aria");
     fireEvent.change(note, { target: { value: "Has the key" } });
     fireEvent.blur(note);
-    await waitFor(() => expect(saved().entries[0].note).toBe("Has the key"));
+    await waitFor(() => expect(saved().entries[1].note).toBe("Has the key"));
+    // Cleared: the order stays (Borin keeps his place without a roll).
+    const borin = screen.getByLabelText("Initiative for Borin");
+    fireEvent.change(borin, { target: { value: "" } });
+    fireEvent.blur(borin);
+    await waitFor(() => expect(saved().entries.map((e) => [e.id, e.roll])).toEqual([["b", null], ["a", null], [GM_ENTRY, null]]));
+    const aria = screen.getByLabelText("Initiative for Aria");
+    fireEvent.change(aria, { target: { value: "9" } });
+    fireEvent.blur(aria);
+    await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["a", "b", GM_ENTRY]));
     fireEvent.click(screen.getByLabelText("Sort by roll"));
-    await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["b", "a", GM_ENTRY]));
+    await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["a", "b", GM_ENTRY]));
   });
 
   it("a token row's note: none until it has one or the menu opens it, so nothing hides under the effect chips", async () => {
@@ -747,6 +756,19 @@ describe("Tracker (GM)", () => {
       // Full for either size (a 1d20 clock reads it as 20).
       await waitFor(() => expect(saved().crawl.clock).toBe(40));
       expect(within(card).getByRole("img", { name: "Clock 20 of 20" })).toBeInTheDocument();
+    });
+
+    it("a green eye marks what players see: the clock, the danger level, the rolls", async () => {
+      obr.metadata = { [SETTINGS_KEY]: { encounterMode: "clock", showRolls: true } };
+      scene([{ id: GM_ENTRY }]);
+      render(<App />);
+      const card = await screen.findByRole("region", { name: "Crawling Clock" });
+      expect(within(card).getByRole("img", { name: "Players see the Crawling Clock" })).toBeInTheDocument();
+      expect(within(card).getByRole("img", { name: "Players see the rolls" })).toBeInTheDocument();
+      await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "standard", hideClock: true, showDanger: true } });
+      const standard = await screen.findByRole("region", { name: "Encounter checks" });
+      expect(within(standard).getByRole("img", { name: "Players see the danger level" })).toBeInTheDocument();
+      expect(within(standard).queryByRole("img", { name: /Players see the (Crawling Clock|rolls)/ })).toBeNull();
     });
 
     it("sits under the turn bar (◀ ▶ never moves), not in the list; not there in Settings", async () => {

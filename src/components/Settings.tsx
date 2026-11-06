@@ -2,12 +2,15 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import OBR from "@owlbear-rodeo/sdk";
 
 import ClockRules from "./ClockRules";
+import { downloadLog } from "./SessionLog";
 import { ScrollIcon } from "./icons";
 import Loading from "./Loading";
 import Segmented from "./Segmented";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import { useRoomValue } from "../hooks/useRoomValue";
 import { syncTurnFromScene } from "../marker";
+import { resetAll } from "../resetAll";
+import { readLog } from "../sessionLog";
 import { describeResult, runSceneSizeTest } from "../sceneSizeTest";
 import { record } from "../undo";
 import { errorMessage } from "../utils";
@@ -242,6 +245,98 @@ const Settings = (props: { openLog?: () => void }) => {
         {(import.meta.env.VITE_BUILD_LABEL || import.meta.env.DEV) && <SceneSizeTest />}
         <InstallLink />
       </Group>
+
+      {/* A fresh session, last on the page (Matt): one big warning first. */}
+      <Group title="Session">
+        <div className="flex flex-col gap-1 px-4 py-3">
+          <ResetAll />
+          <span className="text-xs text-obr-text-secondary">
+            A new session: clears this map's tracker (the GM row stays), its effects, the lights on its tokens and the session log, and sets the danger
+            level back to Unsafe.
+          </span>
+        </div>
+      </Group>
+    </div>
+  );
+};
+
+// One big warning before a reset: what goes, that the log can't come back
+// (download it first), and that Undo brings back the rest.
+const ResetAll = () => {
+  const [asking, setAsking] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const log = asking ? readLog() : [];
+  const close = () => {
+    setAsking(false);
+    setDownloaded(false);
+  };
+  if (!asking)
+    return (
+      <span className="flex flex-col gap-1">
+        <button type="button" className="self-start py-1 text-red-700 underline hover:text-red-600 dark:text-red-300" onClick={() => setAsking(true)}>
+          Reset all…
+        </button>
+        {error && (
+          <span role="alert" className="text-xs text-red-700 dark:text-red-300">
+            {error}
+          </span>
+        )}
+      </span>
+    );
+  return (
+    <div
+      role="alertdialog"
+      aria-label="Reset all"
+      className="flex flex-col gap-2 rounded-xl bg-red-600/15 p-3 text-xs ring-2 ring-red-600/60 ring-inset"
+      onKeyDown={(ev) => ev.key === "Escape" && close()}
+    >
+      <span className="text-sm font-semibold text-red-800 dark:text-red-200">⚠ Reset everything for a new session?</span>
+      <ul className="flex list-disc flex-col gap-1 pl-4">
+        <li>Every token leaves this map's tracker (the GM row stays). Rounds, Crawl / Combat and the clock start over.</li>
+        <li>Every effect on this map is removed, with its icons on the map.</li>
+        <li>The lights on those tokens are removed.</li>
+        <li>
+          <span className="font-semibold">The session log is cleared. That can't be undone.</span>{" "}
+          {log.length > 0 ? "Download it first?" : "It's empty."}
+        </li>
+      </ul>
+      {log.length > 0 && (
+        <button
+          type="button"
+          className="self-start rounded-full bg-obr-paper px-3 py-1 font-medium hover:bg-obr-text/10"
+          onClick={() => {
+            downloadLog(log);
+            setDownloaded(true);
+          }}
+        >
+          {downloaded ? "Downloaded ✓ (again?)" : `Download the log (${log.length})`}
+        </button>
+      )}
+      <span className="text-obr-text-secondary">Undo can bring back the tracker, effects and lights, not the log.</span>
+      <span className="flex justify-end gap-1.5">
+        <button type="button" className="h-8 rounded-full bg-obr-paper px-4 font-medium hover:bg-obr-text/10" onClick={close}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          className="h-8 rounded-full bg-red-700 px-4 font-medium text-white hover:bg-red-600 disabled:opacity-60"
+          onClick={() => {
+            setError("");
+            setBusy(true);
+            resetAll()
+              .catch((err) => setError(`Couldn't reset, so nothing changed: ${errorMessage(err)}`))
+              .finally(() => {
+                setBusy(false);
+                close();
+              });
+          }}
+        >
+          Reset all
+        </button>
+      </span>
     </div>
   );
 };
