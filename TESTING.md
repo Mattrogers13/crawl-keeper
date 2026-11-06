@@ -77,8 +77,8 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 33 | GM: gear | Cards: Encounters (segmented pill), Darkness, Players' lights (v0.3), What players see, Turns and combat, About; switches on the right; the how-to card opens the guide in a new tab | 2026-11-02 |
-| 34 | GM: each switch (hide rounds, hide clock / show danger, clear rolls, turn marker, select token, roll automatically) | Each does what its line says; the turn marker switch adds or removes the ring at once | 2026-11-02 |
+| 33 | GM: gear | The how-to card (opens the guide in a new tab) and the Session log card, then Encounters (segmented pill), Darkness, Players' lights, What players see, Turns and combat (with Show effect icons on the map), About, and Session (Reset all) last; switches on the right. The guide has Effects and Session log and Reset all sections | 2026-11-02 |
+| 34 | GM: each switch (hide rounds, hide clock / show danger, show rolls, clear rolls, turn marker, select token, roll automatically) | Each does what its line says; the turn marker switch adds or removes the ring at once; the green eyes on the crawl card follow the What players see switches | 2026-11-02 |
 | 35 | GM: Reset rounds → Cancel; → Reset | Cancel changes nothing; Reset says checks start over and zeroes both counts | 2026-11-02 |
 | 36 | Overflow the list; drag the bottom grip; close and reopen | Header and controls stay put, only the list scrolls; the height is kept | 2026-11-02 |
 | 37 | Install link → Copy | "Copied" (or the text is selected with a Cmd+C hint); the URL is this build's manifest | 2026-11-02 |
