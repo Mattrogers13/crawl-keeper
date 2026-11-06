@@ -90,6 +90,14 @@ export const FlameIcon = ({ className = "h-3.5 w-3" }: { className?: string }) =
 );
 
 // An eye struck through: hidden from players (Owlbear's own sign for it).
+// An open eye: players see it.
+export const EyeIcon = ({ className = "h-3 w-3" }: { className?: string }) => (
+  <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8s-2.4 4.5-6.5 4.5S1.5 8 1.5 8z" />
+    <circle cx="8" cy="8" r="2" />
+  </svg>
+);
+
 export const HiddenIcon = ({ className = "h-3 w-3" }: { className?: string }) => (
   <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8s-2.4 4.5-6.5 4.5S1.5 8 1.5 8z" />

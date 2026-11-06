@@ -14,7 +14,7 @@
 import OBR, { buildImage, type Image, type Item, type Metadata } from "@owlbear-rodeo/sdk";
 
 import { EFFECTS_KEY, EFFECT_ICON_KEY, EFFECT_SLOT_KEY, SETTINGS_KEY, TRACKER_KEY } from "./constants";
-import { CONDITION_IDS, parseEffects, statusOf, type Condition, type Effects } from "./effects";
+import { CONDITION_IDS, parseEffects, statusOf, type Condition, type Effect, type Effects } from "./effects";
 import { isOurEffectIcon, tokenCells } from "./marker";
 import { parseSettings } from "./settings";
 import { parseTracker, type Tracker } from "./tracker";
@@ -27,13 +27,17 @@ export const MAX_ICONS = 3;
 // WebP, never SVG on the map (black square). Sources: art/effects/*.svg.
 export const iconImage = (name: IconName) => `${window.location.origin}/img/effect-${name}.webp`;
 
+// An effect's icon: its condition, focus, or the asterisk for a custom one
+// (the map and the panel's effect lines).
+export const iconOf = (e: Effect): IconName => (e.kind === "focus" ? "focus" : (e.icon ?? "custom"));
+
 // Pure: each token's icons, in order, and whether each is hidden from
 // players (every effect behind it is hidden).
 export const tokenIcons = (s: Effects, t: Tracker): Map<string, { name: IconName; hidden: boolean }[]> => {
   const byToken = new Map<string, Map<IconName, boolean>>();
   for (const e of s.effects) {
     if (e.holder === null || statusOf(e, t).state !== "active") continue;
-    const name: IconName = e.kind === "focus" ? "focus" : (e.icon ?? "custom");
+    const name = iconOf(e);
     const icons = byToken.get(e.holder) ?? new Map<IconName, boolean>();
     icons.set(name, (icons.get(name) ?? true) && e.hidden);
     byToken.set(e.holder, icons);
