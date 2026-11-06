@@ -45,11 +45,11 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 16 | GM, Standard, Unsafe: ▶ through 3 crawl rounds | The roll button is plain, then outlined in round 3, filled on the GM / Monsters turn; "Due this round" in the accent color | 2026-11-02 |
-| 17 | GM: Roll check; Undo | Big result: the die, then "No encounter" or a red "Encounter!"; Undo clears it | 2026-11-02 |
+| 16 | GM, Standard, Unsafe: ▶ through 3 crawl rounds | The roll button is plain, then outlined in round 3, filled on the GM / Monsters turn; "check now" in the accent color | 2026-11-02 |
+| 17 | GM: Roll check; Undo | The die shows the roll, with "No encounter" or a red "Encounter!" beside it; Undo clears it | 2026-11-02 |
 | 18 | GM: an extra roll in round 2 (Unsafe) | It rolls, but the check is still due in round 3 | 2026-11-02 |
 | 19 | GM: R when no roll is due; R when one is | Nothing, then the roll | 2026-11-02 |
-| 20 | GM: Risky, Deadly, Darkness | Checks every 2 rounds, every round, every round | 2026-11-02 |
+| 20 | GM: Risky, Deadly, then the card's Darkness switch | Checks every 2 rounds, every round, every round | 2026-11-02 |
 
 ### Crawling: the Crawling Clock
 
