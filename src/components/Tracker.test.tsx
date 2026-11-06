@@ -758,6 +758,19 @@ describe("Tracker (GM)", () => {
       expect(within(card).getByRole("img", { name: "Clock 20 of 20" })).toBeInTheDocument();
     });
 
+    it("a green eye marks what players see: the clock, the danger level, the rolls", async () => {
+      obr.metadata = { [SETTINGS_KEY]: { encounterMode: "clock", showRolls: true } };
+      scene([{ id: GM_ENTRY }]);
+      render(<App />);
+      const card = await screen.findByRole("region", { name: "Crawling Clock" });
+      expect(within(card).getByRole("img", { name: "Players see the Crawling Clock" })).toBeInTheDocument();
+      expect(within(card).getByRole("img", { name: "Players see the rolls" })).toBeInTheDocument();
+      await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "standard", hideClock: true, showDanger: true } });
+      const standard = await screen.findByRole("region", { name: "Encounter checks" });
+      expect(within(standard).getByRole("img", { name: "Players see the danger level" })).toBeInTheDocument();
+      expect(within(standard).queryByRole("img", { name: /Players see the (Crawling Clock|rolls)/ })).toBeNull();
+    });
+
     it("sits under the turn bar (◀ ▶ never moves), not in the list; not there in Settings", async () => {
       scene([{ id: GM_ENTRY }]);
       render(<App />);

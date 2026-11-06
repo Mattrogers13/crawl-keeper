@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 
 import Confirm from "./Confirm";
+import { EyeIcon } from "./icons";
 import type { Change } from "./Tracker";
 import {
   CLOCK_DIE,
@@ -42,7 +43,11 @@ const CrawlBar = (props: {
   dark: boolean;
   following: boolean;
   change: Change<Crawl>;
+  // What players see of this card (Settings → What players see): a small
+  // green eye on each (Matt, 2026-11-06).
+  seen?: { clock: boolean; danger: boolean; rolls: boolean };
 }) => {
+  const seen = props.seen ?? { clock: false, danger: false, rolls: false };
   const { crawl, mode, start, dark, change } = props;
   const [askingReset, setAskingReset] = useState(false);
   const clock = mode === "clock";
@@ -62,7 +67,8 @@ const CrawlBar = (props: {
         callForRoll ? "shadow-[0_0_0_3px_color-mix(in_srgb,var(--obr-primary)_18%,transparent)] ring-obr-primary" : "ring-obr-text/10"
       }`}
     >
-      <div className="flex flex-col items-center">
+      <div className="relative flex flex-col items-center">
+        {clock && seen.clock && <Seen what="the Crawling Clock" />}
         {clock ? (
           // Right-click the clock to reset it.
           <div
@@ -83,7 +89,10 @@ const CrawlBar = (props: {
         {clock ? (
           <span className="text-sm font-medium">Crawling Clock{start > CLOCK_DIE && <span className="text-obr-text-secondary"> · 2d20</span>}</span>
         ) : (
-          <DangerSelect value={crawl.danger} onChange={(d) => change("Danger level", (c) => setDanger(c, d))} />
+          <span className="flex items-center gap-1.5">
+            <DangerSelect value={crawl.danger} onChange={(d) => change("Danger level", (c) => setDanger(c, d))} />
+            {seen.danger && <Seen what="the danger level" inline />}
+          </span>
         )}
         <span className="text-[11px] leading-snug text-obr-text-secondary">
           {/* Standard checks are rounds apart: say how far. The clock rolls
@@ -132,7 +141,8 @@ const CrawlBar = (props: {
         )}
       </div>
 
-      <div className="flex items-center gap-1.5">
+      <div className="relative flex items-center gap-1.5">
+        {seen.rolls && <Seen what="the rolls" />}
         <Die
           small
           roll={last}
@@ -150,6 +160,20 @@ const CrawlBar = (props: {
     </section>
   );
 };
+
+// A small green eye: players can see this (title says what, and where to change it).
+const Seen = ({ what, inline = false }: { what: string; inline?: boolean }) => (
+  <span
+    role="img"
+    aria-label={`Players see ${what}`}
+    title={`Players see ${what} (Settings → What players see)`}
+    className={`z-10 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-600/90 text-white ring-2 ring-obr-bg ${
+      inline ? "" : "absolute -top-1 -left-1"
+    }`}
+  >
+    <EyeIcon className="h-2.5 w-2.5" />
+  </span>
+);
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
