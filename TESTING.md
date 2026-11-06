@@ -8,7 +8,7 @@ The per-PR checklists for v0.1 (PRs 1–4) are in git history (`git log -p -- TE
 
 ## Release checklist (current as of v0.4.0)
 
-v0.1.0 was room-tested PR by PR (the old lists in git history plus checks on #7–#9), not with this list as a whole. First full end-to-end pass: 2026-10-17 (Dev, GM + player), all rows passed. v0.3.0 full pass: 2026-11-01 to 2026-11-02 (Dev `4fd459d`, GM + player, Dynamic Fog, Torchlight uninstalled), all rows passed (51–55 retired).
+v0.1.0 was room-tested PR by PR (the old lists in git history plus checks on #7–#9), not with this list as a whole. First full end-to-end pass: 2026-10-17 (Dev, GM + player), all rows passed. v0.3.0 full pass: 2026-11-01 to 2026-11-02 (Dev `4fd459d`, GM + player, Dynamic Fog, Torchlight uninstalled), all rows passed (51–55 retired). v0.4.0 full pass: 2026-11-06 (Dev `4c57c1b`, GM + player, Dynamic Fog), all rows passed (37 retired; 88–103 run that day on the merged PRs, same code).
 
 ### Tracker
 
@@ -87,24 +87,24 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 38 | Player: the panel | Phase pill with the round (unless hidden), a card with the small d20 clock (unless hidden) and / or danger level (if shown); no gear, grips or checkboxes (the monster fold is theirs) | 2026-11-02 |
-| 39 | Owlbear light theme, then dark | The panel follows: text, chips, amber, gold dot and switches readable in both | 2026-11-02 |
-| 40 | Toolbar | The Keeper's key icon (Dev: with a dot); one icon and one alert per client after reinstalling | 2026-11-02 |
+| 38 | Player: the panel | Phase pill with the round (unless hidden), a card with the small d20 clock (unless hidden) and / or danger level (if shown); the scroll (their session log) and the flame; no gear, ⏳, grips or checkboxes (the monster fold is theirs) | 2026-11-06 |
+| 39 | Owlbear light theme, then dark | The panel follows: text, chips, amber, gold dot and switches readable in both | 2026-11-06 |
+| 40 | Toolbar | The Keeper's key icon (Dev: with a dot); one icon and one alert per client after reinstalling | 2026-11-06 |
 
 ### New in v0.1.1
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 41 | GM: Crawl, standard, Unsafe; ▶ through 3 crawl rounds; click the d6; Undo | The d20 counts 3 → 2 → 1 → "!", ring segments fill; the card lights on the GM turn; the d6 shows the pips, "No encounter" / red "Encounter!" under it; Undo clears it | 2026-11-02 |
-| 42 | GM: danger dropdown to Deadly; switch to Crawling Clock, Darkness, roll; switch back | Deadly: one segment (every round); the Torchlit / Darkness switch is on the card in every mode (v0.3); clock mode: the d20 shows the clock (no label under it), Darkness makes it "Roll d8", the d6 shows its total and "Clock 20 → N"; back in standard the d6 doesn't show the clock roll | 2026-11-02 |
-| 43 | GM: the GM row's d20 → − / + / type a DEX → Roll d20+N | The row opens under the GM row; Roll fills the roll and shows `d20 X + N` under the name; typing a roll by hand drops it | 2026-11-02 |
-| 44 | GM: tick checkboxes on two rows; right-click one | Both tinted and in the menu; checkboxes stay visible while any is ticked | 2026-11-02 |
-| 45 | GM and player: fold the monsters; reload; Combat, ▶ to a monster | Folded ("N monsters" + portraits), still folded after reload; opens on a monster's turn, folds again after | 2026-11-02 |
-| 46 | GM: Mark dead on a token, hide it, show it, Mark alive; mark another dead and Remove from initiative | A skull badge over the token's centre, hidden with it for the player; gone when alive or removed | 2026-11-02 |
-| 47 | Player: their own token's turn (a token they placed), then someone else's | "Your turn, <name>" strip, then none | 2026-11-02 |
-| 49 | GM: Settings → Show the rolls to players; roll in each mode | The player's card shows the die and its result (with the clock hidden too); off: no roll | 2026-11-02 |
-| 50 | GM: Reset rounds / Remove monsters | Under the turn bar, above the list; each asks first | 2026-11-02 |
-| 48 | Any view, both themes | No broken styles or missing portraits (the new CSP); browser console has no CSP errors | 2026-11-02 |
+| 41 | GM: Crawl, standard, Unsafe; ▶ through 3 crawl rounds; click the d6; Undo | The d20 counts 3 → 2 → 1 → "!", ring segments fill; the card lights on the GM turn; the d6 shows the pips, "No encounter" / red "Encounter!" beside it; Undo clears it | 2026-11-06 |
+| 42 | GM: danger dropdown to Deadly; switch to Crawling Clock, Darkness, roll; switch back | Deadly: one segment (every round); the Torchlit / Darkness switch is on the card in every mode (v0.3); clock mode: the d20 shows the clock (no label under it), Darkness makes it "Roll d8", the d6 shows its total and "Clock 20 → N"; back in standard the d6 doesn't show the clock roll | 2026-11-06 |
+| 43 | GM: the GM row's d20 → − / + / type a DEX → Roll d20+N | The row opens under the GM row; Roll fills the roll (the list sorts itself) and shows `d20 X + N` under the name; typing a roll by hand drops it | 2026-11-06 |
+| 44 | GM: tick checkboxes on two rows; right-click one | Both tinted and in the menu; checkboxes stay visible while any is ticked | 2026-11-06 |
+| 45 | GM and player: fold the monsters; reload; Combat, ▶ to a monster | Folded ("N monsters" + portraits), still folded after reload; opens on a monster's turn, folds again after | 2026-11-06 |
+| 46 | GM: Mark dead on a token, hide it, show it, Mark alive; mark another dead and Remove from initiative | A skull badge over the token's centre, hidden with it for the player; gone when alive or removed | 2026-11-06 |
+| 47 | Player: their own token's turn (a token they placed), then someone else's | "Your turn, <name>" strip, then none | 2026-11-06 |
+| 49 | GM: Settings → Show the rolls to players; roll in each mode | The player's card shows the die and its result (with the clock hidden too); off: no roll | 2026-11-06 |
+| 50 | GM: Reset rounds / Remove monsters | Under the turn bar, above the list; each asks first | 2026-11-06 |
+| 48 | Any view, both themes | No broken styles or missing portraits (the new CSP); browser console has no CSP errors | 2026-11-06 |
 
 ### New: Follow Torchlight (Torchlight installed too)
 
@@ -117,21 +117,21 @@ Rows 51–55 retired (Matt, 2026-10-31): the Torchlight merge (v0.3) replaces Fo
 | 53 | Light one torch again | Back to Risky, chip gone, the 3 ft lights come off (the lit token keeps its torch) | Retired (v0.3) |
 | 54 | Crawling Clock: lights out, then back | The torch toggle flips to Darkness (Roll d8) and back | Retired (v0.3) |
 | 55 | Settings → Follow Torchlight off; put out the lights | Nothing changes on its own; the 3 ft lights come off | Retired (v0.3) |
-| 56 | A room with no lights in the Light Tracker (v0.3: was "without Torchlight") | Never goes dark on its own; only the card's switch darkens it | 2026-11-02 |
+| 56 | A room with no lights in the Light Tracker (v0.3: was "without Torchlight") | Never goes dark on its own; only the card's switch darkens it | 2026-11-06 |
 
 ### New in v0.2.0
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 57 | GM: ▶, then "Undo: Next turn", Redo; Cmd+Z, Shift+Cmd+Z (not while typing in a note) | The bar names the step; the turn and ring go back and forward | 2026-11-02 |
-| 58 | GM: close the panel, right-click a token → Add / Remove Initiative, reopen | "Undo: Add to initiative" in the bar; Undo takes it out | 2026-11-02 |
-| 59 | GM: Remove monsters (or Reset rounds, Reset clock) | A "Done: …" toast with Undo just above the bar, never over it, gone after 8 s; its Undo brings them back | 2026-11-02 |
-| 60 | GM: a step on map A, open map B, Undo | "… on another map. Skipped."; map B unchanged | 2026-11-02 |
-| 61 | Player: the panel | No Undo bar or toast | 2026-11-02 |
-| 62 | GM: Settings → Manual; ▶ to the GM turn when a check is due; roll the d6; ▶ past it once without rolling | The card shows the danger level and lights up; the d6 rolls a check; ▶ counts a due check made. Player (Show the danger level on): "Crawling · <danger>", never the roll; "Show the rolls" isn't offered | 2026-11-02 |
-| 63 | GM: Settings → Clock 2d20; roll until the clock passes 20 and 0 | Starts at 40, worn down one d20 at a time; the omen and the encounter on the last die; the overflow carries into a fresh 40. Player: "Crawling Clock", "The clock is at N" of 40 | 2026-11-02 |
-| 64 | GM: Settings at a short and a tall panel height; pick each of Interval / Clock 1d20 / Clock 2d20 / Manual | Cards like the web toolkit (Encounters, Darkness, Players' lights, What players see, Turns and combat, About); one scrollbar only; each choice is one undo step | 2026-11-02 |
-| 65 | Player: a clock mode with the clock shown | The card's title reads "Crawling Clock" | 2026-11-02 |
+| 57 | GM: ▶, then "Undo: Next turn", Redo; Cmd+Z, Shift+Cmd+Z (not while typing in a note) | The bar names the step; the turn and ring go back and forward | 2026-11-06 |
+| 58 | GM: close the panel, right-click a token → Add / Remove Initiative, reopen | "Undo: Add to initiative" in the bar; Undo takes it out | 2026-11-06 |
+| 59 | GM: Remove monsters (or Reset rounds, Reset clock) | A "Done: …" toast with Undo just above the bar, never over it, gone after 8 s; its Undo brings them back | 2026-11-06 |
+| 60 | GM: a step on map A, open map B, Undo | "… on another map. Skipped."; map B unchanged | 2026-11-06 |
+| 61 | Player: the panel | No Undo bar or toast | 2026-11-06 |
+| 62 | GM: Settings → Manual; ▶ to the GM turn when a check is due; roll the d6; ▶ past it once without rolling | The card shows the danger level and lights up; the d6 rolls a check; ▶ counts a due check made. Player (Show the danger level on): "Crawling · <danger>", never the roll; "Show the rolls" isn't offered | 2026-11-06 |
+| 63 | GM: Settings → Clock 2d20; roll until the clock passes 20 and 0 | Starts at 40, worn down one d20 at a time; the omen and the encounter on the last die; the overflow carries into a fresh 40. Player: "Crawling Clock", "The clock is at N" of 40 | 2026-11-06 |
+| 64 | GM: Settings at a short and a tall panel height; pick each of Interval / Clock 1d20 / Clock 2d20 / Manual | Cards like the web toolkit (Encounters, Darkness, Players' lights, What players see, Turns and combat, About, Session); one scrollbar only; each choice is one undo step | 2026-11-06 |
+| 65 | Player: a clock mode with the clock shown | The card's title reads "Crawling Clock" | 2026-11-06 |
 
 ### New in v0.3.0 (the Torchlight merge)
 
@@ -139,33 +139,33 @@ Torchlight uninstalled. Dynamic Fog on for rows 72–74. Rows 66–76 sum up the
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 66 | GM: a row's menu → Give torch; the same menu again; the flame beside the gear | A counting badge on the row; the menu reads "Put out the torch, light the lantern"; the Light Tracker lists "Torch · <name>" | 2026-11-02 |
-| 67 | GM, Light Tracker: Time passes `10m` (and `abc`); click a time, type `31:00`; Pause and resume; switch Ride along / Separate and light a second token | Lit lights lose 10 min, `abc` is explained; the time is corrected; times freeze while paused; Ride along matches the first timer, Separate starts a full hour. Everyone gets "Time passes: 10 minutes." | 2026-11-02 |
-| 68 | GM: put out a torch (badge or Light Tracker); a lantern at 0:40 left, put out, light again | The torch is spent; the lantern keeps 0:30 and lights again from there | 2026-11-02 |
-| 69 | GM: Put lights out, then the toast's Undo; Undo / Redo a light change | All out, the notices card says "Total darkness (p. 84)"; Undo brings them back; each step names itself | 2026-11-02 |
-| 70 | GM: every light out, Follow light on; Interval, then a clock mode; light one again | "Total darkness" in the notices card, a check every crawl round, the switch reads "Darkness" (tooltip: following light) and is locked, DIS on living players' rows (player sees it too), the danger level unchanged; clocks roll a d8; one light clears it all | 2026-11-02 |
-| 71 | GM: Remove all lights, press the card's switch; then Settings → Follow light off, light and put out a light | The switch unlocks and darkens by hand; with Follow light off, lights never darken the map | 2026-11-02 |
-| 72 | GM: right-click a party token → Crawl Keeper → Light torch, Light lantern, Put out; a token outside initiative; a prop; several tokens at once | 30 ft light, then 60 ft (the torch spent), then back to 3 ft; badge icons on the token; no row added for the outside token; a prop offers only Light campfire (no icon); each selected token lit; Undo moves the map light back | 2026-11-02 |
-| 73 | GM: a token with its own Dynamic Fog light: light a torch, put it out | Its own light comes back | 2026-11-02 |
-| 74 | Player: their party token, lights out | A 3 ft dim light shows their token through the fog | 2026-11-02 |
-| 75 | GM: Settings → Players light their own on. Player: right-click their token → Crawl Keeper → Light torch; the flame in their header → Your light → Light lantern (asks first), Put out; GM leaves the room, player tries again | Each works and the GM sees it; the swap asks; without the GM: "The GM isn't in the room". GM lights an NPC torch after the player's, then Undo: the player's torch stays | 2026-11-02 |
-| 76 | Player: Settings → Show lights to players off, then on; a light burns out (set one to `0:05`) | Off: only their Your light card; on: party light, every light, badges, DIS. Everyone gets the burn-out notice; the GM's notices card says "<light> · <name> burned out" | 2026-11-02 |
+| 66 | GM: a row's menu → Give torch; the same menu again; the flame beside the gear | A counting badge on the row; the menu reads "Put out the torch, light the lantern"; the Light Tracker lists "Torch · <name>" | 2026-11-06 |
+| 67 | GM, Light Tracker: Time passes `10m` (and `abc`); click a time, type `31:00`; Pause and resume; switch Ride along / Separate and light a second token | Lit lights lose 10 min, `abc` is explained; the time is corrected; times freeze while paused; Ride along matches the first timer, Separate starts a full hour. Everyone gets "Time passes: 10 minutes." | 2026-11-06 |
+| 68 | GM: put out a torch (badge or Light Tracker); a lantern at 0:40 left, put out, light again | The torch is spent; the lantern keeps 0:30 and lights again from there | 2026-11-06 |
+| 69 | GM: Put lights out, then the toast's Undo; Undo / Redo a light change | All out, the notices card says "Total darkness (p. 84)"; Undo brings them back; each step names itself | 2026-11-06 |
+| 70 | GM: every light out, Follow light on; Interval, then a clock mode; light one again | "Total darkness" in the notices card, a check every crawl round, the switch reads "Darkness" (tooltip: following light) and is locked, DIS on living players' rows (player sees it too), the danger level unchanged; clocks roll a d8; one light clears it all | 2026-11-06 |
+| 71 | GM: Remove all lights, press the card's switch; then Settings → Follow light off, light and put out a light | The switch unlocks and darkens by hand; with Follow light off, lights never darken the map | 2026-11-06 |
+| 72 | GM: right-click a party token → Crawl Keeper → Light torch, Light lantern, Put out; a token outside initiative; a prop; several tokens at once | 30 ft light, then 60 ft (the torch spent), then back to 3 ft; badge icons on the token; no row added for the outside token; a prop offers only Light campfire (no icon); each selected token lit; Undo moves the map light back | 2026-11-06 |
+| 73 | GM: a token with its own Dynamic Fog light: light a torch, put it out | Its own light comes back | 2026-11-06 |
+| 74 | Player: their party token, lights out | A 3 ft dim light shows their token through the fog | 2026-11-06 |
+| 75 | GM: Settings → Players light their own on. Player: right-click their token → Crawl Keeper → Light torch; the flame in their header → Your light → Light lantern (asks first), Put out; GM leaves the room, player tries again | Each works and the GM sees it; the swap asks; without the GM: "The GM isn't in the room". GM lights an NPC torch after the player's, then Undo: the player's torch stays | 2026-11-06 |
+| 76 | Player: Settings → Show lights to players off, then on; a light burns out (set one to `0:05`) | Off: only their Your light card; on: party light, every light, badges, DIS. Everyone gets the burn-out notice; the GM's notices card says "<light> · <name> burned out" | 2026-11-06 |
 
 ### Effects (v0.4)
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 77 | GM: ▶ to a player's turn; right-click their row → Add effect… → "Bless", Rounds 2, Add; ▶ through two rounds | A Bless line under the row, "2 rnd"; 1 (amber) after their next turn starts; "ended" and "Bless on … ends now" in the notices on the turn it ends; gone on the next ▶; ◀ brings it back | 2026-11-05 |
-| 78 | GM: Add effect (the link under the turn bar) → "Cloudkill", Roll 1d6; a token not in initiative → Add effect from its row before removing it, or keep one on a removed row | Both in the notices card (folded with a count when there are two), the token's with its name, Cloudkill "· no token" | 2026-11-05 |
-| 79 | GM: select two rows → right-click → Add effect to 2… → DIS, Ongoing | A DIS line under each row; the name filled itself | 2026-11-05 |
-| 80 | GM: on a caster's row: Add effect… → "Hold Person", Duration Focus. On a monster: "Paralyzed", Duration "While <caster>'s Hold Person lasts". Then Add effect… → "Web", Focus on the caster | ◎ Hold Person line; asks "End Hold Person, focus on Web?"; End and focus: Hold Person and Paralyzed go | 2026-11-05 |
-| 81 | GM: ▶ to the caster's turn with a focus: Lost; again with Nat 1; then a focusing monster while crawling; then row menu → Focus check now off their turn → Kept | The focus check in the notices on their turn (a monster's on the GM turn); Lost ends it and what ends with it; Nat 1 adds the critical-failure notice (p. 45); Kept dismisses | 2026-11-05 |
-| 82 | GM: Mark dead a focusing caster; Undo. Reset rounds with a rounds effect running. ⏳ → 10m → Pass | Dead ends the focus (and Paralyzed); one Undo brings all back. Reset: the effect keeps its rounds left. Time passes: rounds effects go, focus and Ongoing stay; one Undo brings them back | 2026-11-05 |
-| 83 | GM: click an effect line → Rounds left 5 → Set; click again → Remove. Delete a token holding effects from the map | The line reads 5, then goes; the token's effects go (and what ends with its focus) | 2026-11-05 |
-| 84 | Player (private window): GM adds a hidden effect, one on a hidden token, one free-standing, and a focus on the player's token | The player sees the effect lines, the notices and their focus check, no buttons, nothing hidden | 2026-11-05 |
-| 85 | GM: Bless on a player, Rounds 1, counted on their turn; a hidden one too. ▶ until it ends, ◀, ▶ again. Player (private window, panel closed) watches | On the turn it ends, GM and player get "Bless on <name> ended."; the hidden one only for the GM; ◀ then ▶ doesn't repeat it | 2026-11-05 |
-| 86 | GM: add a hidden effect to a row, a hidden DIS, and a hidden free-standing one | Each hidden effect line has a struck-through eye and a dashed outline, light and dark theme; the others don't | 2026-11-05 |
-| 87 | GM: panel closed; right-click a token → Crawl Keeper → Add effect…. Then with the panel open on Settings, right-click two tokens → Add effect to 2…. Then a prop | The panel opens on the list with the Add effects sheet for that token (its name at the top); from Settings it comes back to the list with both names; a prop works too. The menu has 7 rows, none cut off | 2026-11-05 |
+| 77 | GM: ▶ to a player's turn; right-click their row → Add effect… → "Bless", Rounds 2, Add; ▶ through two rounds | A Bless line under the row, "2 rnd"; 1 (amber) after their next turn starts; "ended" and "Bless on … ends now" in the notices on the turn it ends; gone on the next ▶; ◀ brings it back | 2026-11-06 |
+| 78 | GM: Add effect (the link under the turn bar) → "Cloudkill", Roll 1d6; a token not in initiative → Add effect from its row before removing it, or keep one on a removed row | Both in the notices card (folded with a count when there are two), the token's with its name, Cloudkill "· no token" | 2026-11-06 |
+| 79 | GM: select two rows → right-click → Add effect to 2… → DIS, Ongoing | A DIS line under each row; the name filled itself | 2026-11-06 |
+| 80 | GM: on a caster's row: Add effect… → "Hold Person", Duration Focus. On a monster: "Paralyzed", Duration "While <caster>'s Hold Person lasts". Then Add effect… → "Web", Focus on the caster | ◎ Hold Person line; asks "End Hold Person, focus on Web?"; End and focus: Hold Person and Paralyzed go | 2026-11-06 |
+| 81 | GM: ▶ to the caster's turn with a focus: Lost; again with Nat 1; then a focusing monster while crawling; then row menu → Focus check now off their turn → Kept | The focus check in the notices on their turn (a monster's on the GM turn); Lost ends it and what ends with it; Nat 1 adds the critical-failure notice (p. 45); Kept dismisses | 2026-11-06 |
+| 82 | GM: Mark dead a focusing caster; Undo. Reset rounds with a rounds effect running. ⏳ → 10m → Pass | Dead ends the focus (and Paralyzed); one Undo brings all back. Reset: the effect keeps its rounds left. Time passes: rounds effects go, focus and Ongoing stay; one Undo brings them back | 2026-11-06 |
+| 83 | GM: click an effect line → Rounds left 5 → Set; click again → Remove. Delete a token holding effects from the map | The line reads 5, then goes; the token's effects go (and what ends with its focus) | 2026-11-06 |
+| 84 | Player (private window): GM adds a hidden effect, one on a hidden token, one free-standing, and a focus on the player's token | The player sees the effect lines, the notices and their focus check, no buttons, nothing hidden | 2026-11-06 |
+| 85 | GM: Bless on a player, Rounds 1, counted on their turn; a hidden one too. ▶ until it ends, ◀, ▶ again. Player (private window, panel closed) watches | On the turn it ends, GM and player get "Bless on <name> ended."; the hidden one only for the GM; ◀ then ▶ doesn't repeat it | 2026-11-06 |
+| 86 | GM: add a hidden effect to a row, a hidden DIS, and a hidden free-standing one | Each hidden effect line has a struck-through eye and a dashed outline, light and dark theme; the others don't | 2026-11-06 |
+| 87 | GM: panel closed; right-click a token → Crawl Keeper → Add effect…. Then with the panel open on Settings, right-click two tokens → Add effect to 2…. Then a prop | The panel opens on the list with the Add effects sheet for that token (its name at the top); from Settings it comes back to the list with both names; a prop works too. The menu has 7 rows, none cut off | 2026-11-06 |
 | 88 | GM: on one token add Focus (Hold Person), DIS, and Bless (custom); on another add four kinds (ADV, Stuck, Blinded, a custom). Move, resize and rotate the tokens | First token: ◎, DIS, ✱ in a row on its bottom edge; second: ADV, Stuck (in order), then +. They follow the token, stay small, and don't cover the ring, skull or light badge | 2026-11-06 |
 | 89 | GM: a hidden effect on a token, and hide a token holding effects. Player (private window) looks at the map | GM sees the hidden effect's icon faded, after the others; the player sees neither it nor any icon on the hidden token, and no gap | 2026-11-06 |
 | 90 | GM: a Bless with 1 round; ▶ past its end. Remove an effect from its line. Settings → Show effect icons on the map off, then on | The icon goes when the effect ends or is removed; off clears every icon, on brings them back | 2026-11-06 |
