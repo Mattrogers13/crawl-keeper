@@ -281,7 +281,10 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   const effectChange = gm ? changeEffects : null;
   const dueChecks = focusChecks(seenEffects, tracker);
   const calledChecks = seenEffects.effects.filter((e) => checkNow.includes(e.id) && !dueChecks.includes(e));
-  const rowEffects = (e: Entry) => <RowEffects effects={effectsOf.get(e.id) ?? []} tracker={tracker} change={effectChange} />;
+  const rowEffects = (e: Entry) => {
+    const list = effectsOf.get(e.id);
+    return list ? <RowEffects effects={list} tracker={tracker} change={effectChange} current={e.id === current} /> : undefined;
+  };
   const rowProps = { gm, change, show, focus, openMenu, lightChange: gm ? lights.change : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker), noting, setNoting };
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
   const round = tracker.round;
@@ -486,13 +489,14 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
       {headerSlot && createPortal(<EffectStrip effects={looseEffects} tracker={tracker} names={names} change={effectChange} />, headerSlot)}
 
       {/* Only the list scrolls: the controls above stay in view. */}
-      <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pt-px">
-        {/* The Add effect form scrolls with the list (the panel is short). */}
-        {gm && adding && (
-          <div className="pb-2">
-            <AddEffect key={adding.join()} holders={adding} names={names} tracker={tracker} effects={effects} change={changeEffects} close={() => setAdding(null)} />
-          </div>
-        )}
+      <div className="relative -mx-1 flex min-h-0 flex-1 flex-col">
+      {/* The Add effects sheet covers the list while open (the panel is short). */}
+      {gm && adding && (
+        <div className="absolute inset-0 z-20 overflow-y-auto bg-obr-paper px-1">
+          <AddEffect key={adding.join()} holders={adding} names={names} tracker={tracker} effects={effects} change={changeEffects} close={() => setAdding(null)} />
+        </div>
+      )}
+      <div className="min-h-0 flex-1 overflow-y-auto px-1 pt-px" inert={gm && adding ? true : undefined}>
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -571,6 +575,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
             monsters; drag its grip to move it. Click a roll to edit it.
           </p>
         )}
+      </div>
       </div>
       {gm && (
         <div className="flex shrink-0 justify-end">

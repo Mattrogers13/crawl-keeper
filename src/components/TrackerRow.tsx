@@ -63,7 +63,7 @@ const Row = (props: {
   gmDie: GmDie | null;
   // The GM row's monsters, listed under it.
   children?: ReactNode;
-  // The token's effects, under its name.
+  // The token's effects, under the row (none: undefined).
   effects?: ReactNode;
   // The row whose empty note the GM opened (row menu → Add note), and
   // closing it again.
@@ -78,6 +78,14 @@ const Row = (props: {
   const sortable = useSortable({ id: entry.id, disabled: !gm });
   // The GM row's DEX modifier and Roll, opened from its d20.
   const [rolling, setRolling] = useState(false);
+  const effects = token ? props.effects : undefined;
+  // The row's own look, shared with its effects under it.
+  const tint = props.current
+    ? "bg-obr-primary/20 shadow-[inset_3px_0_0_var(--obr-primary)]"
+    : props.selected
+      ? "bg-obr-primary/10"
+      : "";
+  const fade = `${token && !token.visible ? "opacity-60" : ""} ${entry.dead ? "opacity-55" : ""}`;
   return (
     <li
       ref={sortable.setNodeRef}
@@ -86,17 +94,9 @@ const Row = (props: {
       className={sortable.isDragging ? "relative z-10 bg-obr-paper shadow-lg" : ""}
     >
       <div
-        className={`group flex items-center gap-2 border-b border-obr-text/10 pr-1 ${props.small ? "min-h-[34px] py-0.5" : "min-h-[44px] py-1"} ${
-          gm ? "" : "pl-1"
-        } ${
-          props.current
-            ? "bg-obr-primary/20 shadow-[inset_3px_0_0_var(--obr-primary)]"
-            : props.selected
-              ? "bg-obr-primary/10"
-              : gm
-                ? "hover:bg-obr-text/5"
-                : ""
-        } ${token && !token.visible ? "opacity-60" : ""} ${entry.dead ? "opacity-55" : ""}`}
+        className={`group flex items-center gap-2 pr-1 ${effects ? "" : "border-b border-obr-text/10"} ${
+          props.small ? "min-h-[34px] py-0.5" : "min-h-[44px] py-1"
+        } ${gm ? "" : "pl-1"} ${tint || (gm ? "hover:bg-obr-text/5" : "")} ${fade}`}
         aria-selected={gm && token ? props.selected : undefined}
         // GM: click to select (Shift: a range, Cmd/Ctrl: one more), except on
         // the row's own boxes and buttons.
@@ -174,7 +174,6 @@ const Row = (props: {
               {entry.dead && <span className="sr-only"> (dead)</span>}
             </span>
           </span>
-          {token && props.effects}
           {gm && !token ? (
             // The GM row (no menu, no effects): an empty note hangs under the
             // name, out of the layout, so the name lines up with the portrait
@@ -254,6 +253,17 @@ const Row = (props: {
           </span>
         )}
       </div>
+      {effects && (
+        // Lined up with the name: the GM's grip, checkbox and portrait (16 + 16 + 26 px and
+        // three 8 px gaps; a monster's └ and smaller portrait), or a player's inset and portrait.
+        <div
+          className={`border-b border-obr-text/10 ${gm ? "pr-9" : "pr-2"} ${
+            gm ? (props.small ? "pl-[90px]" : "pl-[76px]") : props.small ? "pl-[46px]" : "pl-[32px]"
+          } ${tint} ${fade}`}
+        >
+          {effects}
+        </div>
+      )}
       {gm && !token && rolling && (
         <GmRoll
           mod={props.gmMod}
