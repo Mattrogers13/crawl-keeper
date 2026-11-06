@@ -707,7 +707,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           lights={lights.loaded ? lights : null}
           show={show}
           clear={() => setPicked(NO_SELECTION)}
-          effects={effects}
+          effects={settle(effects, tracker)}
           addEffect={(ids) => openAdding(ids)}
           addNote={setNoting}
           startDying={openDying}
