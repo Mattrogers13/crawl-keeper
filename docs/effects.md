@@ -55,7 +55,7 @@ Nothing is written when ▶ or ◀ moves the turn. A rounds effect stores where 
 - **Free-standing effects:** a strip under the crawl card, like the light strip. Effects on a token that isn't in initiative show there too, with the token's name.
 - **The turn's reminders:** under the crawl card: focus checks, and effects ending on this turn.
 - **Map:** a token's icons as small attachments along its bottom edge (up to 3, then a "+" icon), clear of the turn ring, the skull (centered) and the light badge (top right). WebP, our tag, visibility matched to the token, hidden while the effect is hidden. Settings → **Effect icons on the map** (on), for tables that already use a condition marker extension.
-- **Notices:** when an effect ends, everyone gets a notice ("Bless on Borin ended"), unless it's hidden. Sent once by the GM's background page; ◀ then ▶ again doesn't repeat it this session.
+- **Notices:** when a rounds effect runs out, everyone gets a notice ("Bless on Borin ended."), unless it's hidden or on a token hidden from them (the GM hears all). Each client's background page works it out from the scene's tracker and effects, like the light notices (built 2026-11-05, `src/effectNotices.ts`; replaces "sent once by the GM's background page": no broadcast, nothing for two GM clients to settle). ◀ then ▶ again doesn't repeat it while the room stays loaded. Removing an effect, losing focus and Time passes say nothing here: they're the GM's own actions (Time passes has its own notice).
 
 ## Adding and removing (GM)
 
@@ -100,5 +100,5 @@ Room and scene data live on Owlbear's servers with the room, not in the browser.
 1. Scene limit test on Dev (above). Done 2026-11-05: no cap up to 65 kB, no cap changes.
 2. Pure rules `src/effects.ts` + tests (parse, add, remove, derived rounds left, Reset rounds, Time passes, focus and ends-with). Built 2026-11-05.
 3. Panel: chips, strip, reminders, Add effect form, row menu; players' view. Built 2026-11-05 (`src/components/Effects.tsx`): chips sit on a line under the row's name (three, then "+N"); "Until removed" is labeled **Ongoing** in the form; free-standing effects are added from an **Add effect** link under the turn bar; Nat 1's critical-failure reminder is an Owlbear notice on the GM's screen; the form scrolls with the list. Mark dead, Reset rounds and the tracker write the effects in the same scene write; Time passes writes lights then effects, one undo step, lights put back if the effects fail. TESTING.md rows 77–84.
-4. Map icons (art: 8 condition icons + "+", WebP), notices, right-click entry.
+4. Map icons (art: 8 condition icons + "+", WebP), notices, right-click entry. One PR each: notices first (built 2026-11-05, `src/effectNotices.ts`, TESTING.md row 85), then the right-click entry, then map icons.
 5. Room test (GM + player), then the death timer can reuse it later (rounds on the holder's turn, a d20 prompt).
