@@ -11,7 +11,7 @@ Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript
 - Installs: live `https://crawl-keeper.editbag.workers.dev/manifest.json`, Dev `https://dev-crawl-keeper.editbag.workers.dev/manifest.json` (`docs/obr/deploy.md`). After a Dev rebuild, reload the Owlbear room: the background page loads once per room.
 - `main` deploys the live install on every push: merged = live for users, whatever the version number or CHANGELOG says. "Unreleased" means not tagged or announced.
 - Tracked tasks and undecided review candidates: `docs/design.md` "Releases".
-- Status (2026-11-06): v0.5.0 being released: the death timer (Dying… on player rows, d20 each turn, last chance, ▶ asks first) and Dice+ as the roll source; v0.4.0 (tag `v0.4.0`, `d9fee97`) brought effects, the reorganized top, the session log and Reset all. Next: whatever Matt picks; morale and encounter tables on hold (`docs/design.md`).
+- Status (2026-11-06): v0.5.0 released (tag `v0.5.0`, `6eb9792`): the death timer (Dying… on player rows, d20 each turn, last chance, ▶ asks first) and Dice+ as the roll source. v0.4.0 brought effects, the reorganized top, the session log and Reset all. Next: whatever Matt picks; morale and encounter tables on hold (`docs/design.md`).
 
 ## Commands
 
