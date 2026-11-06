@@ -8,7 +8,7 @@ The per-PR checklists for v0.1 (PRs 1–4) are in git history (`git log -p -- TE
 
 ## Release checklist (current as of v0.5.0)
 
-v0.1.0 was room-tested PR by PR (the old lists in git history plus checks on #7–#9), not with this list as a whole. First full end-to-end pass: 2026-10-17 (Dev, GM + player), all rows passed. v0.3.0 full pass: 2026-11-01 to 2026-11-02 (Dev `4fd459d`, GM + player, Dynamic Fog, Torchlight uninstalled), all rows passed (51–55 retired). v0.4.0 full pass: 2026-11-06 (Dev `4c57c1b`, GM + player, Dynamic Fog), all rows passed (37 retired; 88–103 run that day on the merged PRs, same code).
+v0.1.0 was room-tested PR by PR (the old lists in git history plus checks on #7–#9), not with this list as a whole. First full end-to-end pass: 2026-10-17 (Dev, GM + player), all rows passed. v0.3.0 full pass: 2026-11-01 to 2026-11-02 (Dev `4fd459d`, GM + player, Dynamic Fog, Torchlight uninstalled), all rows passed (51–55 retired). v0.4.0 full pass: 2026-11-06 (Dev `4c57c1b`, GM + player, Dynamic Fog), all rows passed (37 retired; 88–103 run that day on the merged PRs, same code). v0.5.0 pass: 2026-11-06 (Dev `993c3ae`, GM + player, Dice+): the death timer (104–107), Dice+ (108–112) and Settings (33–34) run again; the rest stands from the v0.4.0 pass the same day (Matt's call: only those changed).
 
 ### Tracker
 
