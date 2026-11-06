@@ -34,23 +34,6 @@ import { errorMessage, notify } from "../utils";
 // `fn` runs at once, so what the rules refuse throws to the caller.
 export type EffectsChange = (label: string, fn: (e: Effects, t: Tracker) => Effects) => void;
 
-// Shown on a chip after the name.
-const chipText = (e: Effect, t: Tracker) => {
-  const st = statusOf(e, t);
-  if (st.state === "ended") return "ended";
-  return st.state === "active" && st.left !== null ? `${st.left}` : "";
-};
-
-const chipLook = (e: Effect, t: Tracker) => {
-  const st = statusOf(e, t);
-  if (st.state === "ended") return "bg-obr-text/10 text-obr-text-secondary line-through";
-  if (st.state === "active" && st.left === 1) return "bg-amber-500/20 text-amber-800 dark:text-amber-300";
-  if (e.kind === "focus") return "bg-obr-primary/20 text-obr-text";
-  if (e.icon === "adv") return "bg-emerald-600/15 text-emerald-800 dark:text-emerald-300";
-  if (e.icon === "dis") return "bg-red-600/15 text-red-700 dark:text-red-300";
-  return "bg-obr-text/10 text-obr-text";
-};
-
 // What a chip says in full (its tooltip and label).
 export const describe = (e: Effect, t: Tracker, holder?: string) => {
   const st = statusOf(e, t);
@@ -64,52 +47,6 @@ export const describe = (e: Effect, t: Tracker, holder?: string) => {
           : `${st.state === "active" ? st.left : 0} of ${e.rounds} rounds left${e.dice ? ` (${e.dice})` : ""}`;
   const hint = e.icon ? CONDITIONS[e.icon].hint : undefined;
   return [holder ? `${e.name} on ${holder}` : e.name, time, e.hidden ? "hidden from players" : "", hint ?? ""].filter(Boolean).join(" · ");
-};
-
-// One effect. The GM clicks it for its menu (rounds left, end, remove).
-const Chip = (props: { effect: Effect; tracker: Tracker; holder?: string; change: EffectsChange | null; prefix?: string }) => {
-  const { effect: e, tracker: t, change } = props;
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  const what = describe(e, t, props.holder);
-  const look = `inline-flex h-5 max-w-full shrink-0 items-center gap-1 rounded-full px-1.5 text-[11px] leading-none ${chipLook(e, t)} ${
-    // Hidden from players: a dashed outline and the struck-through eye.
-    e.hidden ? "border border-dashed border-current" : ""
-  }`;
-  const text = chipText(e, t);
-  const body = (
-    <>
-      {e.hidden && <HiddenIcon className="h-3 w-3 shrink-0 opacity-80" />}
-      {e.kind === "focus" && <span aria-hidden>◎</span>}
-      <span className="truncate">
-        {props.prefix && <span className="text-obr-text-secondary">{props.prefix}: </span>}
-        {e.name}
-      </span>
-      {text && <span className="font-mono tabular-nums">{text}</span>}
-    </>
-  );
-  if (!change)
-    return (
-      <span role="img" aria-label={what} title={what} className={look}>
-        {body}
-      </span>
-    );
-  return (
-    <>
-      <button
-        type="button"
-        aria-label={`${what}. Click for actions`}
-        title={what}
-        className={`${look} hover:ring-1 hover:ring-current ${FOCUS}`}
-        onClick={(ev) => {
-          const box = ev.currentTarget.getBoundingClientRect();
-          setMenu({ x: box.left, y: box.bottom + 2 });
-        }}
-      >
-        {body}
-      </button>
-      {menu && <ChipMenu effect={e} tracker={t} x={menu.x} y={menu.y} close={() => setMenu(null)} change={change} />}
-    </>
-  );
 };
 
 // The GM's actions for one effect.
@@ -210,12 +147,13 @@ const EffectIcon = ({ effect, className = "h-4 w-4" }: { effect: Effect; classNa
   <img src={`/img/effect-${iconOf(effect)}.webp`} alt="" aria-hidden className={`${className} shrink-0 rounded-full`} />
 );
 
-// One effect under its row: icon, name, time left. The GM clicks it for its
+// One effect under its row (or in the notices, with its holder): icon, name, time left. The GM clicks it for its
 // menu (rounds left, end, remove).
-const EffectLine = (props: { effect: Effect; tracker: Tracker; change: EffectsChange | null }) => {
+// `holder`: its token's name, said in full; `tag`: shown after the name.
+export const EffectLine = (props: { effect: Effect; tracker: Tracker; change: EffectsChange | null; holder?: string; tag?: string }) => {
   const { effect: e, tracker: t, change } = props;
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  const what = describe(e, t);
+  const what = describe(e, t, props.holder);
   const look = `flex h-6 w-full min-w-0 items-center gap-1.5 rounded-md px-1.5 text-left text-xs ${lineTone(e, t)} ${
     // Hidden from players: a dashed outline and the struck-through eye.
     e.hidden ? "border border-dashed border-obr-text/40" : ""
@@ -224,7 +162,10 @@ const EffectLine = (props: { effect: Effect; tracker: Tracker; change: EffectsCh
     <>
       <EffectIcon effect={e} />
       {e.hidden && <HiddenIcon className="h-3 w-3 shrink-0 opacity-80" />}
-      <span className="min-w-0 flex-1 truncate">{e.name}</span>
+      <span className="min-w-0 flex-1 truncate">
+        {e.name}
+        {props.tag && <span className="text-obr-text-secondary"> · {props.tag}</span>}
+      </span>
       <span className="shrink-0 font-mono text-[11px] text-obr-text-secondary tabular-nums">{timeText(e, t)}</span>
     </>
   );
@@ -306,83 +247,6 @@ export const RowEffects = (props: { effects: Effect[]; tracker: Tracker; change:
         </ul>
       )}
     </div>
-  );
-};
-
-// Effects not on a row: free-standing ones, and those on tokens that aren't
-// in initiative (with the token's name).
-export const EffectStrip = (props: { effects: Effect[]; tracker: Tracker; names: Map<string, string>; change: EffectsChange | null }) =>
-  props.effects.length === 0 ? null : (
-    <section aria-label="Effects" className="flex flex-wrap items-center gap-1 rounded-[14px] bg-obr-bg px-3 py-2 ring-1 ring-obr-text/10 ring-inset">
-      <span className="mr-1 text-[11px] font-medium tracking-[0.06em] text-obr-text-secondary uppercase">Effects</span>
-      {props.effects.map((e) => {
-        const holder = e.holder === null ? undefined : (props.names.get(e.holder) ?? "a token");
-        return <Chip key={e.id} effect={e} tracker={props.tracker} holder={holder} prefix={holder} change={props.change} />;
-      })}
-    </section>
-  );
-
-// The turn's reminders: focus checks due now (p. 50) and effects ending on
-// this turn. The GM resolves a failed check here: Lost, or Nat 1 (also a
-// critical failure, p. 45). Kept needs nothing: ▶ goes on.
-export const Reminders = (props: {
-  checks: Effect[];
-  ending: Effect[];
-  tracker: Tracker;
-  names: Map<string, string>;
-  change: EffectsChange | null;
-  // A check the GM asked for now (Focus check now), and how to dismiss it.
-  dismiss?: (id: string) => void;
-  extra?: string[];
-}) => {
-  const { checks, ending, names, change } = props;
-  if (checks.length === 0 && ending.length === 0) return null;
-  const who = (e: Effect) => (e.holder === null ? "" : (names.get(e.holder) ?? "A token"));
-  const lose = (e: Effect, nat1: boolean) => {
-    try {
-      change!(nat1 ? `Nat 1: ${e.name}` : `Focus lost: ${e.name}`, (s) => endFocus(s, e.id));
-    } catch (err) {
-      notify(errorMessage(err), "WARNING");
-      return;
-    }
-    if (nat1)
-      notify(
-        `${who(e)}: natural 1, a critical failure (p. 45). A wizard can't cast ${e.name} again until a rest and rolls on the Wizard Mishap table (p. 46); a priest can't until they do penance.`,
-        "WARNING",
-      );
-  };
-  const button = "h-7 rounded-full bg-obr-paper px-3 text-xs font-medium hover:bg-obr-text/10";
-  return (
-    <section aria-label="Reminders" className="flex flex-col gap-1.5 rounded-[14px] bg-obr-primary/10 px-3 py-2 text-xs ring-1 ring-obr-primary/30 ring-inset">
-      {checks.map((e) => (
-        <div key={e.id} className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="flex-1">
-            <span className="font-semibold">{who(e)}: focus check</span>, {e.name} (spellcasting check as if casting it)
-          </span>
-          {change && (
-            <span className="flex gap-1">
-              <button type="button" className={button} onClick={() => lose(e, false)}>
-                Lost
-              </button>
-              <button type="button" className={button} title="Lost, and a critical failure (p. 45)" onClick={() => lose(e, true)}>
-                Nat 1
-              </button>
-              {props.extra?.includes(e.id) && props.dismiss && (
-                <button type="button" aria-label="Dismiss" className={button} onClick={() => props.dismiss!(e.id)}>
-                  Kept
-                </button>
-              )}
-            </span>
-          )}
-        </div>
-      ))}
-      {ending.map((e) => (
-        <div key={e.id}>
-          <span className="font-semibold">{e.name}</span>
-          {e.holder !== null && ` on ${who(e)}`} ends now
-        </div>
-      ))}
-    </section>
   );
 };
 

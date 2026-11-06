@@ -23,9 +23,8 @@ const Panel = ({ role }: { role: Role }) => {
   // The map's right-click Add effect… shows the list, where the form opens.
   useEffect(() => (role === "GM" ? onAddEffect(() => setView("tracker")) : undefined), [role]);
   const away = shown !== "tracker";
-  // Under the title, part of the top bar: the tracker puts the crawl
-  // controls here (a portal), so they sit with the title.
-  const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
+  // Beside the lights and settings: the tracker's own buttons (the GM's ⏳).
+  const [toolSlot, setToolSlot] = useState<HTMLSpanElement | null>(null);
   // Beside the title: the tracker puts the round count here.
   const [titleSlot, setTitleSlot] = useState<HTMLSpanElement | null>(null);
 
@@ -46,7 +45,7 @@ const Panel = ({ role }: { role: Role }) => {
             </button>
           )}
           {!away && <KeyIcon />}
-          <h1 className="text-[17px] font-medium tracking-[0.01em]">{TITLES[shown]}</h1>
+          <h1 className="shrink-0 text-[17px] font-medium tracking-[0.01em] whitespace-nowrap">{TITLES[shown]}</h1>
           {!away && <span ref={setTitleSlot} className="min-w-0 truncate text-xs text-obr-text-secondary empty:hidden" />}
           {role !== "GM" && !away && (
             <div className="ml-auto flex">
@@ -54,13 +53,14 @@ const Panel = ({ role }: { role: Role }) => {
             </div>
           )}
           {role === "GM" && !away && (
-            <div className="ml-auto flex">
+            <div className="ml-auto flex shrink-0">
+              <span ref={setToolSlot} className="flex empty:hidden" />
               <LightsButton open={() => setView("lights")} />
               <button
                 type="button"
                 aria-label="Settings"
                 title="Settings"
-                className="flex h-9 w-9 items-center justify-center rounded-full text-obr-text-secondary hover:bg-obr-bg hover:text-obr-text"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-obr-text-secondary hover:bg-obr-bg hover:text-obr-text"
                 onClick={() => setView("settings")}
               >
                 <GearIcon />
@@ -68,7 +68,6 @@ const Panel = ({ role }: { role: Role }) => {
             </div>
           )}
         </div>
-        {!away && <div ref={setHeaderSlot} className="flex flex-col gap-2.5 empty:hidden" />}
       </header>
       <main className="flex min-h-0 flex-1 flex-col">
         {shown === "lights" ? (
@@ -96,7 +95,7 @@ const Panel = ({ role }: { role: Role }) => {
           <Loading />
         ) : scene.ready ? (
           // A new key per opened scene: switching maps reads the new map fresh.
-          <Tracker key={scene.opened} role={role} headerSlot={headerSlot} titleSlot={titleSlot} />
+          <Tracker key={scene.opened} role={role} toolSlot={toolSlot} titleSlot={titleSlot} />
         ) : (
           <p className="text-sm text-obr-text-secondary">Open a scene to use the tracker.</p>
         )}
@@ -118,7 +117,7 @@ const LightsButton = ({ open }: { open: () => void }) => {
       type="button"
       aria-label="Light Tracker"
       title={none ? "Light Tracker (no lights yet)" : "Light Tracker"}
-      className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-obr-bg"
+      className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-obr-bg"
       onClick={open}
     >
       <span className={none ? "opacity-40 grayscale" : ""}>

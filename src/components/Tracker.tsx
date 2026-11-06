@@ -15,10 +15,12 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 
 import Confirm from "./Confirm";
 import { onAddEffect, takeHandoff } from "../addEffectHandoff";
-import { AddEffect, EffectStrip, Reminders, RowEffects, type EffectsChange } from "./Effects";
+import { AddEffect, RowEffects, type EffectsChange } from "./Effects";
+import Notices from "./Notices";
+import TimeSheet from "./TimeSheet";
 import CrawlBar, { ClockDial, FOCUS, PlayerRoll } from "./CrawlBar";
 import { clockLeft, clockStart, cryptoRand, due, lastFor, rollFor } from "../crawl";
-import { ChevronIcon, PlayIcon, SortIcon } from "./icons";
+import { ChevronIcon, HourglassIcon, PlayIcon, SortIcon } from "./icons";
 import Loading from "./Loading";
 import RowMenu from "./RowMenu";
 import Row, { INIT_SLOT, tokenInfo, type ButtonProps, type Token } from "./TrackerRow";
@@ -37,7 +39,6 @@ import {
 } from "../effects";
 import type { Change as HistoryChange } from "../history";
 import type { Role } from "../hooks/useRole";
-import LightStrip from "./LightStrip";
 import { useLightStatus, useLights } from "../hooks/useLights";
 import { followingLights, type Light } from "../lights";
 import { centerOn } from "../viewport";
@@ -78,10 +79,13 @@ import {
 export type ChangeOpts = { toast?: boolean; effects?: (e: Effects, before: TrackerDoc, after: TrackerDoc) => Effects };
 export type Change<T = TrackerDoc> = (label: string, fn: (t: T) => T, opts?: ChangeOpts) => void;
 
-// headerSlot: where the crawl controls go (the panel's top bar); titleSlot:
+// No lights (players: the notices tell the GM's lights only).
+const NO_LIGHTS: Light[] = [];
+
+// toolSlot: the buttons beside the title (the GM's ⏳ Time passes); titleSlot:
 // beside the title, for the round count.
-const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot?: HTMLElement | null }) => {
-  const { role, headerSlot = null, titleSlot = null } = props;
+const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?: HTMLElement | null }) => {
+  const { role, toolSlot = null, titleSlot = null } = props;
   const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   const doc = useSceneValue(TRACKER_KEY, parseTracker);
   const effectsDoc = useSceneValue(EFFECTS_KEY, parseEffects);
@@ -103,6 +107,13 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   const [noting, setNoting] = useState<string | null>(null);
   // The GM's Add effect form, for these rows (none: free-standing).
   const [adding, setAdding] = useState<string[] | null>(null);
+  // The Time passes sheet (the ⏳ beside the title).
+  const [timing, setTiming] = useState(false);
+  // One sheet at a time: Add effects takes over from Time passes.
+  const openAdding = (ids: string[] | null) => {
+    if (ids) setTiming(false);
+    setAdding(ids);
+  };
   // Focus checks the GM called for now (damage, distraction): this panel only.
   const [checkNow, setCheckNow] = useState<string[]>([]);
   // The monsters folded under the GM row: this viewer's choice, remembered
@@ -164,8 +175,8 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   useEffect(() => {
     if (role !== "GM") return;
     const waiting = takeHandoff();
-    if (waiting) setAdding(waiting);
-    return onAddEffect((ids) => setAdding(takeHandoff() ?? ids));
+    if (waiting) openAdding(waiting);
+    return onAddEffect((ids) => openAdding(takeHandoff() ?? ids));
   }, [role]);
 
   // A called-for focus check lasts until the turn moves.
@@ -374,7 +385,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
             onConfirm={() => change("Reset rounds", resetRounds, { toast: true, effects: resetEffectRounds })}
           />
           {/* A free-standing effect (a row's own: its menu). */}
-          <button type="button" className="py-1.5 text-xs text-obr-text-secondary underline hover:text-obr-text" onClick={() => setAdding([])}>
+          <button type="button" className="py-1.5 text-xs text-obr-text-secondary underline hover:text-obr-text" onClick={() => openAdding([])}>
             Add effect
           </button>
           {/* After a fight: clear the monsters out (kept until then, so a fight can resume). */}
@@ -436,67 +447,69 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
         </p>
       )}
 
-      {/* The GM's light strip, above the crawl card (in combat too: lights
-          burn); only once there are lights (the header's flame opens the
-          Light Tracker either way). */}
+      {/* Under the turn bar (layout B, 2026-11-06), so ◀ ▶ never moves:
+          the crawl card (combat: a line), then the notices. */}
+      {gm && !combat && (
+        <CrawlBar
+          crawl={tracker.crawl}
+          mode={mode}
+          start={start}
+          gmTurn={tracker.current === GM_ENTRY}
+          dark={dark}
+          following={following}
+          change={(label, fn, opts) => change(label, (t) => updateCrawl(t, fn), opts)}
+        />
+      )}
+      {gm && combat && (
+        <p className="shrink-0 rounded-xl bg-red-600/10 px-3 py-1.5 text-xs text-red-800 ring-1 ring-red-600/30 ring-inset dark:text-red-200">
+          <span className="font-semibold text-obr-text">Combat</span> · encounter checks paused
+        </p>
+      )}
+      <Notices
+        dark={gm && dark}
+        checks={[...dueChecks, ...calledChecks]}
+        extra={calledChecks.map((e) => e.id)}
+        dismiss={(id) => setCheckNow((c) => c.filter((x) => x !== id))}
+        ending={endingNow(seenEffects, tracker)}
+        lights={gm && lights.loaded ? lights.lights.lights : NO_LIGHTS}
+        loose={looseEffects}
+        tracker={tracker}
+        names={names}
+        change={effectChange}
+      />
+      {/* The GM's ⏳ beside the title: the Time passes sheet. */}
       {gm &&
-        headerSlot &&
-        lights.loaded &&
-        lights.lights.lights.length > 0 &&
+        toolSlot &&
         createPortal(
-          <LightStrip lights={lights.lights} dark={dark} change={lights.change} names={new Map(items.map((i) => [i.id, tokenInfo(i).name]))} />,
-          headerSlot,
+          <button
+            type="button"
+            aria-label="Time passes"
+            aria-expanded={timing}
+            title="Time passes: lights burn, rounds effects end"
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-obr-text-secondary hover:bg-obr-bg hover:text-obr-text ${timing ? "bg-obr-primary/20 text-obr-text" : ""}`}
+            onClick={() => {
+              setAdding(null);
+              setTiming(!timing);
+            }}
+          >
+            <HourglassIcon />
+          </button>,
+          toolSlot,
         )}
-      {gm &&
-        !combat &&
-        headerSlot &&
-        createPortal(
-          <CrawlBar
-            crawl={tracker.crawl}
-            mode={mode}
-            start={start}
-            gmTurn={tracker.current === GM_ENTRY}
-            dark={dark}
-            following={following}
-            change={(label, fn, opts) => change(label, (t) => updateCrawl(t, fn), opts)}
-          />,
-          headerSlot,
-        )}
-      {gm &&
-        combat &&
-        headerSlot &&
-        createPortal(
-          <p className="rounded-xl bg-red-600/10 px-3 py-2 text-xs text-red-800 ring-1 ring-red-600/30 ring-inset dark:text-red-200">
-            <span className="font-semibold text-obr-text">Combat</span> · encounter checks paused
-          </p>,
-          headerSlot,
-        )}
-
-      {/* Under the crawl card: the turn's reminders, then effects not on a row. */}
-      {headerSlot &&
-        createPortal(
-          <Reminders
-            checks={[...dueChecks, ...calledChecks]}
-            ending={endingNow(seenEffects, tracker)}
-            tracker={tracker}
-            names={names}
-            change={effectChange}
-            extra={calledChecks.map((e) => e.id)}
-            dismiss={(id) => setCheckNow((c) => c.filter((x) => x !== id))}
-          />,
-          headerSlot,
-        )}
-      {headerSlot && createPortal(<EffectStrip effects={looseEffects} tracker={tracker} names={names} change={effectChange} />, headerSlot)}
 
       {/* Only the list scrolls: the controls above stay in view. */}
       <div className="relative -mx-1 flex min-h-0 flex-1 flex-col">
-      {/* The Add effects sheet covers the list while open (the panel is short). */}
-      {gm && adding && (
+      {/* The Add effects and Time passes sheets cover the list while open (the panel is short). */}
+      {gm && (adding || timing) && (
         <div className="absolute inset-0 z-20 overflow-y-auto bg-obr-paper px-1">
-          <AddEffect key={adding.join()} holders={adding} names={names} tracker={tracker} effects={effects} change={changeEffects} close={() => setAdding(null)} />
+          {adding ? (
+            <AddEffect key={adding.join()} holders={adding} names={names} tracker={tracker} effects={effects} change={changeEffects} close={() => setAdding(null)} />
+          ) : (
+            <TimeSheet lights={lights.lights} effects={effects} change={lights.change} names={names} close={() => setTiming(false)} />
+          )}
         </div>
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto px-1 pt-px" inert={gm && adding ? true : undefined}>
+      <div className="min-h-0 flex-1 overflow-y-auto px-1 pt-px" inert={gm && (adding || timing) ? true : undefined}>
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -596,7 +609,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
           show={show}
           clear={() => setPicked(NO_SELECTION)}
           effects={effects}
-          addEffect={(ids) => setAdding(ids)}
+          addEffect={(ids) => openAdding(ids)}
           addNote={setNoting}
           checkFocus={(id) => setCheckNow((c) => (c.includes(id) ? c : [...c, id]))}
         />

@@ -516,7 +516,7 @@ describe("Tracker (GM)", () => {
     await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), current: "a", crawl: { crawlRounds: 3 } } });
     expect(roll()).toHaveClass("outline-obr-primary/60");
     expect(card).not.toHaveClass("ring-obr-primary");
-    expect(within(card).getByText("Check now")).toHaveClass("text-obr-primary");
+    expect(within(card).getByText("check now")).toHaveClass("text-obr-primary");
     // Due on the GM's turn: the card lights up; R rolls it.
     await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...saved(), current: GM_ENTRY } });
     expect(card).toHaveClass("ring-obr-primary");
@@ -648,7 +648,7 @@ describe("Tracker (GM)", () => {
       scene([{ id: "a" }, { id: GM_ENTRY }], GM_ENTRY, 3, { crawl: { crawlRounds: 3 } });
       render(<App />);
       const card = await screen.findByRole("region", { name: "Encounter checks" });
-      expect(within(card).getByText("Check now")).toBeInTheDocument();
+      expect(within(card).getByText("check now")).toBeInTheDocument();
       fireEvent.click(within(card).getByRole("button", { name: "Encounter check (d6)" }));
       await waitFor(() => expect(saved().crawl.last?.kind).toBe("check"));
       expect(saved().crawl.lastCheck).toBe(3);
@@ -687,7 +687,7 @@ describe("Tracker (GM)", () => {
       });
       render(<App />);
       const card = await screen.findByRole("region", { name: "Encounter checks" });
-      expect(within(card).getByLabelText("Last roll")).toHaveTextContent("Encounter check");
+      expect(within(card).getByLabelText("Last roll")).toBeEmptyDOMElement();
       expect(within(card).queryByText("Undo")).not.toBeInTheDocument();
       await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "clock" } });
       expect(within(await screen.findByRole("region", { name: "Crawling Clock" })).getByLabelText("Last roll")).toHaveTextContent("Clock 20 → 15");
@@ -749,11 +749,11 @@ describe("Tracker (GM)", () => {
       expect(within(card).getByRole("img", { name: "Clock 20 of 20" })).toBeInTheDocument();
     });
 
-    it("sits in the top bar with the title, not in the list; not there in Settings", async () => {
+    it("sits under the turn bar (◀ ▶ never moves), not in the list; not there in Settings", async () => {
       scene([{ id: GM_ENTRY }]);
       render(<App />);
       const card = await screen.findByRole("region", { name: "Encounter checks" });
-      expect(card.closest("header")).toHaveTextContent("Crawl Keeper");
+      expect(screen.getByLabelText("Next turn").compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(card.closest("li")).toBeNull();
       fireEvent.click(screen.getByLabelText("Settings"));
       await screen.findByText("Saved data");

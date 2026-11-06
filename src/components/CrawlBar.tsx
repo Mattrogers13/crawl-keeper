@@ -57,16 +57,12 @@ const CrawlBar = (props: {
   return (
     <section
       aria-label={clock ? "Crawling Clock" : "Encounter checks"}
-      className={`grid grid-cols-[76px_minmax(0,1fr)_76px] items-start gap-3 rounded-[14px] bg-obr-bg p-2.5 ring-1 ring-inset ${
+      // Compact (layout B, 2026-11-06): a small dial and die either side.
+      className={`grid shrink-0 grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-[14px] bg-obr-bg px-2.5 py-1.5 ring-1 ring-inset ${
         callForRoll ? "shadow-[0_0_0_3px_color-mix(in_srgb,var(--obr-primary)_18%,transparent)] ring-obr-primary" : "ring-obr-text/10"
       }`}
     >
-      {dark && (
-        <p className="col-span-3 rounded-[10px] bg-red-600/10 px-2.5 py-1.5 text-xs text-red-800 ring-1 ring-red-600/30 ring-inset dark:text-red-200">
-          <span className="font-semibold">Total darkness</span> (p. 84): disadvantage on tasks that need sight, for anyone not darkness-adapted.
-        </p>
-      )}
-      <div className="flex flex-col items-center gap-1">
+      <div className="flex flex-col items-center">
         {clock ? (
           // Right-click the clock to reset it.
           <div
@@ -76,30 +72,30 @@ const CrawlBar = (props: {
               setAskingReset(true);
             }}
           >
-            <ClockDial value={clockLeft(crawl, start)} of={start} />
+            <ClockDial value={clockLeft(crawl, start)} of={start} size={52} />
           </div>
         ) : (
-          <CheckDial of={every} left={toNext} due={isDue} dark={dark} />
-        )}
-        {/* Standard checks are rounds apart: say how far. The clock rolls every
-            crawl round, so it needs no label (the die rings when it's due). */}
-        {!clock && (
-          <span className={`text-center text-[11px] leading-tight ${isDue ? "font-medium text-obr-primary" : "text-obr-text-secondary"}`}>
-            {isDue ? "Check now" : `${plural(toNext, "round")} left`}
-          </span>
+          <CheckDial of={every} left={toNext} due={isDue} dark={dark} size={52} />
         )}
       </div>
 
-      <div className="flex min-w-0 flex-col items-start gap-1.5 pt-1">
+      <div className="flex min-w-0 flex-col items-start gap-1">
         {clock ? (
           <span className="text-sm font-medium">Crawling Clock{start > CLOCK_DIE && <span className="text-obr-text-secondary"> · 2d20</span>}</span>
         ) : (
           <DangerSelect value={crawl.danger} onChange={(d) => change("Danger level", (c) => setDanger(c, d))} />
         )}
-        <span className="text-xs leading-snug text-obr-text-secondary">
-          {clock
-            ? `Crawling die d${crawlDie(dark)}${dark ? " (darkness)" : ""}`
-            : `${dark ? "Total darkness: a" : "A"} check every ${every === 1 ? "crawl round" : `${every} crawl rounds`}`}
+        <span className="text-[11px] leading-snug text-obr-text-secondary">
+          {/* Standard checks are rounds apart: say how far. The clock rolls
+              every crawl round (the die rings when it's due). */}
+          {clock ? (
+            `Crawling die d${crawlDie(dark)}${dark ? " (darkness)" : ""}`
+          ) : (
+            <>
+              Every {every === 1 ? "crawl round" : `${every} rounds`} ·{" "}
+              <span className={isDue ? "font-medium text-obr-primary" : ""}>{isDue ? "check now" : `${plural(toNext, "round")} left`}</span>
+            </>
+          )}
           {manual && (
             <span className={`block ${isDue ? "font-medium text-obr-text" : ""}`}>
               {isDue ? "Check due: roll the d6, here or at the table" : "Manual rolls"}
@@ -136,8 +132,9 @@ const CrawlBar = (props: {
         )}
       </div>
 
-      <div className="flex flex-col items-center gap-1">
+      <div className="flex items-center gap-1.5">
         <Die
+          small
           roll={last}
           sides={clock ? crawlDie(dark) : 6}
           label={clock ? `Roll d${crawlDie(dark)}` : "Encounter check (d6)"}
@@ -145,12 +142,9 @@ const CrawlBar = (props: {
           onClick={() => change(clock ? "Crawling die" : "Encounter check", (c) => rollFor(mode, start, dark)(c, cryptoRand))}
         />
         {/* A live region that stays mounted, so a new result is announced. */}
-        <div role="status" aria-label="Last roll" className="flex flex-col items-center">
-          {last ? (
-            <Outcome roll={last} />
-          ) : (
-            <span className="text-center text-[11px] leading-tight text-obr-text-secondary">{clock ? "Crawling die" : "Encounter check"}</span>
-          )}
+        <div role="status" aria-label="Last roll" className="flex max-w-[64px] flex-col items-center">
+          {/* The die says what it is (its label); only a result needs words here. */}
+          {last && <Outcome roll={last} />}
         </div>
       </div>
     </section>
@@ -201,7 +195,7 @@ const TorchToggle = (props: { dark: boolean; following: boolean; onClick: () => 
   >
     <TorchIcon lit={!props.dark} />
     {props.dark ? "Darkness" : "Torchlit"}
-    {props.following && <span className="font-normal opacity-80">· following light</span>}
+    {props.following && <span className="sr-only"> (following light)</span>}
   </button>
 );
 
@@ -425,7 +419,7 @@ export const ClockDial = ({ value, of = CLOCK_DIE, size = 76 }: { value: number;
 // Standard checks: one ring segment per crawl round between checks, filling
 // as they pass; the d20 shows the rounds left, "!" when the check is due.
 // Ember while in darkness (a check every round).
-const CheckDial = (props: { of: number; left: number; due: boolean; dark: boolean }) => {
+const CheckDial = (props: { of: number; left: number; due: boolean; dark: boolean; size?: number }) => {
   const length = 2 * Math.PI * RING_R;
   // Round caps reach half the stroke past each end: leave room for them.
   const step = length / props.of;
@@ -435,8 +429,8 @@ const CheckDial = (props: { of: number; left: number; due: boolean; dark: boolea
   return (
     <svg
       viewBox="0 0 76 76"
-      width={76}
-      height={76}
+      width={props.size ?? 76}
+      height={props.size ?? 76}
       className="shrink-0"
       role="img"
       aria-label={props.due ? "Check due" : `${plural(props.left, "crawl round")} to the next check`}
