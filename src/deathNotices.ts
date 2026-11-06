@@ -6,7 +6,8 @@
 // token's name), parsed as untrusted.
 import OBR from "@owlbear-rodeo/sdk";
 
-import { ID } from "./constants";
+import { ID, SETTINGS_KEY } from "./constants";
+import { parseSettings } from "./settings";
 import { logEvent } from "./sessionLog";
 import { errorMessage } from "./utils";
 
@@ -65,9 +66,16 @@ export const deathMessage = (e: DeathEvent): string => {
   }
 };
 
-// The GM's panel, after the change is saved.
-export const sayDeath = (e: DeathEvent) =>
-  OBR.broadcast.sendMessage(DYING_CHANNEL, e, { destination: "ALL" }).catch((err) => console.warn(`Couldn't send the death event: ${errorMessage(err)}`));
+// The GM's panel, after the change is saved: to everyone, or (Settings →
+// Show the death timer to players off) to the GM's own client only.
+export const sayDeath = async (e: DeathEvent) => {
+  try {
+    const show = parseSettings((await OBR.room.getMetadata())[SETTINGS_KEY]).showDeath;
+    await OBR.broadcast.sendMessage(DYING_CHANNEL, e, { destination: show ? "ALL" : "LOCAL" });
+  } catch (err) {
+    console.warn(`Couldn't send the death event: ${errorMessage(err)}`);
+  }
+};
 
 // Every client's background page.
 export const watchDeathNotices = () =>
