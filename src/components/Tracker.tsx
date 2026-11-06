@@ -38,6 +38,8 @@ import {
   settle,
   shown as shownEffects,
   stopDying,
+  hideDeath,
+  timerOutOnTurn,
   type Effect,
   type Effects,
 } from "../effects";
@@ -315,7 +317,9 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   // Effects (docs/effects.md): players see none hidden, nor any on tokens
   // hidden from them. On a row when the holder is listed; else the strip.
   const names = new Map(items.map((i) => [i.id, tokenInfo(i).name]));
-  const seenEffects = gm ? effects : playerEffects(effects, (id) => tokenInfo(byId.get(id)).visible);
+  // The death timer reads as hidden when the GM keeps it to themselves.
+  const shownDeath = hideDeath(effects, settings.value.showDeath);
+  const seenEffects = gm ? shownDeath : playerEffects(shownDeath, (id) => tokenInfo(byId.get(id)).visible);
   const listedEffects = shownEffects(seenEffects, tracker);
   const rowIds = new Set(shown.map((e) => e.id));
   const effectsOf = new Map<string, Effect[]>();
@@ -366,15 +370,27 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
         setRolling(false);
       });
   };
+  // With Dice+ the auto roll takes a moment: the turn moves now, the roll
+  // lands as its own step. Without it, one step as before.
+  // Death rolls: in the open (p. 89), unless the GM keeps the timer to themselves.
+  const deathTarget: RollTarget = settings.value.showDeath ? "everyone" : "gm_only";
+  const deferRoll = mode !== "manual" && settings.value.autoRoll && dicePlusActive();
+  const advance = (t: TrackerDoc) =>
+    mode === "manual"
+      ? nextAfterManualCheck(t, dark)
+      : settings.value.autoRoll && !deferRoll
+        ? nextWithAutoRoll(t, mode, cryptoRand, start, dark)
+        : next(t);
+  // A death timer that runs out at the start of this turn marks them dead
+  // in the same step (skull on the row and the token; Undo brings them back).
   const goNext = () => {
-    if (mode === "manual") return change("Next turn", (t) => nextAfterManualCheck(t, dark));
-    if (!settings.value.autoRoll) return change("Next turn", next);
-    // With Dice+ the dice take a moment: the turn moves now, the roll lands
-    // as its own step. Without it, one step as before.
-    if (!dicePlusActive()) return change("Next turn", (t) => nextWithAutoRoll(t, mode, cryptoRand, start, dark));
     const moved = next(tracker);
-    change("Next turn", next);
-    if (moved.phase === "crawl" && moved.current === GM_ENTRY && due(moved.crawl, mode, dark)) rollEncounter(mode === "clock" ? "Crawling die" : "Encounter check");
+    const holder = timerOutOnTurn(effects, moved);
+    if (holder) {
+      change("Next turn", (t) => setDead(advance(t), [holder], true), { effects: (s) => stopDying(endFocusOf(s, [holder]), holder) });
+      void sayDeath({ event: "died", name: names.get(holder) ?? "A character" });
+    } else change("Next turn", advance);
+    if (deferRoll && moved.phase === "crawl" && moved.current === GM_ENTRY && due(moved.crawl, mode, dark)) rollEncounter(mode === "clock" ? "Crawling die" : "Encounter check");
   };
   hotkeys.current = {
     n: goNext,
@@ -540,7 +556,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
         names={names}
         change={effectChange}
         dying={seenEffects.effects.filter((e) => e.icon === "dying")}
-        rollD20={() => rollDice({ count: 1, sides: 20, label: "Death d20", target: "everyone" }).then((d) => d[0])}
+        rollD20={() => rollDice({ count: 1, sides: 20, label: "Death d20", target: deathTarget }).then((d) => d[0])}
         markDead={
           gm
             ? (id) => {
@@ -585,7 +601,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
               name={names.get(dyingFor) ?? "A character"}
               change={liveChangeEffects}
               close={() => setDyingFor(null)}
-              rollD4={() => rollDice({ count: 1, sides: 4, label: "Death timer", target: "everyone" }).then((d) => d[0])}
+              rollD4={() => rollDice({ count: 1, sides: 4, label: "Death timer", target: deathTarget }).then((d) => d[0])}
             />
           ) : (
             <TimeSheet lights={lights.lights} effects={effects} change={lights.change} names={names} close={() => setTiming(false)} />

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import App from "./App";
-import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
+import { EFFECTS_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import { dicePlusActive } from "../diceRoller";
 import { fakeDicePlus, type Answer } from "../test/fakeDicePlus";
 import { obr, token } from "../test/obrMock";
@@ -65,6 +65,16 @@ describe("rolling with Dice+", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Roll d20/ }));
     await waitFor(() => expect(saved().entries.find((e) => e.id === GM_ENTRY)?.roll).toBe(17));
     expect(requests[0]).toMatchObject({ rollTarget: "everyone", diceNotation: "1d20 # Monsters' initiative" });
+  });
+
+  it("death rolls go to everyone, or only the GM when the death timer is kept from players", async () => {
+    const requests = setup([[7]], { showDeath: false }, "a");
+    obr.sceneMetadata[EFFECTS_KEY] = { effects: [{ id: "d1", name: "Dying", icon: "dying", kind: "rounds", holder: "a", rounds: 3, end: { round: 5, at: "a" } }] };
+    await ready();
+    const line = await screen.findByRole("group", { name: "Aria dying" });
+    fireEvent.click(within(line).getByRole("button", { name: "Roll d20" }));
+    await waitFor(() => expect(line).toHaveTextContent("d20 7"));
+    expect(requests[0]).toMatchObject({ rollTarget: "gm_only", diceNotation: "1d20 # Death d20" });
   });
 
   it("Settings says whether Dice+ answered; off, rolls stay here", async () => {

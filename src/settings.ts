@@ -43,6 +43,9 @@ export type Settings = {
   playersLight: boolean;
   // Roll through the Dice+ extension when it's installed (src/diceRoller.ts).
   dicePlus: boolean;
+  // Players see the death timer: the Dying line and icon, its notices and
+  // the death rolls (p. 89 has it in the open). Off: the GM's alone.
+  showDeath: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -62,6 +65,7 @@ export const DEFAULT_SETTINGS: Settings = {
   playersLight: false,
   effectIcons: true,
   dicePlus: true,
+  showDeath: true,
 };
 
 export const parseSettings = (raw: unknown): Settings => {
@@ -82,6 +86,7 @@ export const parseSettings = (raw: unknown): Settings => {
     showLights: r.showLights !== false,
     playersLight: r.playersLight === true,
     dicePlus: r.dicePlus !== false,
+    showDeath: r.showDeath !== false,
     effectIcons: r.effectIcons !== false,
   };
 };
