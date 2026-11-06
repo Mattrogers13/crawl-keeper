@@ -11,8 +11,8 @@ kind: web-app         # web-app | obsidian-plugin | script-utility | config-back
 
 **Updated:** 2026-11-05
 **In flight:** v0.4 step 4b, right-click → Crawl Keeper → Add effect…: PR (`feat/effects-right-click`; `src/addEffectHandoff.ts`, row in `mapMenu.ts`, wiring in `menu.ts`, `Panel.tsx`, `Tracker.tsx`). Step 4a (#43, effect notices + hidden-chip fix) merged and live.
-**Waiting on:** Matt's room test of TESTING.md row 87 (verifies `OBR.action.open` from the menu embed and LOCAL broadcast), then his "merge".
-**Resume here:** if row 87 fails on opening the panel, the doc's fallback is quick Focus / ADV / DIS toggles in the menu. After merge: 4c map icons (draft the 9 icons in the light-badge style and show Matt before wiring). New branch off `main`.
+**Waiting on:** Matt's "merge" of #44 (row 87 passed 2026-11-05).
+**Resume here:** after merge: 4c map icons (draft the 9 icons in the light-badge style and show Matt before wiring). New branch off `main`.
 
 **Notes:**
 - Latest release: v0.3.0 (2026-11-02), tag `v0.3.0`, `ee30f22`.
