@@ -5,6 +5,7 @@
 // light their own) asks the GM's client instead (playerLights.ts).
 import OBR from "@owlbear-rodeo/sdk";
 
+import { askToAddEffect } from "./addEffectHandoff";
 import { LIGHTS_KEY, TRACKER_KEY } from "./constants";
 import { toggleInitiative } from "./initiative";
 import { newLightId, parseLights, type Lights } from "./lights";
@@ -27,6 +28,7 @@ const run = async (row: MenuRow) => {
   const a = row.action;
   if (a?.type === "initiative") await toggleInitiative(a.ids);
   else if (a?.type === "lights") await changeLights(a.step, a.fn);
+  else if (a?.type === "addEffect") await askToAddEffect(a.ids);
   else if (a?.type === "request")
     for (const ask of a.asks) {
       const error = await requestLight(ask);

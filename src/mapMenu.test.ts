@@ -3,6 +3,7 @@ import OBR from "@owlbear-rodeo/sdk";
 
 import { LIGHTS_KEY, TRACKER_KEY } from "./constants";
 import { MINUTE, parseLights, type Lights } from "./lights";
+import { ADD_EFFECT_CHANNEL, takeHandoff } from "./addEffectHandoff";
 import { menuRows, playerMenuRows, type MenuToken } from "./mapMenu";
 import { REQUEST_CHANNEL } from "./playerLights";
 import { SETTINGS_KEY } from "./constants";
@@ -27,38 +28,39 @@ const apply = (s: Lights, tokens: MenuToken[], i: number) => {
 
 describe("the map menu's rows", () => {
   it("one untracked token: Add to initiative and every light; nothing to put out", () => {
-    expect(labels(none, [tok("b")])).toEqual(["Add to initiative", "Light torch", "Light lantern", "Cast Light", "Light campfire", "(Put out light)"]);
+    expect(labels(none, [tok("b")])).toEqual(["Add to initiative", "Add effect…", "Light torch", "Light lantern", "Cast Light", "Light campfire", "(Put out light)"]);
   });
 
   it("a tracked token holding a torch: Remove, the torch row off, a swap for the others, Put out the torch", () => {
     const s = parseLights({ lights: [lit("a")] });
     const rows = menuRows(t, s, [tok("a")], NOW);
-    expect(labels(s, [tok("a")])).toEqual(["Remove from initiative", "(Light torch)", "Light lantern", "Cast Light", "Light campfire", "Put out the torch"]);
-    expect(rows[1].title).toBe("Torch already lit");
-    expect(rows[2].title).toBe("Puts out the torch");
-    const swapped = apply(s, [tok("a")], 2);
+    expect(labels(s, [tok("a")])).toEqual(["Remove from initiative", "Add effect…", "(Light torch)", "Light lantern", "Cast Light", "Light campfire", "Put out the torch"]);
+    expect(rows[2].title).toBe("Torch already lit");
+    expect(rows[3].title).toBe("Puts out the torch");
+    const swapped = apply(s, [tok("a")], 3);
     expect(swapped.lights.map((l) => [l.kind, l.status])).toEqual([["lantern", "lit"]]);
     expect(swapped.lights[0].carrier).toBe("A");
   });
 
   it("a lantern that's out lights again with its oil", () => {
     const s = parseLights({ lights: [{ id: "lan", kind: "lantern", tokenId: "a", status: "out", remainingMs: 30 * MINUTE, endsAt: null }] });
-    expect(labels(s, [tok("a")])[2]).toBe("Light lantern (30:00)");
-    const after = apply(s, [tok("a")], 2);
+    expect(labels(s, [tok("a")])[3]).toBe("Light lantern (30:00)");
+    const after = apply(s, [tok("a")], 3);
     expect(after.lights).toMatchObject([{ id: "lan", status: "lit", remainingMs: 30 * MINUTE }]);
   });
 
-  it("a prop: only a campfire; initiative and the carried lights are off", () => {
+  it("a prop: Add effect and a campfire; initiative and the carried lights are off", () => {
     const rows = menuRows(t, none, [tok("f", "PROP")], NOW);
-    expect(rows.map((r) => r.enabled)).toEqual([false, false, false, false, true, false]);
+    expect(rows.map((r) => r.enabled)).toEqual([false, true, false, false, false, true, false]);
     expect(rows[0].title).toBe("Character tokens only");
   });
 
   it("several tokens: each one lit, skipping those already holding it; Put out lights for the lit ones", () => {
     const s = parseLights({ lights: [lit("a")] });
     const tokens = [tok("a"), tok("b"), tok("c")];
-    expect(labels(s, tokens)).toEqual(["Add to initiative", "Light torch (2)", "Light lantern (3)", "Cast Light (3)", "Light campfire (3)", "Put out the torch"]);
-    const after = apply(s, tokens, 1);
+    expect(labels(s, tokens)).toEqual(["Add to initiative", "Add effect to 3…", "Light torch (2)", "Light lantern (3)", "Cast Light (3)", "Light campfire (3)", "Put out the torch"]);
+    expect(menuRows(t, s, tokens, NOW)[1].action).toEqual({ type: "addEffect", ids: ["a", "b", "c"] });
+    const after = apply(s, tokens, 2);
     expect(after.lights.filter((l) => l.status === "lit").map((l) => l.tokenId).sort()).toEqual(["a", "b", "c"]);
   });
 });
@@ -121,6 +123,17 @@ describe("the map menu page", () => {
     await settle();
     expect(parseTracker(obr.sceneMetadata[TRACKER_KEY]).entries.map((e) => e.id)).toContain("b");
     expect(button(root, "Remove from initiative")).toBeDefined();
+  });
+
+  it("Add effect… leaves the token for the panel, tells an open one, and opens it", async () => {
+    const root = await setup();
+    button(root, "Add effect…").click();
+    await settle();
+    expect(vi.mocked(OBR.broadcast.sendMessage)).toHaveBeenCalledWith(ADD_EFFECT_CHANNEL, { ids: ["a"] }, { destination: "LOCAL" });
+    expect(OBR.action.open).toHaveBeenCalled();
+    expect(takeHandoff()).toEqual(["a"]);
+    expect(takeHandoff()).toBeNull();
+    expect(loadHistory().undo).toEqual([]);
   });
 
   it("a player's menu asks the GM's client and records nothing", async () => {

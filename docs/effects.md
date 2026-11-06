@@ -60,7 +60,7 @@ Nothing is written when ▶ or ◀ moves the turn. A rounds effect stores where 
 ## Adding and removing (GM)
 
 - **Row menu → Add effect…:** a small form (name with the conditions as quick picks, duration, counts on, ends with, hidden). With rows selected it adds one to each.
-- **Right-click a token → Crawl Keeper → Add effect…:** opens the panel on that form. (Opening the panel from the background page is **unverified**: `OBR.action.open`. Fallback: quick toggles for Focus, ADV and DIS only.)
+- **Right-click a token → Crawl Keeper → Add effect…:** opens the panel on that form (any token, props too; several selected: one each). Built 2026-11-05 (`src/addEffectHandoff.ts`): the menu leaves the token ids in this tab's sessionStorage, sends a LOCAL broadcast and calls `OBR.action.open()` from the menu's embed; the panel shows the list (from Settings or the Light Tracker too) and the tracker opens the form, from the stored handoff on mount (panel was closed; 30 s fresh, taken once) or the message (panel open). `OBR.action.open` from the menu embed and LOCAL delivery to the panel: **verified** (room test, TESTING.md row 87, 2026-11-05).
 - **Click a chip:** remove, or edit its rounds left.
 - Every change is an undo step. Players don't add effects in v1 (later: the request path players use for lights).
 
@@ -100,5 +100,5 @@ Room and scene data live on Owlbear's servers with the room, not in the browser.
 1. Scene limit test on Dev (above). Done 2026-11-05: no cap up to 65 kB, no cap changes.
 2. Pure rules `src/effects.ts` + tests (parse, add, remove, derived rounds left, Reset rounds, Time passes, focus and ends-with). Built 2026-11-05.
 3. Panel: chips, strip, reminders, Add effect form, row menu; players' view. Built 2026-11-05 (`src/components/Effects.tsx`): chips sit on a line under the row's name (three, then "+N"); "Until removed" is labeled **Ongoing** in the form; free-standing effects are added from an **Add effect** link under the turn bar; Nat 1's critical-failure reminder is an Owlbear notice on the GM's screen; the form scrolls with the list. Mark dead, Reset rounds and the tracker write the effects in the same scene write; Time passes writes lights then effects, one undo step, lights put back if the effects fail. TESTING.md rows 77–84.
-4. Map icons (art: 8 condition icons + "+", WebP), notices, right-click entry. One PR each: notices first (built 2026-11-05, `src/effectNotices.ts`, TESTING.md row 85), then the right-click entry, then map icons.
+4. Map icons (art: 8 condition icons + "+", WebP), notices, right-click entry. One PR each: notices first (built 2026-11-05, `src/effectNotices.ts`, TESTING.md row 85), then the right-click entry (built 2026-11-05, TESTING.md row 87), then map icons.
 5. Room test (GM + player), then the death timer can reuse it later (rounds on the holder's turn, a d20 prompt).
