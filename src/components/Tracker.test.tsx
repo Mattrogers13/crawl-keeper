@@ -932,8 +932,8 @@ describe("Tracker (player)", () => {
     expect(await screen.findByText("Blessed until round 4")).toBeInTheDocument();
     expect(screen.getByText("Round 3")).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-    // Only the way to their Light Tracker.
-    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Light Tracker"]);
+    // Only the ways to their session log and Light Tracker.
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Session log", "Light Tracker"]);
   });
 
   it("sees the Crawling Clock unless the GM hides it; never the card", async () => {

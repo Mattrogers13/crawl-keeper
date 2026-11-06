@@ -7,6 +7,7 @@ import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 
 import { ID, LIGHTS_KEY } from "./constants";
 import { LIGHT_KINDS, MAX_PASS_MS, MINUTE, msToNextBurnOut, parseLights, shining, type Light, type Lights } from "./lights";
+import { logEvent } from "./sessionLog";
 import { errorMessage } from "./utils";
 
 export const TIME_PASSES_CHANNEL = `${ID}/time-passes`;
@@ -63,7 +64,10 @@ export const watchLightNotices = () => {
     // The first reading (the room loading) has nothing to compare with.
     if (held) {
       const text = outMessage(wentOut(held.lights, held.at, lights, now));
-      if (text) void say(text);
+      if (text) {
+        logEvent(text, "light");
+        void say(text);
+      }
     }
     held = { lights, at: now };
     clearTimeout(timer);
@@ -83,7 +87,10 @@ export const watchLightNotices = () => {
   const offRoom = OBR.room.onMetadataChange(onRoom);
   const offTime = OBR.broadcast.onMessage(TIME_PASSES_CHANNEL, (e) => {
     const ms = (e.data as { ms?: unknown } | null)?.ms;
-    if (typeof ms === "number" && Number.isInteger(ms) && ms > 0 && ms <= MAX_PASS_MS) void say(`Time passes: ${formatSpan(ms)}.`);
+    if (typeof ms === "number" && Number.isInteger(ms) && ms > 0 && ms <= MAX_PASS_MS) {
+      logEvent(`Time passes: ${formatSpan(ms)}.`, "time");
+      void say(`Time passes: ${formatSpan(ms)}.`);
+    }
   });
   return () => {
     clearTimeout(timer);

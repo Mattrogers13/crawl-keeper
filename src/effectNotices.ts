@@ -9,6 +9,7 @@ import OBR, { type Item, type Metadata } from "@owlbear-rodeo/sdk";
 import { EFFECTS_KEY, TRACKER_KEY } from "./constants";
 import { parseEffects, statusOf, type Effect, type Effects } from "./effects";
 import { parseTracker, type Tracker } from "./tracker";
+import { logEvent } from "./sessionLog";
 import { errorMessage } from "./utils";
 
 export type Reading = { tracker: Tracker; effects: Effects };
@@ -58,7 +59,9 @@ export const watchEffectNotices = () => {
     const holders = [...new Set(ended.flatMap((e) => (e.holder === null ? [] : [e.holder])))];
     const items = holders.length ? await OBR.scene.items.getItems(holders) : [];
     const text = endedMessage(ended, items, gm);
-    if (text) await OBR.notification.show(text, "INFO");
+    if (!text) return;
+    logEvent(text, "effect");
+    await OBR.notification.show(text, "INFO");
   };
   const see = (m: Metadata) => {
     const raw = JSON.stringify([m[TRACKER_KEY], m[EFFECTS_KEY]]);

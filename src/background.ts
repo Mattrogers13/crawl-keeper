@@ -16,6 +16,7 @@ import { watchLightRequests } from "./playerLights";
 import { watchTokenLights } from "./tokenLights";
 import { clearHistory } from "./undo";
 import { parseTracker, type Phase } from "./tracker";
+import { logEvent } from "./sessionLog";
 import { errorMessage, notify } from "./utils";
 
 // One Crawl Keeper item on a token's right-click menu, opening a submenu
@@ -92,7 +93,10 @@ export const watchCombat = () => {
   let last: Phase | null = null;
   const see = (metadata: Metadata) => {
     const phase = parseTracker(metadata[TRACKER_KEY]).phase;
-    if (last === "crawl" && phase === "combat") notify(COMBAT_ALERT, "WARNING");
+    if (last === "crawl" && phase === "combat") {
+      logEvent("Combat: roll for initiative.", "combat");
+      notify(COMBAT_ALERT, "WARNING");
+    }
     last = phase;
   };
   const seed = () =>

@@ -374,6 +374,21 @@ describe("the strip, badges and DIS", () => {
     await waitFor(() => expect(strip()).toHaveTextContent("Torch · Aria burned out"), { timeout: 2000 });
   });
 
+  it("a burned-out light leaves the notices on ✕ or when the turn moves on", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    const spent = (id: string, tokenId: string) => ({ ...lit(id, tokenId), status: "spent", endsAt: null, remainingMs: 0, spentAt: T0 - 1000 });
+    obr.metadata = { [LIGHTS_KEY]: { lights: [spent("l1", "a"), spent("l2", "b"), lit("l3", "a")] } };
+    scene(["a", "b"]);
+    render(<App />);
+    await screen.findByText("Aria");
+    fireEvent.click(within(strip()).getByRole("button", { name: "Show 2 more notices" }));
+    fireEvent.click(within(strip()).getByRole("button", { name: "Dismiss: Torch · Aria burned out" }));
+    expect(strip()).not.toHaveTextContent("Torch · Aria burned out");
+    expect(strip()).toHaveTextContent("Torch · Borin burned out");
+    fireEvent.click(screen.getByLabelText("Next turn"));
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Notices" })).not.toBeInTheDocument());
+  });
+
   it("darkness by the lights: a check every crawl round, the danger level kept, the card's switch locked", async () => {
     obr.items = [token("a", { name: "Aria" })];
     obr.metadata = { [LIGHTS_KEY]: { lights: [{ ...lit("l1", "a"), status: "spent", endsAt: null, remainingMs: 0 }] } };

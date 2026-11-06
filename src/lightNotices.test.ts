@@ -1,3 +1,4 @@
+import { readLog } from "./sessionLog";
 import { describe, it, expect, vi } from "vitest";
 import OBR from "@owlbear-rodeo/sdk";
 
@@ -64,6 +65,8 @@ describe("watchLightNotices (every client)", () => {
       expect(shown()).toEqual([]);
       await vi.advanceTimersByTimeAsync(1100);
       expect(shown()).toEqual(["Torch (Aria) burned out."]);
+      // The session log keeps it.
+      expect(readLog().map((e) => [e.text, e.kind])).toEqual([["Torch (Aria) burned out.", "light"]]);
       off();
     } finally {
       vi.useRealTimers();

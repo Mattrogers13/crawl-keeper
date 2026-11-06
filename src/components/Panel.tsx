@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 
-import { FlameIcon } from "./icons";
+import { FlameIcon, ScrollIcon } from "./icons";
 import LightTracker from "./LightTracker";
 import PlayerLights from "./PlayerLights";
 import Loading from "./Loading";
 import ResizeGrip from "./ResizeGrip";
+import SessionLog from "./SessionLog";
 import Settings from "./Settings";
 import Tracker from "./Tracker";
 import UndoBar from "./UndoBar";
@@ -18,11 +19,13 @@ const Panel = ({ role }: { role: Role }) => {
   const scene = useSceneReady();
   // Settings is the GM's only; the Light Tracker is everyone's (players get
   // their own, PlayerLights). Each replaces the tracker, with a back arrow.
-  const [view, setView] = useState<"tracker" | "settings" | "lights">("tracker");
+  const [view, setView] = useState<"tracker" | "settings" | "lights" | "log">("tracker");
   const shown = role === "GM" || view !== "settings" ? view : "tracker";
   // The map's right-click Add effect… shows the list, where the form opens.
   useEffect(() => (role === "GM" ? onAddEffect(() => setView("tracker")) : undefined), [role]);
   const away = shown !== "tracker";
+  // The GM reaches the log from Settings: back goes there.
+  const back = shown === "log" && role === "GM" ? "settings" : "tracker";
   // Beside the lights and settings: the tracker's own buttons (the GM's ⏳).
   const [toolSlot, setToolSlot] = useState<HTMLSpanElement | null>(null);
   // Beside the title: the tracker puts the round count here.
@@ -36,10 +39,10 @@ const Panel = ({ role }: { role: Role }) => {
           {away && (
             <button
               type="button"
-              aria-label="Back to tracker"
-              title="Back to tracker"
+              aria-label={back === "settings" ? "Back to Settings" : "Back to tracker"}
+              title={back === "settings" ? "Back to Settings" : "Back to tracker"}
               className="flex h-9 w-9 items-center justify-center rounded-full text-obr-text-secondary hover:bg-obr-bg hover:text-obr-text"
-              onClick={() => setView("tracker")}
+              onClick={() => setView(back)}
             >
               <BackIcon />
             </button>
@@ -49,6 +52,16 @@ const Panel = ({ role }: { role: Role }) => {
           {!away && <span ref={setTitleSlot} className="min-w-0 truncate text-xs text-obr-text-secondary empty:hidden" />}
           {role !== "GM" && !away && (
             <div className="ml-auto flex">
+              {/* Players have no Settings: the log has its own button. */}
+              <button
+                type="button"
+                aria-label="Session log"
+                title="Session log"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-obr-text-secondary hover:bg-obr-bg hover:text-obr-text"
+                onClick={() => setView("log")}
+              >
+                <ScrollIcon className="h-5 w-5" />
+              </button>
               <LightsButton open={() => setView("lights")} />
             </div>
           )}
@@ -70,7 +83,11 @@ const Panel = ({ role }: { role: Role }) => {
         </div>
       </header>
       <main className="flex min-h-0 flex-1 flex-col">
-        {shown === "lights" ? (
+        {shown === "log" ? (
+          <div className="relative min-h-0 flex-1 overflow-y-auto">
+            <SessionLog />
+          </div>
+        ) : shown === "lights" ? (
           <div className="relative min-h-0 flex-1 overflow-y-auto">
             {role !== "GM" ? (
               scene.ready ? (
@@ -89,7 +106,7 @@ const Panel = ({ role }: { role: Role }) => {
           // placed in here; otherwise against the page, which then scrolls
           // too (a second scrollbar, Matt's room pass 2026-10-31).
           <div className="relative min-h-0 flex-1 overflow-y-auto">
-            <Settings />
+            <Settings openLog={() => setView("log")} />
           </div>
         ) : scene.ready === null ? (
           <Loading />
@@ -127,7 +144,7 @@ const LightsButton = ({ open }: { open: () => void }) => {
   );
 };
 
-const TITLES = { tracker: "Crawl Keeper", settings: "Settings", lights: "Light Tracker" };
+const TITLES = { tracker: "Crawl Keeper", settings: "Settings", lights: "Light Tracker", log: "Session log" };
 
 // The Light Tracker with the open map's token names (lights cross maps; a
 // token not on this one shows the name it was lit with).
