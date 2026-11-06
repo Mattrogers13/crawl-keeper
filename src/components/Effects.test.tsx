@@ -143,6 +143,16 @@ describe("Effects (GM)", () => {
     expect(screen.getByRole("button", { name: /^Bless · 1 of 2 rounds left/ })).toBeInTheDocument();
   });
 
+  it("a hidden effect's chip shows it: the struck-through eye and a dashed outline", async () => {
+    setup([bless, { id: "h1", name: "Secret", kind: "until", holder: "a", hidden: true }]);
+    const secret = await screen.findByRole("button", { name: /^Secret · until removed · hidden from players/ });
+    expect(secret.querySelector("svg")).not.toBeNull();
+    expect(secret).toHaveClass("border-dashed");
+    const blessChip = screen.getByRole("button", { name: /^Bless ·/ });
+    expect(blessChip.querySelector("svg")).toBeNull();
+    expect(blessChip).not.toHaveClass("border-dashed");
+  });
+
   it("a chip's menu sets rounds left and removes it", async () => {
     setup([bless]);
     fireEvent.click(await screen.findByRole("button", { name: /^Bless · 2 of 2/ }));

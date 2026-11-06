@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "re
 
 import { FOCUS } from "./CrawlBar";
 import Segmented from "./Segmented";
+import { HiddenIcon } from "./icons";
 import { cryptoRand } from "../crawl";
 import {
   addEffects,
@@ -71,11 +72,13 @@ const Chip = (props: { effect: Effect; tracker: Tracker; holder?: string; change
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const what = describe(e, t, props.holder);
   const look = `inline-flex h-5 max-w-full shrink-0 items-center gap-1 rounded-full px-1.5 text-[11px] leading-none ${chipLook(e, t)} ${
-    e.hidden ? "ring-1 ring-obr-text/40 ring-dashed" : ""
+    // Hidden from players: a dashed outline and the struck-through eye.
+    e.hidden ? "border border-dashed border-current" : ""
   }`;
   const text = chipText(e, t);
   const body = (
     <>
+      {e.hidden && <HiddenIcon className="h-3 w-3 shrink-0 opacity-80" />}
       {e.kind === "focus" && <span aria-hidden>◎</span>}
       <span className="truncate">
         {props.prefix && <span className="text-obr-text-secondary">{props.prefix}: </span>}
