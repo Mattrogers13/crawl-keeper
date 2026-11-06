@@ -46,6 +46,9 @@ const CrawlBar = (props: {
   // What players see of this card (Settings → What players see): a small
   // green eye on each (Matt, 2026-11-06).
   seen?: { clock: boolean; danger: boolean; rolls: boolean };
+  // The roll (Tracker's: here or Dice+); `rolling` while Dice+ rolls.
+  roll?: (label: string) => void;
+  rolling?: boolean;
 }) => {
   const seen = props.seen ?? { clock: false, danger: false, rolls: false };
   const { crawl, mode, start, dark, change } = props;
@@ -149,7 +152,10 @@ const CrawlBar = (props: {
           sides={clock ? crawlDie(dark) : 6}
           label={clock ? `Roll d${crawlDie(dark)}` : "Encounter check (d6)"}
           due={isDue}
-          onClick={() => change(clock ? "Crawling die" : "Encounter check", (c) => rollFor(mode, start, dark)(c, cryptoRand))}
+          rolling={props.rolling}
+          onClick={() =>
+            props.roll ? props.roll(clock ? "Crawling die" : "Encounter check") : change(clock ? "Crawling die" : "Encounter check", (c) => rollFor(mode, start, dark)(c, cryptoRand))
+          }
         />
         {/* A live region that stays mounted, so a new result is announced. */}
         <div role="status" aria-label="Last roll" className="flex max-w-[64px] flex-col items-center">
@@ -248,7 +254,7 @@ const ChevronDown = ({ className }: { className: string }) => (
 // check, the total for the crawling die). Shaped like the next roll's die: a
 // d6, or a d8 for the crawling die in darkness. Red on an encounter, ringed
 // while a roll is due. Without onClick (players) it's a picture of the roll.
-const Die = (props: { roll: CrawlRoll | null; sides: number; label: string; due?: boolean; onClick?: () => void; small?: boolean }) => {
+const Die = (props: { roll: CrawlRoll | null; sides: number; label: string; due?: boolean; onClick?: () => void; small?: boolean; rolling?: boolean }) => {
   const { roll } = props;
   const enc = roll?.encounter ?? false;
   const d8 = props.sides === 8;
@@ -256,7 +262,9 @@ const Die = (props: { roll: CrawlRoll | null; sides: number; label: string; due?
   return (
     <div className={`flex shrink-0 items-center justify-center ${props.small ? "h-[52px] w-[52px]" : "h-[76px] w-[76px]"}`}>
       <Face
-        {...(props.onClick ? { type: "button" as const, onClick: props.onClick, title: `${props.label} (R when due)` } : { role: "img" })}
+        {...(props.onClick
+          ? { type: "button" as const, onClick: props.onClick, disabled: props.rolling, "aria-busy": props.rolling || undefined, title: `${props.label} (R when due)` }
+          : { role: "img" })}
         aria-label={props.label}
         className={`relative flex items-center justify-center ${props.small ? "h-11 w-11" : "h-14 w-14"} ${
           props.onClick
@@ -271,7 +279,9 @@ const Die = (props: { roll: CrawlRoll | null; sides: number; label: string; due?
         }`}
       >
         {d8 && <D8Shape enc={enc} due={props.due ?? false} />}
-        {!roll ? (
+        {props.rolling ? (
+          <span className={`relative animate-pulse font-bold tracking-wide opacity-70 ${d8 ? "-translate-y-0.5 text-[11px]" : "text-xs"}`}>Dice+</span>
+        ) : !roll ? (
           <span className={`relative font-bold tracking-wide uppercase opacity-60 ${d8 ? "-translate-y-0.5 text-[11px]" : "text-xs"}`}>Roll</span>
         ) : roll.kind === "check" ? (
           <Pips n={roll.dice[0]} />

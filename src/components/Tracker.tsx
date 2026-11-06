@@ -20,7 +20,8 @@ import DyingSheet from "./DyingSheet";
 import Notices from "./Notices";
 import TimeSheet from "./TimeSheet";
 import CrawlBar, { ClockDial, FOCUS, PlayerRoll } from "./CrawlBar";
-import { clockLeft, clockStart, cryptoRand, due, lastFor, rollFor } from "../crawl";
+import { clockLeft, clockStart, crawlDie, cryptoRand, due, lastFor, replayRand, rollFor } from "../crawl";
+import { dicePlusActive, rollDice, rollExploding, setDicePlusEnabled, type RollTarget } from "../diceRoller";
 import { ChevronIcon, HourglassIcon, PlayIcon, SortIcon } from "./icons";
 import Loading from "./Loading";
 import RowMenu from "./RowMenu";
@@ -114,6 +115,11 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   const [adding, setAdding] = useState<string[] | null>(null);
   // The Time passes sheet (the ⏳ beside the title).
   const [timing, setTiming] = useState(false);
+  // A Dice+ roll on its way (src/diceRoller.ts): the ref guards, the state shows.
+  const rollingRef = useRef(false);
+  // The newest change functions, for what lands later (liveChange below).
+  const latest = useRef<{ change: Change; changeEffects: EffectsChange } | null>(null);
+  const [rolling, setRolling] = useState(false);
   // The Dying sheet, for this row (row menu → Dying…).
   const [dyingFor, setDyingFor] = useState<string | null>(null);
   // One sheet at a time: the newest takes over.
@@ -187,6 +193,12 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   // waiting when the tracker mounts (the panel was closed), or sent now (it
   // was open). The stored handoff wins so it's taken once; the message's ids
   // if storage is blocked.
+  // The GM's rolls: Dice+ or here, as the room setting says (checked in the
+  // background, so rolls never wait for it).
+  const dicePlusSetting = settings.loaded && settings.value.dicePlus;
+  useEffect(() => {
+    if (role === "GM") setDicePlusEnabled(dicePlusSetting);
+  }, [role, dicePlusSetting]);
   useEffect(() => {
     if (role !== "GM") return;
     const waiting = takeHandoff();
@@ -259,6 +271,11 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
     if (changed === effects) return;
     change(label, (t) => t, { effects: () => changed });
   };
+  // The same, but always with the newest state: for what lands later (a
+  // Dice+ roll after ▶ moved the turn must not write over it).
+  latest.current = { change, changeEffects };
+  const liveChange: Change = (label, fn, opts) => latest.current!.change(label, fn, opts);
+  const liveChangeEffects: EffectsChange = (label, fn) => latest.current!.changeEffects(label, fn);
 
   const { entries: shown, current } = gm
     ? tracker
@@ -304,14 +321,14 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   const effectsOf = new Map<string, Effect[]>();
   for (const e of listedEffects) if (e.holder !== null && rowIds.has(e.holder)) effectsOf.set(e.holder, [...(effectsOf.get(e.holder) ?? []), e]);
   const looseEffects = listedEffects.filter((e) => e.holder === null || !rowIds.has(e.holder));
-  const effectChange = gm ? changeEffects : null;
+  const effectChange = gm ? liveChangeEffects : null;
   const dueChecks = focusChecks(seenEffects, tracker);
   const calledChecks = seenEffects.effects.filter((e) => checkNow.includes(e.id) && !dueChecks.includes(e));
   const rowEffects = (e: Entry) => {
     const list = effectsOf.get(e.id);
     return list ? <RowEffects effects={list} tracker={tracker} change={effectChange} current={e.id === current} name={names.get(e.id)} /> : undefined;
   };
-  const rowProps = { gm, change, show, focus, openMenu, lightChange: gm ? lights.change : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker), noting, setNoting };
+  const rowProps = { gm, change: liveChange, show, focus, openMenu, lightChange: gm ? lights.change : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker), noting, setNoting };
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
   const round = tracker.round;
   const roundLabel =
@@ -331,15 +348,39 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   const showDanger = !gm && !combat && mode !== "clock" && settings.value.showDanger;
   // Manual: the GM's rolls stay the GM's.
   const playerRoll = !gm && mode !== "manual" && settings.value.showRolls ? lastFor(tracker.crawl, mode) : null;
-  const goNext = () =>
-    change("Next turn", (t) =>
-      mode === "manual" ? nextAfterManualCheck(t, dark) : settings.value.autoRoll ? nextWithAutoRoll(t, mode, cryptoRand, start, dark) : next(t),
-    );
+  // The encounter roll (the card's die, R, the auto roll): here, or Dice+
+  // when it answered (src/diceRoller.ts), shown to players as the setting
+  // says. One at a time: a second click while Dice+ rolls does nothing.
+  const rollTarget: RollTarget = mode !== "manual" && settings.value.showRolls ? "everyone" : "gm_only";
+  const rollEncounter = (label: string) => {
+    if (!dicePlusActive()) return change(label, (t) => updateCrawl(t, (c) => rollFor(mode, start, dark)(c, cryptoRand)));
+    if (rollingRef.current) return;
+    rollingRef.current = true;
+    setRolling(true);
+    const sides = mode === "clock" ? crawlDie(dark) : 6;
+    const dice = mode === "clock" ? rollExploding(sides, label, rollTarget) : rollDice({ count: 1, sides, label, target: rollTarget });
+    void dice
+      .then((values) => liveChange(label, (t) => updateCrawl(t, (c) => rollFor(mode, start, dark)(c, replayRand(values, sides)))))
+      .finally(() => {
+        rollingRef.current = false;
+        setRolling(false);
+      });
+  };
+  const goNext = () => {
+    if (mode === "manual") return change("Next turn", (t) => nextAfterManualCheck(t, dark));
+    if (!settings.value.autoRoll) return change("Next turn", next);
+    // With Dice+ the dice take a moment: the turn moves now, the roll lands
+    // as its own step. Without it, one step as before.
+    if (!dicePlusActive()) return change("Next turn", (t) => nextWithAutoRoll(t, mode, cryptoRand, start, dark));
+    const moved = next(tracker);
+    change("Next turn", next);
+    if (moved.phase === "crawl" && moved.current === GM_ENTRY && due(moved.crawl, mode, dark)) rollEncounter(mode === "clock" ? "Crawling die" : "Encounter check");
+  };
   hotkeys.current = {
     n: goNext,
     b: () => change("Back", previous),
     r: () => {
-      if (!combat && due(tracker.crawl, mode, dark)) change("Encounter roll", (t) => updateCrawl(t, (c) => rollFor(mode, start, dark)(c, cryptoRand)));
+      if (!combat && due(tracker.crawl, mode, dark)) rollEncounter("Encounter roll");
     },
   };
   const drop = ({ active, over }: DragEndEvent) => {
@@ -473,6 +514,8 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           dark={dark}
           following={following}
           change={(label, fn, opts) => change(label, (t) => updateCrawl(t, fn), opts)}
+          roll={rollEncounter}
+          rolling={rolling}
           seen={{
             clock: mode === "clock" && !settings.value.hideClock,
             danger: mode !== "clock" && settings.value.showDanger,
@@ -497,6 +540,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
         names={names}
         change={effectChange}
         dying={seenEffects.effects.filter((e) => e.icon === "dying")}
+        rollD20={() => rollDice({ count: 1, sides: 20, label: "Death d20", target: "everyone" }).then((d) => d[0])}
         markDead={
           gm
             ? (id) => {
@@ -535,7 +579,14 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           {adding ? (
             <AddEffect key={adding.join()} holders={adding} names={names} tracker={tracker} effects={effects} change={changeEffects} close={() => setAdding(null)} />
           ) : dyingFor ? (
-            <DyingSheet key={dyingFor} holder={dyingFor} name={names.get(dyingFor) ?? "A character"} change={changeEffects} close={() => setDyingFor(null)} />
+            <DyingSheet
+              key={dyingFor}
+              holder={dyingFor}
+              name={names.get(dyingFor) ?? "A character"}
+              change={liveChangeEffects}
+              close={() => setDyingFor(null)}
+              rollD4={() => rollDice({ count: 1, sides: 4, label: "Death timer", target: "everyone" }).then((d) => d[0])}
+            />
           ) : (
             <TimeSheet lights={lights.lights} effects={effects} change={lights.change} names={names} close={() => setTiming(false)} />
           )}

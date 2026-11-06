@@ -5,7 +5,8 @@ import { type Item } from "@owlbear-rodeo/sdk";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-import { cryptoRand } from "../crawl";
+import { cryptoRand, replayRand } from "../crawl";
+import { dicePlusActive, rollDice } from "../diceRoller";
 import type { Change } from "./Tracker";
 import LightBadge from "./LightBadge";
 import { D20Icon, GmPortrait, GripIcon, MoreIcon, SkullIcon } from "./icons";
@@ -270,8 +271,12 @@ const Row = (props: {
           mod={props.gmMod}
           setMod={(m) => change("Monsters' DEX", (t) => setGmMod(t, m))}
           roll={() => {
-            change("Monsters' initiative roll", (t) => sortByRoll(rollGmInitiative(t, cryptoRand)));
             setRolling(false);
+            // Dice+ when it answered (everyone sees the d20); else here, at once.
+            if (!dicePlusActive()) return change("Monsters' initiative roll", (t) => sortByRoll(rollGmInitiative(t, cryptoRand)));
+            void rollDice({ count: 1, sides: 20, label: "Monsters' initiative", target: "everyone" }).then((d) =>
+              change("Monsters' initiative roll", (t) => sortByRoll(rollGmInitiative(t, replayRand(d, 20)))),
+            );
           }}
           close={() => setRolling(false)}
         />
