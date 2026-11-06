@@ -1,6 +1,6 @@
 # Owlbear Rodeo gotchas
 
-Learned building Torchlight (github.com/Mattrogers13/obr-torchlight), 2026-10. Each item says how sure we are: **verified** (seen in practice or in SDK source), **Torchlight** (worked there in production), or **unverified** (believed, not confirmed; check before relying on it).
+Learned building Torchlight (merged into Crawl Keeper v0.3.0, #36; its repo is deleted, archived on TITAN: restic fleet-archive, tags `project:obr-torchlight`, `project:obr-torchlight-github`), 2026-10. Each item says how sure we are: **verified** (seen in practice or in SDK source), **Torchlight** (worked there in production), or **unverified** (believed, not confirmed; check before relying on it).
 
 ## Reading the docs
 

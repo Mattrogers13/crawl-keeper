@@ -1,10 +1,6 @@
 # Patterns: adding Owlbear features
 
-Not shipped in the starter (most extensions don't need all of them). Each was built and used in Torchlight (public repo github.com/Mattrogers13/obr-torchlight). "Torchlight: `path`" means read that file there:
-
-```bash
-gh api repos/Mattrogers13/obr-torchlight/contents/<path> --jq .content | base64 -d
-```
+Not shipped in the starter (most extensions don't need all of them). Each was built and used in Torchlight, which was merged into Crawl Keeper v0.3.0 (#36); most of that code now lives in this repo. "Torchlight: `path`" names a file in Torchlight's own repo, now deleted and archived on TITAN (restic fleet-archive, tags `project:obr-torchlight`, `project:obr-torchlight-github`).
 
 SDK reference: `sources/sdk/src/api/`.
 

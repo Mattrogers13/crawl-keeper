@@ -69,7 +69,6 @@ Node 24 (`.node-version`; fnm auto-switches). Non-interactive shells: `eval "$(f
 - `docs/obr/testing.md`: the OBR mock, test traps, regression-test check.
 - `docs/obr/deploy.md`: Cloudflare + Owlbear installs + release flow.
 - `sources/sdk/src`: SDK source (docs.owlbear.rodeo blocks bots). `sources/sdk-tutorials`: dated 2023, check against the SDK. Read-only.
-- Worked example: github.com/Mattrogers13/obr-torchlight.
 
 ## Workflow
 
