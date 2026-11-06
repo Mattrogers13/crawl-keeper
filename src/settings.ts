@@ -41,6 +41,8 @@ export type Settings = {
   // Players light and put out lights on their own tokens (asked of the
   // GM's client, which checks this: playerLights.ts). Off like Torchlight's.
   playersLight: boolean;
+  // Roll through the Dice+ extension when it's installed (src/diceRoller.ts).
+  dicePlus: boolean;
   // Players see the death timer: the Dying line and icon, its notices and
   // the death rolls (p. 89 has it in the open). Off: the GM's alone.
   showDeath: boolean;
@@ -62,6 +64,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showLights: true,
   playersLight: false,
   effectIcons: true,
+  dicePlus: true,
   showDeath: true,
 };
 
@@ -82,6 +85,7 @@ export const parseSettings = (raw: unknown): Settings => {
     selectOnTurn: r.selectOnTurn !== false,
     showLights: r.showLights !== false,
     playersLight: r.playersLight === true,
+    dicePlus: r.dicePlus !== false,
     showDeath: r.showDeath !== false,
     effectIcons: r.effectIcons !== false,
   };

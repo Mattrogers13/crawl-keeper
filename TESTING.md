@@ -192,3 +192,13 @@ Torchlight uninstalled. Dynamic Fog on for rows 72–74. Rows 66–76 sum up the
 | 106 | GM: Stabilized from the notices, then Dying… again on the same player; on another, Healed from the Dying line's menu on someone else's turn | Stabilized: Dying becomes Unconscious; Dying again replaces Unconscious (no stacking); Healed: Dying goes. All told to everyone, in every session log | – |
 | 107 | GM: let a timer run out (▶ onto their last turn): Not a 20 (or Dead, or a failed Roll d20); Undo. Also Time passes 1h with someone dying. Then Settings → Show the death timer to players off; player window: start a timer, roll the d20 | The line says "the timer runs out: last chance"; anything but a 20 marks them dead (skull on the row and token), Dying gone, the turn passes on, everyone gets "<name> died."; one Undo brings them back. Time passes leaves Dying alone. Off: the GM sees Dying dashed (hidden); the player sees no line, icon, notice or death roll | – |
 
+### Dice+ (v0.5)
+
+| # | Steps | Expect | Last pass |
+|---|---|---|---|
+| 108 | GM: install Dice+, reload; Settings → Dice | "Dice+ found: rolls go to Dice+." (without Dice+: "not found: rolling here") | – |
+| 109 | GM: roll the encounter d6 and, in clock mode, the crawling die (try for a 6); click twice fast | Dice+ rolls 3D dice; the card shows the same result; an exploding 6 rolls its extra dice in the same throw (or, if Dice+ doesn't take `1d6!`, one die at a time); one roll for two clicks. **Note: does Dice+ answer at all (LOCAL vs ALL)? Does a 6 explode in one throw?** | – |
+| 110 | Player (private window, Dice+ installed): watch the GM's encounter roll with Show the rolls off, then on; the monsters' initiative; a death d20 | Off: the player sees no encounter dice; on: they do. Initiative and death rolls show to everyone (death rolls only to the GM with Show the death timer off). **Note whether "everyone" rolls really show to players** | – |
+| 111 | GM: auto roll on, ▶ onto the GM turn with a check due; then Undo | The turn moves at once, the Dice+ roll lands after; Undo takes the roll back first, then the turn | – |
+| 112 | GM: Settings → Roll with Dice+ off; roll. On again; uninstall Dice+ mid-session; roll | Off: rolls here, no Dice+. Uninstalled: after up to 15 s, "Dice+ didn't roll …: rolled here instead." and the roll happens | – |
+
