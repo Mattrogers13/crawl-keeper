@@ -8,9 +8,8 @@ import { useEffect, useRef, useState } from "react";
 import { EffectLine, type EffectsChange } from "./Effects";
 import { ChevronIcon } from "./icons";
 import { ID } from "../constants";
-import { cryptoRand, rollDie } from "../crawl";
-import { sayDeath } from "../deathNotices";
-import { deathRollDue, endFocus, newEffectId, stabilize, statusOf, stopDying, type Effect } from "../effects";
+import { deathKey, DyingLine, type DeathActions, type DeathDecision } from "./Dying";
+import { endFocus, statusOf, type Effect } from "../effects";
 import { useNow } from "../hooks/useNow";
 import { burnedOut, LIGHT_KINDS, type Light } from "../lights";
 import type { Tracker } from "../tracker";
@@ -47,16 +46,13 @@ const Notices = (props: {
   tracker: Tracker;
   names: Map<string, string>;
   change: EffectsChange | null;
-  // Death timers on this map (p. 89), and the GM's Mark dead for a row whose
-  // timer ran out; the d20 (crypto, or Dice+ when it's on).
+  // Death timers on this map (p. 89): this turn's decisions and the GM's
+  // actions (Tracker's).
   dying?: Effect[];
-  markDead?: ((id: string) => void) | null;
-  rollD20?: () => Promise<number>;
+  deathDone?: Record<string, DeathDecision>;
+  deathActions?: DeathActions | null;
 }) => {
   const { checks, names, change } = props;
-  // The death d20 rolled this turn, per holder (one roll a turn).
-  const [deathRolls, setDeathRolls] = useState<Record<string, number>>({});
-  const [rolling, setRolling] = useState(false);
   const [open, setOpen] = useState(false);
   const now = useNow();
   const [seen, setSeen] = useState(readSeen);
@@ -154,46 +150,13 @@ const Notices = (props: {
       ),
     })),
   ];
-  // Death timers: on the holder's turn, or the turn the timer ran out.
+  // Death timers: on the holder's turn (the last one too).
   const t = props.tracker;
-  const dyingNow = (props.dying ?? []).flatMap((e) => {
-    if (e.holder === null) return [];
-    const st = statusOf(e, t);
-    if (st.state === "ended") return [{ e, ended: true, left: 0 }];
-    return st.state === "active" && t.current === e.holder ? [{ e, ended: false, left: st.left ?? 0 }] : [];
+  const dyingNow = (props.dying ?? []).filter((e) => {
+    if (e.holder === null || t.current !== e.holder) return false;
+    const st = statusOf(e, t).state;
+    return st === "active" || st === "ended";
   });
-  const rollKey = (holder: string) => `${holder}@${turn}`;
-  const rises = (holder: string, name: string) => {
-    try {
-      change!(`Rises: ${name}`, (s) => stopDying(s, holder));
-    } catch (err) {
-      notify(errorMessage(err), "WARNING");
-      return;
-    }
-    void sayDeath({ event: "rises", name });
-  };
-  const rollDeath = async (holder: string, name: string) => {
-    setRolling(true);
-    try {
-      const value = await (props.rollD20 ?? (async () => rollDie(20, cryptoRand)))();
-      setDeathRolls((r) => ({ ...r, [rollKey(holder)]: value }));
-      void sayDeath({ event: "rolled", name, value });
-      if (value === 20) rises(holder, name);
-    } finally {
-      setRolling(false);
-    }
-  };
-  const stop = (holder: string, name: string, event: "stabilized" | "healed") => {
-    try {
-      change!(event === "healed" ? `Healed: ${name}` : `Stabilized: ${name}`, (s, tr) =>
-        event === "healed" ? stopDying(s, holder) : stabilize(s, tr, newEffectId, holder),
-      );
-    } catch (err) {
-      notify(errorMessage(err), "WARNING");
-      return;
-    }
-    void sayDeath({ event, name });
-  };
 
   if (!props.dark && checks.length === 0 && more.length === 0 && dyingNow.length === 0) return null;
   // One alone shows as itself; two or more fold.
@@ -206,60 +169,16 @@ const Notices = (props: {
           <span className="font-semibold">Total darkness</span> (p. 84): disadvantage on tasks that need sight, for anyone not darkness-adapted.
         </p>
       )}
-      {dyingNow.map(({ e, ended, left }) => {
-        const holder = e.holder!;
-        const name = names.get(holder) ?? "A character";
-        const rolled = deathRolls[rollKey(holder)];
-        const due = deathRollDue(e, t);
-        return (
-          <div
-            key={e.id}
-            role="group"
-            aria-label={`${name} dying`}
-            className="flex min-h-7 flex-wrap items-center gap-x-1.5 gap-y-1 rounded-[10px] bg-red-600/15 px-1.5 py-1 text-red-800 dark:text-red-200"
-          >
-            <img src="/img/effect-dying.webp" alt="" aria-hidden className="h-4 w-4 shrink-0 rounded-full" />
-            <span className="min-w-0 flex-1">
-              {ended ? (
-                <>
-                  <span className="font-semibold">{name}</span>'s death timer ran out
-                </>
-              ) : (
-                <>
-                  <span className="font-semibold">{name}</span> is dying · {left} round{left === 1 ? "" : "s"} left
-                  {rolled !== undefined && <span className="font-mono"> · d20 {rolled}</span>}
-                  {!due && <span className="text-obr-text-secondary"> · timer rolled this turn</span>}
-                </>
-              )}
-            </span>
-            {change && ended && props.markDead && (
-              <button type="button" className={`${button} bg-red-700 text-white hover:bg-red-600`} onClick={() => props.markDead!(holder)}>
-                Mark dead
-              </button>
-            )}
-            {change && !ended && (
-              <span className="flex flex-wrap gap-1">
-                {due && rolled === undefined && (
-                  <>
-                    <button type="button" disabled={rolling} className={button} onClick={() => void rollDeath(holder, name)}>
-                      {rolling ? "Rolling…" : "Roll d20"}
-                    </button>
-                    <button type="button" className={button} title="Rolled a natural 20 at the table: rises with 1 HP" onClick={() => rises(holder, name)}>
-                      Nat 20
-                    </button>
-                  </>
-                )}
-                <button type="button" className={button} title="DC 15 INT first aid (p. 89): no longer dying, still unconscious" onClick={() => stop(holder, name, "stabilized")}>
-                  Stabilized
-                </button>
-                <button type="button" className={button} onClick={() => stop(holder, name, "healed")}>
-                  Healed
-                </button>
-              </span>
-            )}
-          </div>
-        );
-      })}
+      {dyingNow.map((e) => (
+        <DyingLine
+          key={e.id}
+          effect={e}
+          tracker={t}
+          name={names.get(e.holder!) ?? "A character"}
+          decided={props.deathDone?.[deathKey(e.holder!, t)]}
+          actions={change ? (props.deathActions ?? null) : null}
+        />
+      ))}
       {checks.map((e) => (
         <div key={e.id} className="flex min-h-7 flex-wrap items-center gap-x-1.5 gap-y-1 px-1.5">
           <img src="/img/effect-focus.webp" alt="" aria-hidden className="h-4 w-4 shrink-0 rounded-full" />
