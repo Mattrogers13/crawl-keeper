@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { FlameIcon } from "./icons";
 import LightTracker from "./LightTracker";
@@ -8,6 +8,7 @@ import ResizeGrip from "./ResizeGrip";
 import Settings from "./Settings";
 import Tracker from "./Tracker";
 import UndoBar from "./UndoBar";
+import { onAddEffect } from "../addEffectHandoff";
 import { useLights } from "../hooks/useLights";
 import type { Role } from "../hooks/useRole";
 import { useSceneItems, useSceneReady } from "../hooks/useScene";
@@ -19,6 +20,8 @@ const Panel = ({ role }: { role: Role }) => {
   // their own, PlayerLights). Each replaces the tracker, with a back arrow.
   const [view, setView] = useState<"tracker" | "settings" | "lights">("tracker");
   const shown = role === "GM" || view !== "settings" ? view : "tracker";
+  // The map's right-click Add effect… shows the list, where the form opens.
+  useEffect(() => (role === "GM" ? onAddEffect(() => setView("tracker")) : undefined), [role]);
   const away = shown !== "tracker";
   // Under the title, part of the top bar: the tracker puts the crawl
   // controls here (a portal), so they sit with the title.

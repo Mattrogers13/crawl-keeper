@@ -14,6 +14,7 @@ import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifi
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 
 import Confirm from "./Confirm";
+import { onAddEffect, takeHandoff } from "../addEffectHandoff";
 import { AddEffect, EffectStrip, Reminders, RowEffects, type EffectsChange } from "./Effects";
 import CrawlBar, { ClockDial, FOCUS, PlayerRoll } from "./CrawlBar";
 import { clockLeft, clockStart, cryptoRand, due, lastFor, rollFor } from "../crawl";
@@ -155,6 +156,17 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
       if (saved) lastEffectsPrune.current = "";
     });
   }, [effectsReady, items, effectsValue, writeEffects]);
+
+  // The map's right-click Add effect… (addEffectHandoff.ts): the tokens
+  // waiting when the tracker mounts (the panel was closed), or sent now (it
+  // was open). The stored handoff wins so it's taken once; the message's ids
+  // if storage is blocked.
+  useEffect(() => {
+    if (role !== "GM") return;
+    const waiting = takeHandoff();
+    if (waiting) setAdding(waiting);
+    return onAddEffect((ids) => setAdding(takeHandoff() ?? ids));
+  }, [role]);
 
   // A called-for focus check lasts until the turn moves.
   useEffect(() => setCheckNow([]), [docValue.current, docValue.round]);
