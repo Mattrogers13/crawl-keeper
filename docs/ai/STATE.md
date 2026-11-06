@@ -10,9 +10,9 @@ kind: web-app         # web-app | obsidian-plugin | script-utility | config-back
 # Current State
 
 **Updated:** 2026-11-05
-**In flight:** v0.4 step 3, the effects panel: PR #41 (`feat/effects-panel`; `src/components/Effects.tsx`, wiring in `Tracker.tsx`, `RowMenu.tsx`, `useLights.ts`, `undo.ts`; notes on demand in `TrackerRow.tsx`: token rows have no invisible note field, row menu → Add note, so the chips are clickable), deployed to Dev (`0.3.0-dev.0b7c20`, with #42 merged into dev). Steps 1 (#39, scene limit 65 kB+) and 2 (#40, `src/effects.ts`) are merged.
-**Waiting on:** Matt's reinstall of Dev and room test. The load error's cause: Owlbear caps manifest `version` at 16 chars and `0.3.0-dev.b6c669f` is 17. Fix: PR #42 (`fix/dev-version-length`, sha cut to fit), merged into dev, waiting on Matt's "merge" to main.
-**Resume here:** once Dev installs, walk TESTING.md row 2 (notes changed) and rows 77–84 one section at a time (77–79 first; row 83 is removing a chip), then merge #42 and #41 on his word (#42 first; no shared files), then step 4 (map icons, ended notices, right-click Add effect).
+**In flight:** nothing. v0.4 steps 1–3 merged to `main` (live, unreleased): #39 scene limit 65 kB+, #40 `src/effects.ts`, #41 the effects panel (with notes on demand: token rows open a note from the row menu), and #42 (Dev manifest version cut to Owlbear's 16 characters). Room-tested 2026-11-05: TESTING.md rows 2, 77–84.
+**Waiting on:** nothing.
+**Resume here:** v0.4 step 4 (`docs/effects.md` build order): map icons, ended notices, right-click Add effect. Branch off `main`.
 
 **Notes:**
 - Latest release: v0.3.0 (2026-11-02), tag `v0.3.0`, `ee30f22`.
