@@ -7,7 +7,7 @@ import App from "./components/App";
 import { EFFECTS_KEY, LIGHTS_KEY, TRACKER_KEY } from "./constants";
 import { MINUTE } from "./lights";
 import { resetAll, resetTracker } from "./resetAll";
-import { readLog } from "./sessionLog";
+import { logEvent, readLog } from "./sessionLog";
 import { obr, token } from "./test/obrMock";
 import { emptyTracker, GM_ENTRY, parseTracker } from "./tracker";
 import { undo } from "./undo";
@@ -26,7 +26,14 @@ const setup = () => {
     [EFFECTS_KEY]: { effects: [{ id: "e1", name: "Bless", kind: "until", holder: "a" }] },
   };
   obr.metadata = {
-    [LIGHTS_KEY]: { paused: true, lightingRule: "rideAlong", lights: [{ id: "l1", kind: "torch", tokenId: "a", carrier: "Aria", status: "lit", remainingMs: 30 * MINUTE, endsAt: now + 30 * MINUTE }] },
+    [LIGHTS_KEY]: {
+      paused: true,
+      lightingRule: "rideAlong",
+      lights: [
+        { id: "l1", kind: "torch", tokenId: "a", carrier: "Aria", status: "lit", remainingMs: 30 * MINUTE, endsAt: now + 30 * MINUTE },
+        { id: "l2", kind: "campfire", tokenId: "fire", carrier: "Campfire", status: "lit", remainingMs: 60 * MINUTE, endsAt: now + 60 * MINUTE },
+      ],
+    },
   };
 };
 
@@ -36,36 +43,51 @@ describe("Reset all", () => {
     expect(after).toEqual({ ...emptyTracker(), crawl: { ...emptyTracker().crawl, danger: "risky" } });
   });
 
-  it("clears tracker, effects and lights in one undo step, and logs it; undo brings it all back", async () => {
+  it("clears tracker, effects and the tracker's lights in one undo step; a new log starts; undo brings the rest back", async () => {
     setup();
+    logEvent("Torch (Aria) burned out.", "light");
     await resetAll();
     const t = parseTracker(obr.sceneMetadata[TRACKER_KEY]);
     expect(t.entries.map((e) => e.id)).toEqual([GM_ENTRY]);
     expect(t).toMatchObject({ round: 0, current: null, phase: "crawl", gmMod: 0, crawl: { danger: "deadly", crawlRounds: 0 } });
     expect(obr.sceneMetadata[EFFECTS_KEY]).toEqual({ effects: [] });
-    expect(obr.metadata[LIGHTS_KEY]).toMatchObject({ paused: false, lights: [] });
-    expect(readLog()[0].text).toBe("Reset all: the tracker, effects and lights were cleared.");
+    // The campfire prop isn't in initiative: it keeps burning (and paused).
+    expect(obr.metadata[LIGHTS_KEY]).toMatchObject({ paused: true, lights: [{ id: "l2" }] });
+    expect(readLog().map((e) => e.kind)).toEqual(["session"]);
     await undo();
     expect(parseTracker(obr.sceneMetadata[TRACKER_KEY]).entries.map((e) => e.id)).toEqual(["a", GM_ENTRY, "g"]);
     expect(obr.sceneMetadata[EFFECTS_KEY]).toMatchObject({ effects: [{ id: "e1" }] });
-    expect(obr.metadata[LIGHTS_KEY]).toMatchObject({ lights: [{ id: "l1" }] });
+    expect((obr.metadata[LIGHTS_KEY] as { lights: { id: string }[] }).lights.map((l) => l.id).sort()).toEqual(["l1", "l2"]);
   });
 
-  it("if the lights can't be written, the map is put back and it says so", async () => {
+  it("if the lights can't be written, the map and the log are put back", async () => {
     setup();
+    logEvent("Torch (Aria) burned out.", "light");
     const before = structuredClone(obr.sceneMetadata);
     vi.spyOn(OBR.room, "setMetadata").mockRejectedValueOnce(new Error("Room is full"));
     await expect(resetAll()).rejects.toThrow("Room is full");
     expect(obr.sceneMetadata[TRACKER_KEY]).toEqual(before[TRACKER_KEY]);
     expect(obr.sceneMetadata[EFFECTS_KEY]).toEqual(before[EFFECTS_KEY]);
-    expect(readLog()).toEqual([]);
+    expect(readLog().map((e) => e.text)).toEqual(["Torch (Aria) burned out."]);
   });
 
-  it("from Settings, asked first", async () => {
+  it("from Settings: one big warning, offering the log's download; Cancel changes nothing", async () => {
     setup();
+    logEvent("Torch (Aria) burned out.", "light");
+    const download = vi.fn();
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(download);
+    URL.createObjectURL = vi.fn(() => "blob:log");
+    URL.revokeObjectURL = vi.fn();
     render(<App />);
     fireEvent.click(await screen.findByLabelText("Settings"));
     fireEvent.click(await screen.findByRole("button", { name: "Reset all…" }));
+    const warning = screen.getByRole("alertdialog", { name: "Reset all" });
+    expect(warning).toHaveTextContent("The session log is cleared. That can't be undone.");
+    fireEvent.click(within(warning).getByRole("button", { name: "Cancel" }));
+    expect(parseTracker(obr.sceneMetadata[TRACKER_KEY]).entries).toHaveLength(3);
+    fireEvent.click(screen.getByRole("button", { name: "Reset all…" }));
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Download the log (1)" }));
+    expect(download).toHaveBeenCalledTimes(1);
     fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Reset all" }));
     await waitFor(() => expect(parseTracker(obr.sceneMetadata[TRACKER_KEY]).entries).toHaveLength(1));
     expect(await screen.findByRole("button", { name: "Undo: Reset all" })).toBeInTheDocument();
