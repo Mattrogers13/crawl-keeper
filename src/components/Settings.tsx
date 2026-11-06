@@ -29,6 +29,7 @@ const SETTING_LABELS: Partial<Record<keyof SettingsDoc, string>> = {
   selectOnTurn: "select token",
   showLights: "show lights",
   playersLight: "players light their own",
+  effectIcons: "effect icons",
 };
 
 // The four ways to run encounters, as the web toolkit shows them: one choice
@@ -200,6 +201,12 @@ const Settings = () => {
             // Add or remove it now, not at the next turn.
             void syncTurnFromScene({ showMarker });
           }}
+        />
+        <Toggle
+          label="Show effect icons on the map"
+          hint="Focus, ADV, DIS, conditions and other effects as small icons along the token's bottom edge (three, then +). Hidden effects show only to you. Turn it off if you use a condition marker extension."
+          checked={settings.value.effectIcons}
+          onChange={(effectIcons) => set({ effectIcons })}
         />
         <Toggle
           label="Select the current token"

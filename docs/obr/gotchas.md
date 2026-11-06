@@ -41,6 +41,7 @@ Learned building Torchlight (github.com/Mattrogers13/obr-torchlight), 2026-10. E
 
 - Messages aren't stored: a client that isn't open misses them. Use room metadata for anything that must survive. **Torchlight**
 - Pass `destination` explicitly (`"REMOTE"`, `"LOCAL"`, `"ALL"`). Torchlight sends with `"ALL"` so the sender sees its own alert. The default when omitted is decided by Owlbear, not the SDK. **unverified** default
+- `OBR.action.open()` works from a context-menu embed (opens the extension's popover), and a broadcast with `destination: "LOCAL"` reaches this client's other extension pages (the open panel). **verified** (Crawl Keeper's right-click Add effect…, 2026-11-05)
 - Everything received is untrusted: parse it like room metadata. **Torchlight**
 
 ## Manifest and hosting

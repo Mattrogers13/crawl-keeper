@@ -8,6 +8,7 @@ import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 import { MENU_ID, PLAYER_MENU_ID, SETTINGS_KEY, TRACKER_KEY } from "./constants";
 import { MENU_ROWS, PLAYER_MENU_ROWS } from "./mapMenu";
 import { parseSettings } from "./settings";
+import { watchEffectIcons } from "./effectIcons";
 import { watchEffectNotices } from "./effectNotices";
 import { watchLightNotices } from "./lightNotices";
 import { fixMarkerVisibility } from "./marker";
@@ -148,6 +149,7 @@ OBR.onReady(() => {
   watchCombat();
   watchMarkerVisibility();
   watchTokenLights();
+  watchEffectIcons();
   watchLightNotices();
   watchEffectNotices();
   watchLightRequests();

@@ -4,7 +4,7 @@
 // reacting to the same change would add a marker each.
 import OBR, { buildImage, type Image, type Item } from "@owlbear-rodeo/sdk";
 
-import { BADGE_KEY, MARKER_KEY, SETTINGS_KEY, SKULL_KEY, TRACKER_KEY } from "./constants";
+import { BADGE_KEY, EFFECT_ICON_KEY, MARKER_KEY, SETTINGS_KEY, SKULL_KEY, TRACKER_KEY } from "./constants";
 import { parseSettings, type Settings } from "./settings";
 import { GM_ENTRY, parseTracker, type Tracker } from "./tracker";
 import { errorMessage, notify } from "./utils";
@@ -50,6 +50,7 @@ const isOurs = (key: string) => (item: Item): item is Image =>
 export const isOurMarker = isOurs(MARKER_KEY);
 export const isOurSkull = isOurs(SKULL_KEY);
 export const isOurBadge = isOurs(BADGE_KEY);
+export const isOurEffectIcon = isOurs(EFFECT_ICON_KEY);
 
 // Pure: rings, skulls and light badges whose visibility differs from their token's (Owlbear doesn't
 // hide an attachment with its token, verified 2026-10-16).
