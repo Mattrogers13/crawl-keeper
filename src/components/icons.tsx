@@ -90,6 +90,13 @@ export const FlameIcon = ({ className = "h-3.5 w-3" }: { className?: string }) =
 );
 
 // An eye struck through: hidden from players (Owlbear's own sign for it).
+// A scroll: the session log.
+export const ScrollIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M7 4h11a2 2 0 0 1 2 2v1h-4M7 4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7M7 4a2 2 0 0 1 2 2v12M12 9h4M12 13h4M12 17h2" />
+  </svg>
+);
+
 // An hourglass: Time passes.
 export const HourglassIcon = () => (
   <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

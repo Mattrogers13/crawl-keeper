@@ -163,6 +163,21 @@ describe("Effects (GM)", () => {
     expect(screen.getByRole("button", { name: "Undo: Focus lost: Hold Person" })).toBeInTheDocument();
   });
 
+  it("Lost goes in the session log, read from Settings; back returns to Settings", async () => {
+    setup([hold]);
+    fireEvent.click(within(await screen.findByRole("region", { name: "Notices" })).getByRole("button", { name: "Nat 1" }));
+    await waitFor(() => expect(effects()).toEqual([]));
+    fireEvent.click(screen.getByLabelText("Settings"));
+    fireEvent.click(await screen.findByRole("button", { name: /^Session log/ }));
+    const log = await screen.findByRole("list", { name: "Session log" });
+    expect(log).toHaveTextContent("Aria lost focus on Hold Person (natural 1, a critical failure).");
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Clear" }));
+    expect(await screen.findByText(/^Nothing yet/)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Back to Settings"));
+    expect(await screen.findByRole("button", { name: /^Session log/ })).toBeInTheDocument();
+  });
+
   it("Nat 1 ends the focus and gives the critical-failure reminder", async () => {
     setup([hold]);
     fireEvent.click(within(await screen.findByRole("region", { name: "Notices" })).getByRole("button", { name: "Nat 1" }));
