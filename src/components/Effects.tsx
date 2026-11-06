@@ -5,8 +5,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 
 import { FOCUS } from "./CrawlBar";
-import Segmented from "./Segmented";
-import { HiddenIcon } from "./icons";
+import { ChevronIcon, HiddenIcon } from "./icons";
+import { iconOf } from "../effectIcons";
 import { cryptoRand } from "../crawl";
 import {
   addEffects,
@@ -188,28 +188,124 @@ const ChipMenu = (props: { effect: Effect; tracker: Tracker; x: number; y: numbe
   );
 };
 
-// A row's effects, under its name: three, then "+N" to open the rest.
-export const RowEffects = (props: { effects: Effect[]; tracker: Tracker; change: EffectsChange | null }) => {
-  const [open, setOpen] = useState(false);
-  if (props.effects.length === 0) return null;
-  const MAX = 3;
-  const list = open ? props.effects : props.effects.slice(0, MAX);
+// --- Effects under a row ----------------------------------------------------
+// What an effect line says at its right.
+const timeText = (e: Effect, t: Tracker) => {
+  const st = statusOf(e, t);
+  if (st.state === "ended") return "ended";
+  if (e.kind === "focus") return "focus";
+  if (e.kind === "until") return "ongoing";
+  return st.state === "active" && st.left !== null ? `${st.left} rnd` : "";
+};
+
+const lineTone = (e: Effect, t: Tracker) => {
+  const st = statusOf(e, t);
+  if (st.state === "ended") return "text-obr-text-secondary line-through";
+  if (st.state === "active" && st.left === 1) return "text-amber-800 dark:text-amber-300";
+  return "";
+};
+
+// The icon the map shows for it (src/effectIcons.ts).
+const EffectIcon = ({ effect, className = "h-4 w-4" }: { effect: Effect; className?: string }) => (
+  <img src={`/img/effect-${iconOf(effect)}.webp`} alt="" aria-hidden className={`${className} shrink-0 rounded-full`} />
+);
+
+// One effect under its row: icon, name, time left. The GM clicks it for its
+// menu (rounds left, end, remove).
+const EffectLine = (props: { effect: Effect; tracker: Tracker; change: EffectsChange | null }) => {
+  const { effect: e, tracker: t, change } = props;
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const what = describe(e, t);
+  const look = `flex h-6 w-full min-w-0 items-center gap-1.5 rounded-md px-1.5 text-left text-xs ${lineTone(e, t)} ${
+    // Hidden from players: a dashed outline and the struck-through eye.
+    e.hidden ? "border border-dashed border-obr-text/40" : ""
+  }`;
+  const body = (
+    <>
+      <EffectIcon effect={e} />
+      {e.hidden && <HiddenIcon className="h-3 w-3 shrink-0 opacity-80" />}
+      <span className="min-w-0 flex-1 truncate">{e.name}</span>
+      <span className="shrink-0 font-mono text-[11px] text-obr-text-secondary tabular-nums">{timeText(e, t)}</span>
+    </>
+  );
+  if (!change)
+    return (
+      <li role="img" aria-label={what} title={what} className={look}>
+        {body}
+      </li>
+    );
   return (
-    <span className="flex min-w-0 flex-wrap items-center gap-1 pt-0.5" aria-label="Effects">
-      {list.map((e) => (
-        <Chip key={e.id} effect={e} tracker={props.tracker} change={props.change} />
-      ))}
-      {props.effects.length > MAX && (
+    <li>
+      <button
+        type="button"
+        aria-label={`${what}. Click for actions`}
+        title={what}
+        className={`${look} hover:bg-obr-text/10 ${FOCUS}`}
+        onClick={(ev) => {
+          const box = ev.currentTarget.getBoundingClientRect();
+          setMenu({ x: box.left + 24, y: box.bottom + 2 });
+        }}
+      >
+        {body}
+      </button>
+      {menu && <ChipMenu effect={e} tracker={t} x={menu.x} y={menu.y} close={() => setMenu(null)} change={change} />}
+    </li>
+  );
+};
+
+// A row's effects, under it (like the monsters under the GM row). One shows
+// as its line; two or more fold to one line (their icons and the soonest
+// end), open on the row's turn or when clicked.
+export const RowEffects = (props: { effects: Effect[]; tracker: Tracker; change: EffectsChange | null; current: boolean }) => {
+  const { effects, tracker: t } = props;
+  // The GM's or player's own choice, until the turn comes to or leaves the row.
+  const [chosen, setChosen] = useState<boolean | null>(null);
+  useEffect(() => setChosen(null), [props.current]);
+  if (effects.length === 0) return null;
+  const foldable = effects.length > 1;
+  const open = !foldable || (chosen ?? props.current);
+  const lefts = effects.flatMap((e) => {
+    const st = statusOf(e, t);
+    return st.state === "active" && st.left !== null ? [st.left] : [];
+  });
+  const soonest = lefts.length ? Math.min(...lefts) : null;
+  const icons = [...new Set(effects.map(iconOf))];
+  return (
+    <div className="flex flex-col pb-1" aria-label="Effects" role="group">
+      {foldable && (
         <button
           type="button"
           aria-expanded={open}
-          className="h-5 rounded-full px-1.5 text-[11px] text-obr-text-secondary hover:bg-obr-text/10"
-          onClick={() => setOpen(!open)}
+          aria-label={open ? "Fold the effects" : `Show ${effects.length} effects`}
+          className="flex h-6 w-full items-center gap-1.5 px-1.5 text-[11px] text-obr-text-secondary hover:text-obr-text"
+          onClick={() => setChosen(!open)}
         >
-          {open ? "less" : `+${props.effects.length - MAX}`}
+          <ChevronIcon open={open} />
+          {open ? (
+            <span className="font-medium tracking-[0.04em] uppercase">Effects · {effects.length}</span>
+          ) : (
+            <>
+              <span>{effects.length} effects</span>
+              <span className="flex">
+                {icons.slice(0, 4).map((i) => (
+                  <img key={i} src={`/img/effect-${i}.webp`} alt="" aria-hidden className="-ml-1 h-4 w-4 rounded-full ring-1 ring-obr-paper first:ml-0" />
+                ))}
+              </span>
+              {soonest !== null && (
+                <span className={`ml-auto font-mono tabular-nums ${soonest === 1 ? "text-amber-800 dark:text-amber-300" : ""}`}>next ends {soonest} rnd</span>
+              )}
+            </>
+          )}
         </button>
       )}
-    </span>
+      {open && (
+        <ul className={`flex flex-col ${foldable ? "ml-[7px] border-l border-obr-text/15 pl-1.5" : ""}`}>
+          {effects.map((e) => (
+            <EffectLine key={e.id} effect={e} tracker={t} change={props.change} />
+          ))}
+        </ul>
+      )}
+    </div>
   );
 };
 
@@ -290,11 +386,29 @@ export const Reminders = (props: {
   );
 };
 
-type DurationChoice = "rounds" | "roll" | "focus" | "until";
+// `with:<id>`: until removed, and ends with that focus (Paralyzed while
+// Hold Person lasts).
+type DurationChoice = "rounds" | "roll" | "focus" | "until" | `with:${string}`;
 const TOP = "__top__";
 
-// The GM's Add effect form: for the selected rows (one effect each), or
-// free-standing. Conditions are quick picks; Focus is a duration.
+// One effect in the form, as typed.
+type Draft = {
+  key: number;
+  name: string;
+  icon: Condition | null;
+  duration: DurationChoice;
+  rounds: string;
+  dice: Dice;
+  countsOn: string;
+  hidden: boolean;
+};
+
+const draftName = (d: Draft) => d.name.trim() || (d.icon ? CONDITIONS[d.icon].label : "");
+
+// The GM's Add effects sheet, over the list: one or more effects for the
+// chosen tokens (each gets each), or free-standing. A condition pill adds
+// its effect (or takes it out again); + Custom adds a blank one. One undo
+// step for all of them, all or nothing.
 export const AddEffect = (props: {
   holders: string[];
   names: Map<string, string>;
@@ -304,47 +418,82 @@ export const AddEffect = (props: {
   close: () => void;
 }) => {
   const { holders, names, tracker } = props;
-  const [name, setName] = useState("");
-  const [icon, setIcon] = useState<Condition | null>(null);
-  const [duration, setDuration] = useState<DurationChoice>("rounds");
-  const [rounds, setRounds] = useState("1");
-  const [dice, setDice] = useState<Dice>("1d4");
-  const [countsOn, setCountsOn] = useState(tracker.current ?? TOP);
-  const [endsWith, setEndsWith] = useState("");
-  const [hidden, setHidden] = useState(false);
+  const keys = useRef(0);
+  const blank = (icon: Condition | null = null): Draft => ({
+    key: keys.current++,
+    name: icon ? CONDITIONS[icon].label : "",
+    icon,
+    duration: "rounds",
+    rounds: "1",
+    dice: "1d4",
+    countsOn: tracker.current ?? TOP,
+    hidden: false,
+  });
+  const [drafts, setDrafts] = useState<Draft[]>(() => [blank()]);
   const [error, setError] = useState("");
   const [asking, setAsking] = useState<Effect | null>(null);
-  const nameRef = useRef<HTMLInputElement>(null);
-  useEffect(() => nameRef.current?.focus(), []);
+  const formRef = useRef<HTMLFormElement>(null);
+  // The newest effect's name takes the keyboard.
+  const focusKey = useRef<number | null>(drafts[0].key);
+  useEffect(() => {
+    if (focusKey.current === null) return;
+    formRef.current?.querySelector<HTMLInputElement>(`[data-draft="${focusKey.current}"]`)?.focus();
+    focusKey.current = null;
+  }, [drafts]);
 
   const focusAllowed = holders.length > 0;
   const focuses = props.effects.effects.filter((e) => e.kind === "focus");
+  const edit = (key: number, patch: Partial<Draft>) => setDrafts((ds) => ds.map((d) => (d.key === key ? { ...d, ...patch } : d)));
+  const drop = (key: number) => setDrafts((ds) => (ds.length > 1 ? ds.filter((d) => d.key !== key) : [blank()]));
   const pick = (c: Condition) => {
-    const same = icon === c;
-    setIcon(same ? null : c);
-    // The name follows the pick while it's blank or another pick's.
-    if (!name.trim() || CONDITION_IDS.some((id) => CONDITIONS[id].label === name)) setName(same ? "" : CONDITIONS[c].label);
+    const there = drafts.find((d) => d.icon === c);
+    if (there) return drop(there.key);
+    // A blank effect takes the pick; else a new one.
+    const empty = drafts.find((d) => !d.name.trim() && !d.icon);
+    if (empty) return edit(empty.key, { icon: c, name: CONDITIONS[c].label });
+    const d = blank(c);
+    setDrafts((ds) => [...ds, d]);
   };
-  const input = (replaceFocus: boolean): NewEffect => ({
-    name,
-    icon: duration === "focus" ? null : icon,
-    holders,
-    duration:
-      duration === "rounds"
-        ? { kind: "rounds", rounds: Number(rounds) }
-        : duration === "roll"
-          ? { kind: "rounds", dice }
-          : { kind: duration },
-    countsOn: countsOn === TOP ? null : countsOn,
-    endsWith: duration !== "focus" && endsWith ? endsWith : null,
-    hidden,
-    replaceFocus,
-  });
+  const custom = () => {
+    const d = blank();
+    focusKey.current = d.key;
+    setDrafts((ds) => [...ds, d]);
+  };
+  const input = (d: Draft, replaceFocus: boolean): NewEffect => {
+    const endsWith = d.duration.startsWith("with:") ? d.duration.slice(5) : null;
+    return {
+      name: d.name,
+      icon: d.duration === "focus" ? null : d.icon,
+      holders,
+      duration:
+        d.duration === "rounds"
+          ? { kind: "rounds", rounds: Number(d.rounds) }
+          : d.duration === "roll"
+            ? { kind: "rounds", dice: d.dice }
+            : d.duration === "focus"
+              ? { kind: "focus" }
+              : { kind: "until" },
+      countsOn: d.countsOn === TOP ? null : d.countsOn,
+      endsWith,
+      hidden: d.hidden,
+      replaceFocus,
+    };
+  };
+  const named = drafts.map(draftName);
+  const what = drafts.length > 2 ? `${drafts.length} effects` : named.map((n) => n || "effect").join(", ");
   const add = (replaceFocus: boolean) => {
     setError("");
     try {
-      props.change(holders.length > 1 ? `Add ${name.trim() || "effect"} ×${holders.length}` : `Add ${name.trim() || "effect"}`, (e, t) =>
-        addEffects(e, t, newEffectId, cryptoRand, input(replaceFocus)),
+      props.change(holders.length > 1 ? `Add ${what} ×${holders.length}` : `Add ${what}`, (e, t) =>
+        drafts.reduce((s, d, i) => {
+          try {
+            return addEffects(s, t, newEffectId, cryptoRand, input(d, replaceFocus));
+          } catch (err) {
+            // Which one, when there are several.
+            if (err instanceof AlreadyFocusingError || drafts.length === 1) throw err;
+            throw new Error(`${named[i] || `Effect ${i + 1}`}: ${errorMessage(err)}`);
+          }
+        }, e),
       );
       props.close();
     } catch (err) {
@@ -358,116 +507,145 @@ export const AddEffect = (props: {
   };
 
   const target = holders.length === 0 ? "No token (free-standing)" : holders.map((h) => names.get(h) ?? "a token").join(", ");
-  const field = "h-8 rounded-md bg-obr-paper px-2 text-sm focus:ring-2 focus:ring-obr-primary focus:outline-none";
-  const label = "text-[11px] font-medium tracking-[0.06em] text-obr-text-secondary uppercase";
+  const field = "h-7 rounded-md bg-obr-paper px-2 text-xs focus:ring-2 focus:ring-obr-primary focus:outline-none";
   const rows = turnOrder(tracker).filter((e, i, all) => all.findIndex((x) => x.id === e.id) === i);
+  const focusing = drafts.find((d) => d.duration === "focus");
   return (
     <form
+      ref={formRef}
       aria-label="Add effect"
-      className="flex shrink-0 flex-col gap-2 rounded-[14px] bg-obr-bg px-3 py-2.5 text-sm ring-1 ring-obr-text/10 ring-inset"
+      className="flex min-h-full flex-col gap-2 bg-obr-paper px-1 pt-1 pb-2 text-sm"
       onSubmit={submit}
       onKeyDown={(ev) => ev.key === "Escape" && props.close()}
     >
-      <div className="flex items-baseline gap-2">
-        <span className="font-medium">Add effect</span>
-        <span className="truncate text-xs text-obr-text-secondary">{target}</span>
+      <div className="flex items-center gap-2">
+        <span className="font-medium">Add effects</span>
+        <span className="min-w-0 flex-1 truncate text-xs text-obr-text-secondary">{target}</span>
+        <button type="button" aria-label="Close" className="rounded-md p-1 text-obr-text-secondary hover:bg-obr-text/10" onClick={props.close}>
+          ✕
+        </button>
       </div>
-      <input
-        ref={nameRef}
-        aria-label="Effect name"
-        placeholder="Bless, Web, Hold Person…"
-        maxLength={NAME_MAX}
-        value={name}
-        onChange={(ev) => setName(ev.target.value)}
-        className={field}
-      />
-      {duration !== "focus" && (
-        <div role="group" aria-label="Condition" className="flex flex-wrap gap-1">
-          {CONDITION_IDS.filter((c) => c !== "focus").map((c) => (
+      <div role="group" aria-label="Conditions" className="flex flex-wrap gap-1">
+        {CONDITION_IDS.filter((c) => c !== "focus").map((c) => {
+          const on = drafts.some((d) => d.icon === c);
+          return (
             <button
               key={c}
               type="button"
-              aria-pressed={icon === c}
-              className={`h-6 rounded-full px-2 text-xs ${icon === c ? "bg-obr-primary text-obr-primary-contrast" : "bg-obr-paper hover:bg-obr-text/10"}`}
+              aria-pressed={on}
+              title={CONDITIONS[c].hint}
+              className={`h-6 rounded-full px-2 text-xs ${on ? "bg-obr-primary text-obr-primary-contrast" : "bg-obr-bg hover:bg-obr-text/10"}`}
               onClick={() => pick(c)}
             >
               {CONDITIONS[c].label}
             </button>
-          ))}
-        </div>
-      )}
-      <span className={label}>Duration</span>
-      <Segmented
-        label="Duration"
-        name="effect-duration"
-        value={duration}
-        options={[
-          ["rounds", "Rounds"],
-          ["roll", "Roll"],
-          ...(focusAllowed ? ([["focus", "Focus"]] as [DurationChoice, string][]) : []),
-          ["until", "Ongoing"],
-        ]}
-        onChange={setDuration}
-      />
-      {duration === "rounds" && (
-        <label className="flex items-center gap-2 text-xs text-obr-text-secondary">
-          Rounds
-          <input
-            type="number"
-            min={1}
-            max={ROUNDS_MAX}
-            value={rounds}
-            onChange={(ev) => setRounds(ev.target.value)}
-            className={`${field} w-16 text-right font-mono`}
-          />
-        </label>
-      )}
-      {duration === "roll" && (
-        <label className="flex items-center gap-2 text-xs text-obr-text-secondary">
-          Roll
-          <select value={dice} onChange={(ev) => setDice(ev.target.value as Dice)} className={field}>
-            {DICE_IDS.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
-          {holders.length > 1 && <span>one roll for all</span>}
-        </label>
-      )}
-      {(duration === "rounds" || duration === "roll") && (
-        <label className="flex items-center gap-2 text-xs text-obr-text-secondary">
-          Counts down on
-          <select value={countsOn} onChange={(ev) => setCountsOn(ev.target.value)} className={`${field} min-w-0 flex-1`}>
-            {rows.map((e) => (
-              <option key={e.id} value={e.id}>
-                {names.get(e.id) ?? "GM / Monsters"}
-                {e.id === tracker.current ? " (now)" : ""}
-              </option>
-            ))}
-            <option value={TOP}>Top of each round</option>
-          </select>
-        </label>
-      )}
-      {duration === "until" && <p className="text-xs text-obr-text-secondary">Until you remove it. Hours or days: write them in the name (“Cursed, 1d4 days”).</p>}
-      {duration === "focus" && <p className="text-xs text-obr-text-secondary">A focus check at the start of each of the caster's turns keeps it (p. 50).</p>}
-      {duration !== "focus" && focuses.length > 0 && (
-        <label className="flex items-center gap-2 text-xs text-obr-text-secondary">
-          Ends with
-          <select value={endsWith} onChange={(ev) => setEndsWith(ev.target.value)} className={`${field} min-w-0 flex-1`}>
-            <option value="">Nothing</option>
-            {focuses.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name} ({names.get(f.holder!) ?? "a token"}'s focus)
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      <label className="flex items-center gap-2 text-xs">
-        <input type="checkbox" checked={hidden} onChange={(ev) => setHidden(ev.target.checked)} className="accent-[var(--obr-primary)]" />
-        Hide from players
-      </label>
+          );
+        })}
+        <button type="button" className="h-6 rounded-full bg-obr-bg px-2 text-xs hover:bg-obr-text/10" onClick={custom}>
+          + Custom
+        </button>
+      </div>
+      {drafts.map((d, i) => (
+        <fieldset
+          key={d.key}
+          aria-label={named[i] || `Effect ${i + 1}`}
+          className="flex flex-col gap-1.5 rounded-[10px] bg-obr-bg p-2 ring-1 ring-obr-text/10 ring-inset"
+        >
+          <div className="flex items-center gap-1.5">
+            <img
+              src={`/img/effect-${d.duration === "focus" ? "focus" : (d.icon ?? "custom")}.webp`}
+              alt=""
+              aria-hidden
+              className="h-5 w-5 shrink-0 rounded-full"
+            />
+            <input
+              data-draft={d.key}
+              aria-label="Effect name"
+              placeholder="Bless, Web, Hold Person…"
+              maxLength={NAME_MAX}
+              value={d.name}
+              onChange={(ev) => edit(d.key, { name: ev.target.value })}
+              className={`${field} min-w-0 flex-1 text-sm`}
+            />
+            <button
+              type="button"
+              aria-label="Hide from players"
+              aria-pressed={d.hidden}
+              title={d.hidden ? "Hidden from players" : "Players see it; click to hide"}
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
+                d.hidden ? "bg-obr-primary/25 text-obr-text" : "text-obr-text-disabled hover:bg-obr-text/10"
+              }`}
+              onClick={() => edit(d.key, { hidden: !d.hidden })}
+            >
+              <HiddenIcon className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Remove this effect"
+              className="flex h-7 w-6 shrink-0 items-center justify-center rounded-md text-obr-text-secondary hover:bg-obr-text/10"
+              onClick={() => drop(d.key)}
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <select
+              aria-label="Duration"
+              value={d.duration}
+              onChange={(ev) => edit(d.key, { duration: ev.target.value as DurationChoice })}
+              className={`${field} ${d.duration.startsWith("with:") ? "min-w-0 flex-1" : "w-[84px] shrink-0"}`}
+            >
+              <option value="rounds">Rounds</option>
+              <option value="roll">Roll</option>
+              {focusAllowed && (
+                // A caster holds one focus: one per batch.
+                <option value="focus" disabled={!!focusing && focusing !== d}>
+                  Focus
+                </option>
+              )}
+              <option value="until">Ongoing</option>
+              {focuses.map((f) => (
+                <option key={f.id} value={`with:${f.id}`}>
+                  While {names.get(f.holder!) ?? "a token"}'s {f.name} lasts
+                </option>
+              ))}
+            </select>
+            {d.duration === "rounds" && (
+              <input
+                type="number"
+                aria-label="Rounds"
+                min={1}
+                max={ROUNDS_MAX}
+                value={d.rounds}
+                onChange={(ev) => edit(d.key, { rounds: ev.target.value })}
+                className={`${field} w-12 shrink-0 text-right font-mono`}
+              />
+            )}
+            {d.duration === "roll" && (
+              <select aria-label="Dice" title={holders.length > 1 ? "One roll for all" : undefined} value={d.dice} onChange={(ev) => edit(d.key, { dice: ev.target.value as Dice })} className={`${field} w-[62px] shrink-0`}>
+                {DICE_IDS.map((x) => (
+                  <option key={x} value={x}>
+                    {x}
+                  </option>
+                ))}
+              </select>
+            )}
+            {(d.duration === "rounds" || d.duration === "roll") && (
+              <select aria-label="Counts down on" title="Counts down at the start of this turn" value={d.countsOn} onChange={(ev) => edit(d.key, { countsOn: ev.target.value })} className={`${field} min-w-0 flex-1`}>
+                {rows.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    on {names.get(e.id) ?? "GM / Monsters"}
+                    {e.id === tracker.current ? " (now)" : ""}
+                  </option>
+                ))}
+                <option value={TOP}>Top of each round</option>
+              </select>
+            )}
+            {d.duration === "until" && <span className="min-w-0 truncate text-[11px] text-obr-text-secondary">until removed; days go in the name</span>}
+            {d.duration === "focus" && <span className="min-w-0 truncate text-[11px] text-obr-text-secondary">check each turn (p. 50)</span>}
+          </div>
+        </fieldset>
+      ))}
       {error && (
         <p role="alert" className="text-xs text-red-700 dark:text-red-300">
           {error}
@@ -477,22 +655,22 @@ export const AddEffect = (props: {
         <div role="alertdialog" aria-label="Already focusing" className="flex flex-wrap items-center gap-1.5 text-xs">
           <span>
             {asking.holder ? `${names.get(asking.holder) ?? "That token"} is focusing on ${asking.name}.` : ""} End {asking.name}, focus on{" "}
-            {name.trim() || "this"}?
+            {(focusing && draftName(focusing)) || "this"}?
           </span>
           <button type="button" className="h-8 rounded-full bg-obr-primary px-3 font-medium text-obr-primary-contrast" onClick={() => add(true)}>
             End and focus
           </button>
-          <button type="button" className="h-8 rounded-full bg-obr-paper px-3 font-medium hover:bg-obr-text/10" onClick={() => setAsking(null)}>
+          <button type="button" className="h-8 rounded-full bg-obr-bg px-3 font-medium hover:bg-obr-text/10" onClick={() => setAsking(null)}>
             Cancel
           </button>
         </div>
       ) : (
         <div className="flex justify-end gap-1.5">
-          <button type="button" className="h-8 rounded-full bg-obr-paper px-4 text-xs font-medium hover:bg-obr-text/10" onClick={props.close}>
+          <button type="button" className="h-8 rounded-full bg-obr-bg px-4 text-xs font-medium hover:bg-obr-text/10" onClick={props.close}>
             Cancel
           </button>
           <button type="submit" className="h-8 rounded-full bg-obr-primary px-4 text-xs font-medium text-obr-primary-contrast">
-            Add
+            {drafts.length > 1 ? `Add ${drafts.length} effects` : "Add"}
           </button>
         </div>
       )}

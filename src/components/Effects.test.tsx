@@ -8,7 +8,7 @@ import { EFFECTS_KEY, LIGHTS_KEY, TRACKER_KEY } from "../constants";
 import { parseEffects } from "../effects";
 import { MINUTE } from "../lights";
 import { GM_ENTRY, parseTracker } from "../tracker";
-import { obr, receiveBroadcast, setItems, token } from "../test/obrMock";
+import { obr, receiveBroadcast, setItems, token, writeSceneFromElsewhere } from "../test/obrMock";
 import { ADD_EFFECT_CHANNEL, askToAddEffect, takeHandoff } from "../addEffectHandoff";
 
 const effects = () => parseEffects(obr.sceneMetadata[EFFECTS_KEY]).effects;
@@ -62,9 +62,9 @@ describe("Effects (GM)", () => {
   it("a free-standing effect goes in the strip; one on a token not in initiative too, named", async () => {
     setup([{ id: "s1", name: "Webbed", kind: "until", holder: "x" }], "a", 1, [token("x", { name: "Statue" })]);
     fireEvent.click(await screen.findByRole("button", { name: "Add effect" }));
-    expect(within(form()).queryByRole("radio", { name: "Focus" })).toBeNull();
+    expect(within(form()).queryByRole("option", { name: "Focus" })).toBeNull();
     fireEvent.change(within(form()).getByLabelText("Effect name"), { target: { value: "Cloudkill" } });
-    fireEvent.click(within(form()).getByRole("radio", { name: "Ongoing" }));
+    fireEvent.change(within(form()).getByLabelText("Duration"), { target: { value: "until" } });
     fireEvent.click(within(form()).getByRole("button", { name: "Add" }));
     await waitFor(() => expect(effects().map((e) => [e.name, e.holder])).toEqual([["Webbed", "x"], ["Cloudkill", null]]));
     const strip = await screen.findByRole("region", { name: "Effects" });
@@ -80,16 +80,68 @@ describe("Effects (GM)", () => {
     fireEvent.click(within(await screen.findByRole("menu", { name: "2 selected" })).getByRole("menuitem", { name: "Add effect to 2…" }));
     fireEvent.click(within(form()).getByRole("button", { name: "DIS" }));
     expect(within(form()).getByLabelText("Effect name")).toHaveValue("DIS");
-    fireEvent.click(within(form()).getByRole("radio", { name: "Ongoing" }));
+    fireEvent.change(within(form()).getByLabelText("Duration"), { target: { value: "until" } });
     fireEvent.click(within(form()).getByRole("button", { name: "Add" }));
     await waitFor(() => expect(effects().map((e) => [e.name, e.icon, e.holder])).toEqual([["DIS", "dis", "a"], ["DIS", "dis", "b"]]));
+  });
+
+  it("adds several effects at once, each with its own duration; one undo step", async () => {
+    setup();
+    await pick("Aria", "Add effect…");
+    fireEvent.change(within(form()).getByLabelText("Effect name"), { target: { value: "Bless" } });
+    fireEvent.change(within(form()).getByLabelText("Rounds"), { target: { value: "3" } });
+    // Pills add an effect each (DIS fills nothing: Bless is named); a second click takes it out.
+    const pills = within(form()).getByRole("group", { name: "Conditions" });
+    fireEvent.click(within(pills).getByRole("button", { name: "DIS" }));
+    fireEvent.click(within(pills).getByRole("button", { name: "Stuck" }));
+    fireEvent.click(within(pills).getByRole("button", { name: "Blinded" }));
+    fireEvent.click(within(pills).getByRole("button", { name: "Blinded" }));
+    expect(within(pills).getByRole("button", { name: "Blinded" })).toHaveAttribute("aria-pressed", "false");
+    const stuck = within(form()).getByRole("group", { name: "Stuck" });
+    fireEvent.change(within(stuck).getByLabelText("Duration"), { target: { value: "until" } });
+    fireEvent.click(within(stuck).getByRole("button", { name: "Hide from players" }));
+    fireEvent.click(within(form()).getByRole("button", { name: "Add 3 effects" }));
+    await waitFor(() =>
+      expect(effects().map((e) => [e.name, e.icon, e.kind, e.rounds, e.hidden])).toEqual([
+        ["Bless", null, "rounds", 3, false],
+        ["DIS", "dis", "rounds", 1, false],
+        ["Stuck", "stuck", "until", 0, true],
+      ]),
+    );
+    expect(screen.getByRole("button", { name: "Undo: Add 3 effects" })).toBeInTheDocument();
+  });
+
+  it("several effects: all or nothing, and the error names the one at fault; one focus per batch", async () => {
+    setup();
+    await pick("Aria", "Add effect…");
+    fireEvent.change(within(form()).getByLabelText("Effect name"), { target: { value: "Bless" } });
+    fireEvent.click(within(form()).getByRole("button", { name: "+ Custom" }));
+    const second = within(form()).getByRole("group", { name: "Effect 2" });
+    expect(within(second).getByLabelText("Effect name")).toHaveFocus();
+    // Bless becomes the focus: the other can't be one too.
+    fireEvent.change(within(form()).getByRole("group", { name: "Bless" }).querySelector("select")!, { target: { value: "focus" } });
+    expect(second.querySelector<HTMLOptionElement>("option[value=focus]")!.disabled).toBe(true);
+    // The second has no name: nothing is added, and the error says which.
+    fireEvent.click(within(form()).getByRole("button", { name: "Add 2 effects" }));
+    expect(within(form()).getByRole("alert")).toHaveTextContent("Effect 2: An effect needs a name");
+    expect(effects()).toEqual([]);
+  });
+
+  it("an effect can last while a focus does (Paralyzed while Hold Person lasts)", async () => {
+    setup([hold]);
+    await pick("Gob", "Add effect…");
+    fireEvent.click(within(form()).getByRole("button", { name: "Paralyzed" }));
+    fireEvent.change(within(form()).getByLabelText("Duration"), { target: { value: "with:f1" } });
+    expect(within(form()).getByRole("option", { name: "While Aria's Hold Person lasts" })).toBeInTheDocument();
+    fireEvent.click(within(form()).getByRole("button", { name: "Add" }));
+    await waitFor(() => expect(effects()[1]).toMatchObject({ name: "Paralyzed", holder: "g", kind: "until", endsWith: "f1" }));
   });
 
   it("a second focus asks first, then ends the old one and what ends with it", async () => {
     setup([hold, paralyzed]);
     await pick("Aria", "Add effect…");
     fireEvent.change(within(form()).getByLabelText("Effect name"), { target: { value: "Web" } });
-    fireEvent.click(within(form()).getByRole("radio", { name: "Focus" }));
+    fireEvent.change(within(form()).getByLabelText("Duration"), { target: { value: "focus" } });
     fireEvent.click(within(form()).getByRole("button", { name: "Add" }));
     expect(within(form()).getByRole("alertdialog")).toHaveTextContent("Aria is focusing on Hold Person. End Hold Person, focus on Web?");
     expect(effects()).toHaveLength(2);
@@ -166,6 +218,21 @@ describe("Effects (GM)", () => {
     await receiveBroadcast(ADD_EFFECT_CHANNEL, { ids: ["a", "g"] }, obr.connectionId);
     expect(within(await screen.findByRole("form", { name: "Add effect" })).getByText("Aria, Gob", { selector: "span" })).toBeInTheDocument();
     expect(takeHandoff()).toBeNull();
+  });
+
+  it("a row's effects sit under it: two or more fold, open on its turn or when clicked", async () => {
+    setup([bless, hold], "b");
+    const fold = await screen.findByRole("button", { name: "Show 2 effects" });
+    expect(fold).toHaveTextContent("2 effectsnext ends 2 rnd");
+    expect(screen.queryByRole("button", { name: /^Bless ·/ })).toBeNull();
+    fireEvent.click(fold);
+    expect(screen.getByRole("button", { name: /^Bless · 2 of 2 rounds left/ })).toHaveTextContent("Bless2 rnd");
+    expect(screen.getByRole("button", { name: /^Hold Person · while focusing/ })).toHaveTextContent("Hold Personfocus");
+    fireEvent.click(screen.getByRole("button", { name: "Fold the effects" }));
+    expect(screen.queryByRole("button", { name: /^Bless ·/ })).toBeNull();
+    // Aria's turn: open while it lasts.
+    await writeSceneFromElsewhere({ [TRACKER_KEY]: { ...obr.sceneMetadata[TRACKER_KEY] as object, current: "a" } });
+    expect(await screen.findByRole("button", { name: /^Bless ·/ })).toBeInTheDocument();
   });
 
   it("a chip's menu sets rounds left and removes it", async () => {

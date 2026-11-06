@@ -51,7 +51,7 @@ Nothing is written when ▶ or ◀ moves the turn. A rounds effect stores where 
 
 ## Where it shows
 
-- **Rows:** chips after the name (icon, name, rounds left; amber at 1 round left; "ended"), the same for players unless hidden. Long lists fold to "+N".
+- **Rows:** effects sit under the row, like the monsters under the GM row (step 4d, 2026-11-06): one line per effect (the map's icon, name, rounds left / focus / ongoing; amber at 1 round left; "ended"). One effect shows as its line; two or more fold to one line (their icons and "next ends N rnd") and open on the row's turn or when clicked, until the turn moves. The same for players, minus what's hidden. The strip of loose effects keeps chips.
 - **Free-standing effects:** a strip under the crawl card, like the light strip. Effects on a token that isn't in initiative show there too, with the token's name.
 - **The turn's reminders:** under the crawl card: focus checks, and effects ending on this turn.
 - **Map:** a token's icons as small attachments along its bottom edge (up to 3, then a "+" icon), clear of the turn ring, the skull (centered) and the light badge (top right). WebP, our tag, visibility matched to the token, hidden while the effect is hidden. Settings → **Effect icons on the map** (on), for tables that already use a condition marker extension. Built 2026-11-05 (`src/effectIcons.ts`, art `art/effects/`): one icon per kind on a token, Focus, then the conditions in order, then **one asterisk for every other effect** (Matt picked option 2, one generic icon, then the asterisk over an hourglass, star, rune, ! or tag); three at most, the third "+" with more. Running effects only. A hidden effect's icon is drawn hidden (the GM sees it faded, players don't), after the shown ones. Drawn by the GM's background page, one sync at a time. The right-click menu's Add effect… uses the same asterisk.
@@ -59,9 +59,9 @@ Nothing is written when ▶ or ◀ moves the turn. A rounds effect stores where 
 
 ## Adding and removing (GM)
 
-- **Row menu → Add effect…:** a small form (name with the conditions as quick picks, duration, counts on, ends with, hidden). With rows selected it adds one to each.
+- **Row menu → Add effect…:** the Add effects sheet, over the list (step 4d): one or more effects at once, each with its own name, duration (Rounds, Roll, Focus, Ongoing, or "While Aria's Hold Person lasts", which is Ongoing plus ends-with), counts on and hidden. A condition pill adds its effect (again: takes it out); + Custom adds a blank one. One Focus per batch. With rows selected each gets each. One undo step, all or nothing; an error names the effect at fault. Ends-with now only pairs with Ongoing in the form (the data still allows rounds + ends-with).
 - **Right-click a token → Crawl Keeper → Add effect…:** opens the panel on that form (any token, props too; several selected: one each). Built 2026-11-05 (`src/addEffectHandoff.ts`): the menu leaves the token ids in this tab's sessionStorage, sends a LOCAL broadcast and calls `OBR.action.open()` from the menu's embed; the panel shows the list (from Settings or the Light Tracker too) and the tracker opens the form, from the stored handoff on mount (panel was closed; 30 s fresh, taken once) or the message (panel open). `OBR.action.open` from the menu embed and LOCAL delivery to the panel: **verified** (room test, TESTING.md row 87, 2026-11-05).
-- **Click a chip:** remove, or edit its rounds left.
+- **Click an effect line (or a strip chip):** remove, or edit its rounds left.
 - Every change is an undo step. Players don't add effects in v1 (later: the request path players use for lights).
 
 ## Data and limits
