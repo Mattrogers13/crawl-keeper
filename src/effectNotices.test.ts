@@ -86,6 +86,23 @@ describe("watchEffectNotices (every client)", () => {
     off();
   });
 
+  it("logs (no notice) effects that go away; not those already ended; players not hidden ones", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    const secret = { id: "h1", name: "Secret", kind: "until", holder: "b", hidden: true };
+    obr.sceneMetadata = scene("a", 3, [bless, cloud, hold, secret]);
+    const off = watchEffectNotices();
+    await settle();
+    // Bless and Cloudkill ended at Aria's turn in round 3: their going isn't news.
+    await writeSceneFromElsewhere(scene("a", 3, [hold, secret]));
+    await settle();
+    expect(readLog()).toEqual([]);
+    await writeSceneFromElsewhere(scene("a", 3, []));
+    await settle();
+    expect(shown()).toEqual([]);
+    expect(readLog().map((e) => e.text)).toEqual(["Hold Person on Borin removed. Secret on Borin removed."]);
+    off();
+  });
+
   it("says nothing for what's already ended when the page loads or a scene opens", async () => {
     obr.sceneMetadata = scene("a", 3);
     const off = watchEffectNotices();

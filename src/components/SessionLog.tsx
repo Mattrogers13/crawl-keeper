@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Confirm from "./Confirm";
 import { clearLog, logText, onLogChange, readLog, type LogEntry, type LogKind } from "../sessionLog";
 
-const ICON: Record<LogKind, string> = { light: "🔥", time: "⏳", effect: "⏱", combat: "⚔️", focus: "◎" };
+const ICON: Record<LogKind, string> = { light: "🔥", time: "⏳", effect: "⏱", combat: "⚔️", focus: "◎", session: "↺" };
 
 const day = (at: number) => new Date(at).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 const time = (at: number) => new Date(at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });

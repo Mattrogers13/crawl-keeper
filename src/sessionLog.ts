@@ -10,12 +10,12 @@ import OBR from "@owlbear-rodeo/sdk";
 import { ID } from "./constants";
 import { readLocal, writeLocal } from "./storage";
 
-export type LogKind = "light" | "time" | "effect" | "combat" | "focus";
+export type LogKind = "light" | "time" | "effect" | "combat" | "focus" | "session";
 export type LogEntry = { at: number; text: string; kind: LogKind };
 
 export const LOG_MAX = 500;
 const TEXT_MAX = 300;
-const KINDS: LogKind[] = ["light", "time", "effect", "combat", "focus"];
+const KINDS: LogKind[] = ["light", "time", "effect", "combat", "focus", "session"];
 
 const key = () => `${ID}/log/${OBR.room.id}`;
 
