@@ -11,7 +11,7 @@ kind: web-app         # web-app | obsidian-plugin | script-utility | config-back
 
 **Updated:** 2026-11-06
 **In flight:** v0.4 step 4c, effect icons on the map: PR (`feat/effects-map-icons`; `src/effectIcons.ts` started in `background.ts`, art `art/effects/` → `public/img/effect-*.webp`, Settings → Show effect icons on the map, `effectIcons` in `settings.ts`). 4a (#43) and 4b (#44, right-click Add effect…) merged and live.
-**Waiting on:** Matt's room tests: TESTING.md rows 88–90 (#45 map icons), 91–93 (#46 effects under rows + Add effects sheet), 94–96 (#47 layout B + ⏳ sheet), 97–99 (#48 session log), 100–101 (#49 effects-gone log + Reset all). Stacked #45 ← #46 ← #47 ← #48 ← #49; merge in that order on "merge".
+**Waiting on:** Matt's room tests: TESTING.md rows 88–90 (#45 map icons), 91–93 (#46 effects under rows + Add effects sheet), 94–96 (#47 layout B + ⏳ sheet), 97–99 (#48 session log), 100–102 (#49 effects-gone log, Reset all, rolls sort the list). Stacked #45 ← #46 ← #47 ← #48 ← #49; merge in that order on "merge".
 **Resume here:** after merge, step 4 is done; next is the v0.4.0 release PR (version bump, CHANGELOG, full TESTING.md walkthrough one section at a time). Step 5 of `docs/effects.md` (death timer) is later, not v0.4.
 
 **Notes:**
