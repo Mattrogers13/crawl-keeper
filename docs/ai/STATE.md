@@ -10,8 +10,8 @@ kind: web-app         # web-app | obsidian-plugin | script-utility | config-back
 # Current State
 
 **Updated:** 2026-11-06
-**In flight:** nothing open. v0.5 so far, merged and live (unreleased, CHANGELOG "Unreleased"): the death timer (#52) and Dice+ (#53).
-**Waiting on:** a player session for TESTING.md rows 104–112 (109–110 settle the Dice+ unknowns: LOCAL vs ALL, `1d6!`, "everyone" visible to players). No per-PR room test (Matt, 2026-11-06).
+**In flight:** v0.5.0 release PR (`release/v0.5.0`): version 0.5.0, CHANGELOG. The death timer (#52) and Dice+ (#53) merged and live.
+**Waiting on:** the release walkthrough (TESTING.md), then Matt's "merge", tag `v0.5.0`, confirm live.
 **Resume here:** whatever Matt picks next. On hold: morale and encounter roll tables. Release v0.5.0 when Matt wants it (full TESTING.md walkthrough).
 
 **Notes:**
