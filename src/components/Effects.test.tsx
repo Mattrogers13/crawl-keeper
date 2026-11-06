@@ -13,8 +13,10 @@ import { ADD_EFFECT_CHANNEL, askToAddEffect, takeHandoff } from "../addEffectHan
 
 const effects = () => parseEffects(obr.sceneMetadata[EFFECTS_KEY]).effects;
 const tracker = () => parseTracker(obr.sceneMetadata[TRACKER_KEY]);
+// A row's name (not the notices' mention of it).
+const rowName = async (name: string) => (await screen.findAllByText(name)).find((el) => el.closest("li"))!;
 const pick = async (name: string, item: string) => {
-  fireEvent.contextMenu(await screen.findByText(name));
+  fireEvent.contextMenu(await rowName(name));
   fireEvent.click(within(await screen.findByRole("menu", { name })).getByRole("menuitem", { name: item }));
 };
 const next = () => fireEvent.click(screen.getByLabelText("Next turn"));
@@ -67,9 +69,12 @@ describe("Effects (GM)", () => {
     fireEvent.change(within(form()).getByLabelText("Duration"), { target: { value: "until" } });
     fireEvent.click(within(form()).getByRole("button", { name: "Add" }));
     await waitFor(() => expect(effects().map((e) => [e.name, e.holder])).toEqual([["Webbed", "x"], ["Cloudkill", null]]));
-    const strip = await screen.findByRole("region", { name: "Effects" });
-    expect(within(strip).getByRole("button", { name: /^Webbed on Statue/ })).toBeInTheDocument();
-    expect(within(strip).getByRole("button", { name: /^Cloudkill · until removed/ })).toBeInTheDocument();
+    // Two notices fold to one line; open, each is there with its holder.
+    const notices = await screen.findByRole("region", { name: "Notices" });
+    expect(within(notices).getByRole("button", { name: "Show 2 more notices" })).toHaveTextContent("2 more · Webbed · Cloudkill");
+    fireEvent.click(within(notices).getByRole("button", { name: "Show 2 more notices" }));
+    expect(within(notices).getByRole("button", { name: /^Webbed on Statue/ })).toHaveTextContent("Webbed · Statue");
+    expect(within(notices).getByRole("button", { name: /^Cloudkill · until removed/ })).toHaveTextContent("Cloudkill · no token");
   });
 
   it("a condition quick pick names the effect; one per selected row", async () => {
@@ -151,8 +156,8 @@ describe("Effects (GM)", () => {
 
   it("reminds of the focus check on the caster's turn; Lost ends it and what ends with it", async () => {
     setup([hold, paralyzed]);
-    const reminders = await screen.findByRole("region", { name: "Reminders" });
-    expect(reminders).toHaveTextContent("Aria: focus check, Hold Person (spellcasting check as if casting it)");
+    const reminders = await screen.findByRole("region", { name: "Notices" });
+    expect(reminders).toHaveTextContent("Aria: focus check, Hold Person");
     fireEvent.click(within(reminders).getByRole("button", { name: "Lost" }));
     await waitFor(() => expect(effects()).toEqual([]));
     expect(screen.getByRole("button", { name: "Undo: Focus lost: Hold Person" })).toBeInTheDocument();
@@ -160,7 +165,7 @@ describe("Effects (GM)", () => {
 
   it("Nat 1 ends the focus and gives the critical-failure reminder", async () => {
     setup([hold]);
-    fireEvent.click(within(await screen.findByRole("region", { name: "Reminders" })).getByRole("button", { name: "Nat 1" }));
+    fireEvent.click(within(await screen.findByRole("region", { name: "Notices" })).getByRole("button", { name: "Nat 1" }));
     await waitFor(() => expect(effects()).toEqual([]));
     expect(vi.mocked(OBR.notification.show).mock.calls.at(-1)?.[0]).toMatch(/Aria: natural 1, a critical failure \(p\. 45\)/);
   });
@@ -168,11 +173,11 @@ describe("Effects (GM)", () => {
   it("Focus check now from the row menu, off the caster's turn; Kept dismisses it", async () => {
     setup([hold], "b");
     await screen.findByText("Aria");
-    expect(screen.queryByRole("region", { name: "Reminders" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Notices" })).toBeNull();
     await pick("Aria", "Focus check now");
-    const reminders = await screen.findByRole("region", { name: "Reminders" });
+    const reminders = await screen.findByRole("region", { name: "Notices" });
     fireEvent.click(within(reminders).getByRole("button", { name: "Dismiss" }));
-    expect(screen.queryByRole("region", { name: "Reminders" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Notices" })).toBeNull();
     expect(effects()).toHaveLength(1);
   });
 
@@ -251,9 +256,16 @@ describe("Effects (GM)", () => {
     const now = Date.now();
     obr.metadata = { [LIGHTS_KEY]: { lights: [{ id: "l1", kind: "torch", tokenId: "a", status: "lit", remainingMs: 60 * MINUTE, endsAt: now + 60 * MINUTE }] } };
     setup([bless, hold]);
-    const field = await screen.findByLabelText("Time passes");
-    fireEvent.change(field, { target: { value: "10m" } });
-    fireEvent.click(screen.getAllByRole("button", { name: "Time passes" })[0]);
+    // The ⏳ beside the title opens the sheet; it says what will happen first.
+    fireEvent.click(await screen.findByRole("button", { name: "Time passes" }));
+    const sheet = screen.getByRole("form", { name: "Time passes" });
+    fireEvent.click(within(sheet).getByRole("button", { name: "10m" }));
+    const what = within(sheet).getByRole("region", { name: "What happens" });
+    expect(what).toHaveTextContent("Torch · Aria1:00:00 → 50:00");
+    expect(what).toHaveTextContent("Bless on Ariaends");
+    expect(what).toHaveTextContent("Hold Personstay (focus, ongoing)");
+    fireEvent.click(within(sheet).getByRole("button", { name: "Pass 10m" }));
+    expect(screen.queryByRole("form", { name: "Time passes" })).toBeNull();
     await waitFor(() => expect(effects().map((e) => e.name)).toEqual(["Hold Person"]));
     fireEvent.click(await screen.findByRole("button", { name: "Undo: Time passes 10m" }));
     await waitFor(() => expect(effects().map((e) => e.name).sort()).toEqual(["Bless", "Hold Person"]));
@@ -261,7 +273,7 @@ describe("Effects (GM)", () => {
 
   it("a token deleted from the map takes its effects, and what ends with its focus", async () => {
     setup([hold, paralyzed, { id: "c1", name: "Cloudkill", kind: "until" }]);
-    await screen.findByText("Aria");
+    await rowName("Aria");
     await setItems(obr.items.filter((i) => i.id !== "a"));
     await waitFor(() => expect(effects().map((e) => e.name)).toEqual(["Cloudkill"]));
   });
@@ -276,12 +288,12 @@ describe("Effects (player)", () => {
       { id: "h1", name: "Secret", kind: "until", holder: "b", hidden: true },
       { id: "c1", name: "Cloudkill", kind: "until" },
     ]);
-    await screen.findByText("Aria");
+    await rowName("Aria");
     await setItems(obr.items.map((i) => (i.id === "g" ? { ...i, visible: false } : i)));
     expect(await screen.findByRole("img", { name: /^Bless · 2 of 2/ })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Reminders" })).toHaveTextContent("Aria: focus check, Hold Person");
+    expect(screen.getByRole("region", { name: "Notices" })).toHaveTextContent("Aria: focus check, Hold Person");
     expect(screen.queryByRole("button", { name: "Lost" })).toBeNull();
-    expect(within(screen.getByRole("region", { name: "Effects" })).getByRole("img", { name: /^Cloudkill/ })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Notices" })).getByRole("img", { name: /^Cloudkill/ })).toBeInTheDocument();
     expect(screen.queryByText("Secret")).toBeNull();
     expect(screen.queryByRole("button", { name: /^Bless/ })).toBeNull();
   });
