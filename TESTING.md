@@ -34,12 +34,12 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 10 | GM: fresh map; ▶ through two rounds; ◀ once | "Not started" beside the title, then "Round 1", "Round 2"; ◀ greyed before the first ▶ | 2026-11-02 |
-| 11 | GM: ▶ onto a player's token; move, resize and rotate it | A gold ring follows it; the token is selected on the GM's screen | 2026-11-02 |
-| 12 | GM: ▶ onto GM / Monsters, and onto a monster in combat | No ring (unless that monster's turn marker is on) | 2026-11-02 |
-| 13 | GM: hide the current token (Owlbear visibility), then show it | GM sees the ring faded like the token; the player never sees a hidden token or its ring | 2026-11-02 |
-| 14 | GM: click in the panel, then N, N, B; open the row menu and press N; type "n" in a note | Next, next, back; nothing while the menu is open or while typing | 2026-11-02 |
-| 15 | GM: ▶ quickly several times, switch Combat / Crawl quickly | One ring, on the right token; no warnings | 2026-11-02 |
+| 10 | GM: fresh map; ▶ through two rounds; ◀ once | "Not started" beside the title, then "Round 1", "Round 2"; ◀ greyed before the first ▶ | 2026-11-06 |
+| 11 | GM: ▶ onto a player's token; move, resize and rotate it | A gold ring follows it; the token is selected on the GM's screen | 2026-11-06 |
+| 12 | GM: ▶ onto GM / Monsters, and onto a monster in combat | No ring (unless that monster's turn marker is on) | 2026-11-06 |
+| 13 | GM: hide the current token (Owlbear visibility), then show it | GM sees the ring faded like the token; the player never sees a hidden token or its ring | 2026-11-06 |
+| 14 | GM: click in the panel, then N, N, B; open the row menu and press N; type "n" in a note | Next, next, back; nothing while the menu is open or while typing | 2026-11-06 |
+| 15 | GM: ▶ quickly several times, switch Combat / Crawl quickly | One ring, on the right token; no warnings | 2026-11-06 |
 
 ### Crawling: standard checks
 
