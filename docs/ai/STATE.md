@@ -10,9 +10,9 @@ kind: web-app         # web-app | obsidian-plugin | script-utility | config-back
 # Current State
 
 **Updated:** 2026-11-05
-**In flight:** v0.4 step 4a, effect notices: PR #43 (`feat/effects-map`; `src/effectNotices.ts`, started in `background.ts`), on Dev as `0.3.0-dev.cb236c`. Steps 1–3 merged to `main` (live, unreleased), with #42 (Dev manifest version cut to 16 characters).
-**Waiting on:** Matt's room test of TESTING.md row 85, then his "merge".
-**Resume here:** after #43: step 4b, right-click → Crawl Keeper → Add effect… (`OBR.action.open` from the background page is unverified; fallback: quick Focus / ADV / DIS toggles), then 4c map icons (draft the 9 icons in the light-badge style and show Matt before wiring). New branch off `main` each.
+**In flight:** v0.4 step 4b, right-click → Crawl Keeper → Add effect…: PR (`feat/effects-right-click`; `src/addEffectHandoff.ts`, row in `mapMenu.ts`, wiring in `menu.ts`, `Panel.tsx`, `Tracker.tsx`). Step 4a (#43, effect notices + hidden-chip fix) merged and live.
+**Waiting on:** Matt's room test of TESTING.md row 87 (verifies `OBR.action.open` from the menu embed and LOCAL broadcast), then his "merge".
+**Resume here:** if row 87 fails on opening the panel, the doc's fallback is quick Focus / ADV / DIS toggles in the menu. After merge: 4c map icons (draft the 9 icons in the light-badge style and show Matt before wiring). New branch off `main`.
 
 **Notes:**
 - Latest release: v0.3.0 (2026-11-02), tag `v0.3.0`, `ee30f22`.

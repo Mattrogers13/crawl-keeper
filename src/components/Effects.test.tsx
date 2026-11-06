@@ -8,7 +8,8 @@ import { EFFECTS_KEY, LIGHTS_KEY, TRACKER_KEY } from "../constants";
 import { parseEffects } from "../effects";
 import { MINUTE } from "../lights";
 import { GM_ENTRY, parseTracker } from "../tracker";
-import { obr, setItems, token } from "../test/obrMock";
+import { obr, receiveBroadcast, setItems, token } from "../test/obrMock";
+import { ADD_EFFECT_CHANNEL, askToAddEffect, takeHandoff } from "../addEffectHandoff";
 
 const effects = () => parseEffects(obr.sceneMetadata[EFFECTS_KEY]).effects;
 const tracker = () => parseTracker(obr.sceneMetadata[TRACKER_KEY]);
@@ -151,6 +152,20 @@ describe("Effects (GM)", () => {
     const blessChip = screen.getByRole("button", { name: /^Bless ·/ });
     expect(blessChip.querySelector("svg")).toBeNull();
     expect(blessChip).not.toHaveClass("border-dashed");
+  });
+
+  it("the map's right-click Add effect…: the form opens for the token, panel closed or open, from Settings too", async () => {
+    // Closed: the handoff waits for the tracker to mount.
+    await askToAddEffect(["b"]);
+    setup();
+    expect(within(await screen.findByRole("form", { name: "Add effect" })).getByText("Borin", { selector: "span" })).toBeInTheDocument();
+    fireEvent.click(within(form()).getByRole("button", { name: "Cancel" }));
+    // Open, on Settings: the message brings the list back with the form.
+    fireEvent.click(screen.getByLabelText("Settings"));
+    await askToAddEffect(["a", "g"]);
+    await receiveBroadcast(ADD_EFFECT_CHANNEL, { ids: ["a", "g"] }, obr.connectionId);
+    expect(within(await screen.findByRole("form", { name: "Add effect" })).getByText("Aria, Gob", { selector: "span" })).toBeInTheDocument();
+    expect(takeHandoff()).toBeNull();
   });
 
   it("a chip's menu sets rounds left and removes it", async () => {

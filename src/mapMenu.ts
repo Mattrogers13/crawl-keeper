@@ -1,10 +1,11 @@
 // The map's right-click Crawl Keeper menu (docs/design.md, Torchlight
-// merge): Add / Remove initiative and the lights, in one embedded submenu.
+// merge): Add / Remove initiative, Add effect… and the lights, in one
+// embedded submenu.
 // Pure: which rows it shows for the selected tokens and what each does. A
 // token outside the initiative list can still carry a light (Matt,
 // 2026-10-31): the menu neither asks nor adds it.
 //
-// The rows are always the same six (the embed's height is fixed when the
+// The rows are always the same seven (the embed's height is fixed when the
 // menu is made); one that doesn't apply is disabled and says why.
 import {
   LIGHT_KINDS,
@@ -34,10 +35,12 @@ export type MenuRow = {
     | { type: "lights"; step: string; fn: (s: Lights, now: number, newId: () => string) => Lights }
     // A player's: asked of the GM's client, one token at a time (playerLights.ts).
     | { type: "request"; asks: LightAsk[] }
+    // Opens the panel's Add effect form for these tokens (addEffectHandoff.ts).
+    | { type: "addEffect"; ids: string[] }
     | null;
 };
 
-export const MENU_ROWS = 6;
+export const MENU_ROWS = 7;
 export const PLAYER_MENU_ROWS = 4;
 
 // Torch, lantern and Light spell are carried (character tokens); a campfire
@@ -92,6 +95,14 @@ const lightRow = (s: Lights, tokens: MenuToken[], kind: LightKind): MenuRow => {
   };
 };
 
+// Any token, a prop too (a cursed altar): the form says which.
+const addEffectRow = (tokens: MenuToken[]): MenuRow => ({
+  label: tokens.length > 1 ? `Add effect to ${tokens.length}…` : "Add effect…",
+  enabled: tokens.length > 0,
+  icon: "/img/menu-effect.svg",
+  action: tokens.length > 0 ? { type: "addEffect", ids: tokens.map((x) => x.id) } : null,
+});
+
 const putOutRow = (s: Lights, tokens: MenuToken[]): MenuRow => {
   const lit = tokens.map((x) => litOn(s, x.id)).filter((l) => l !== null);
   const base = { icon: "/img/menu-put-out.svg" };
@@ -111,6 +122,7 @@ export const menuRows = (t: Tracker, s: Lights, tokens: MenuToken[], now: number
   const settled = settle(s, now);
   return [
     initiativeRow(t, tokens),
+    addEffectRow(tokens),
     ...CARRIED.map((kind) => lightRow(settled, tokens, kind)),
     lightRow(settled, tokens, "campfire"),
     putOutRow(settled, tokens),

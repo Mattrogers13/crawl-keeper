@@ -353,6 +353,7 @@ export const OBR = {
   },
   action: {
     setHeight: vi.fn(async () => undefined),
+    open: vi.fn(async () => undefined),
   },
   contextMenu: {
     create: vi.fn(async () => undefined),
