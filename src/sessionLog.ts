@@ -55,6 +55,9 @@ export const logEvent = (text: string, kind: LogKind, at = Date.now()) => {
 
 export const clearLog = () => save([]);
 
+// The log as it was (a failed Reset all).
+export const replaceLog = (entries: LogEntry[]) => save(entries.slice(0, LOG_MAX));
+
 // Any change, from this page or another. Returns the unsubscribe.
 export const onLogChange = (listener: () => void) => {
   const onStorage = (e: StorageEvent) => {
