@@ -315,7 +315,8 @@ export const dyingOf = (s: Effects, holder: string) => s.effects.find((e) => e.i
 // Can this row start dying? A living player token not already dying.
 export const canDie = (s: Effects, t: Tracker, holder: string) => {
   const entry = t.entries.find((e) => e.id === holder);
-  return !!entry && holder !== GM_ENTRY && !entry.monster && !entry.dead && !dyingOf(s, holder);
+  // A timer already gone (ran out on an earlier turn) doesn't count.
+  return !!entry && holder !== GM_ENTRY && !entry.monster && !entry.dead && !dyingOf(settle(s, t), holder);
 };
 
 // The timer counts from the turn it's rolled on: on the holder's own turn
@@ -323,9 +324,9 @@ export const canDie = (s: Effects, t: Tracker, holder: string) => {
 // the rolling turn N rounds are left; it ends at the start of their turn N
 // rounds later, so they get N - 1 d20s.
 export const startDying = (state: Effects, t: Tracker, newId: () => string, holder: string, rounds: number): Effects => {
-  if (!canDie(state, t, holder)) throw new TypeError("Only a living player token that isn't dying can start dying");
-  if (!Number.isInteger(rounds) || rounds < 1 || rounds > ROUNDS_MAX) throw new RangeError(`1 to ${ROUNDS_MAX} rounds`);
   const s = settle(state, t);
+  if (!canDie(s, t, holder)) throw new TypeError("Only a living player token that isn't dying can start dying");
+  if (!Number.isInteger(rounds) || rounds < 1 || rounds > ROUNDS_MAX) throw new RangeError(`1 to ${ROUNDS_MAX} rounds`);
   if (s.effects.length + 1 > MAX_EFFECTS) throw new RangeError(`Up to ${MAX_EFFECTS} effects on a map; remove one first`);
   const end = endFor(t, holder, t.current === holder ? rounds : rounds + 1);
   const dying: Effect = { id: newId(), name: "Dying", icon: "dying", holder, kind: "rounds", rounds, end, dice: null, endsWith: null, hidden: false };

@@ -424,4 +424,13 @@ describe("the death timer (p. 89)", () => {
     expect(timerOutOnTurn(s, t)).toBeNull();
     expect(timerOutOnTurn(s, at(4, "a"))).toBe("a");
   });
+
+  it("a timer that ran out on an earlier turn (still in the doc) doesn't stop a new one", () => {
+    const old = startDying(emptyEffects(), at(2, "a"), newId, "a", 1);
+    const later = at(5, "a");
+    expect(statusOf(old.effects[0], later).state).toBe("gone");
+    expect(canDie(old, later, "a")).toBe(true);
+    expect(startDying(old, later, newId, "a", 2).effects.map((e) => e.rounds)).toEqual([2]);
+  });
 });
+
