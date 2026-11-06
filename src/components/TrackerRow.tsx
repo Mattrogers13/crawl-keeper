@@ -65,6 +65,10 @@ const Row = (props: {
   children?: ReactNode;
   // The token's effects, under its name.
   effects?: ReactNode;
+  // The row whose empty note the GM opened (row menu → Add note), and
+  // closing it again.
+  noting: string | null;
+  setNoting: (id: string | null) => void;
   // A monster under the GM row: indented, a smaller portrait.
   small?: boolean;
 }) => {
@@ -171,15 +175,31 @@ const Row = (props: {
             </span>
           </span>
           {token && props.effects}
-          {gm ? (
-            // An empty note hangs under the name, out of the layout, so the
-            // name lines up with the portrait and badges (mockup ck-04).
+          {gm && !token ? (
+            // The GM row (no menu, no effects): an empty note hangs under the
+            // name, out of the layout, so the name lines up with the portrait
+            // and badges (mockup ck-04).
             <span
-              className={`flex min-w-0 items-baseline gap-1.5 ${!entry.note && !(!token && props.gmDie) ? "absolute inset-x-0 top-[calc(100%-3px)]" : ""}`}
+              className={`flex min-w-0 items-baseline gap-1.5 ${!entry.note && !props.gmDie ? "absolute inset-x-0 top-[calc(100%-3px)]" : ""}`}
             >
-              {!token && props.gmDie && <Equation die={props.gmDie} />}
-              <NoteInput key={entry.note} name={name} value={entry.note} save={(n) => change("Note", (t) => setNote(t, entry.id, n))} />
+              {props.gmDie && <Equation die={props.gmDie} />}
+              <NoteInput key={entry.note} name={name} value={entry.note} save={(n) => change("Note", (t) => setNote(t, entry.id, n))} hover />
             </span>
+          ) : gm ? (
+            // A token row: a note only once it has one, or the GM opened it
+            // from the row menu; nothing invisible under the effect chips.
+            (entry.note || props.noting === entry.id) && (
+              <span className="flex min-w-0 pt-0.5">
+                <NoteInput
+                  key={entry.note}
+                  name={name}
+                  value={entry.note}
+                  save={(n) => change("Note", (t) => setNote(t, entry.id, n))}
+                  open={props.noting === entry.id}
+                  done={() => props.setNoting(null)}
+                />
+              </span>
+            )
           ) : (
             entry.note && <span className="text-xs whitespace-pre-wrap text-obr-text-secondary">{entry.note}</span>
           )}
@@ -387,16 +407,36 @@ const ModInput = ({ value, save }: { value: number; save: (m: number) => void })
   />
 );
 
-const NoteInput = ({ name, value, save }: { name: string; value: string; save: (n: string) => void }) => (
-  <input
-    aria-label={`Note for ${name}`}
-    placeholder="Add a note"
-    maxLength={NOTE_MAX}
-    // The placeholder shows on hover or focus only: a column of "Add a note" crowds the list.
-    className={`-ml-1 w-full min-w-0 px-1 text-xs text-obr-text-secondary placeholder:text-obr-text-secondary [@media(hover:hover)]:placeholder:opacity-0 group-hover:placeholder:opacity-100 focus:placeholder:opacity-100 ${GHOST_INPUT}`}
-    {...useDraft(value, (text) => text, save)}
-  />
-);
+// As wide as its text (a mirror span sizes the grid), so a click beside a
+// short note lands on the row, not in the note. hover: the GM row's empty
+// note, its placeholder showing on hover or focus only (a column of "Add a
+// note" crowds the list). open: just opened from the row menu, so focus it;
+// done: it closed (an empty note then goes away).
+const NoteInput = (props: { name: string; value: string; save: (n: string) => void; hover?: boolean; open?: boolean; done?: () => void }) => {
+  const draft = useDraft(props.value, (text) => text, props.save);
+  const text = "px-1 text-xs";
+  return (
+    <span className={`-ml-1 inline-grid min-w-0 ${props.hover ? "w-full" : "max-w-full"}`}>
+      <span aria-hidden className={`invisible col-start-1 row-start-1 overflow-hidden whitespace-pre ${text}`}>
+        {draft.value || "Add a note"}
+      </span>
+      <input
+        aria-label={`Note for ${props.name}`}
+        placeholder="Add a note"
+        maxLength={NOTE_MAX}
+        autoFocus={props.open}
+        className={`col-start-1 row-start-1 w-full min-w-0 text-obr-text-secondary placeholder:text-obr-text-secondary ${text} ${
+          props.hover ? "[@media(hover:hover)]:placeholder:opacity-0 group-hover:placeholder:opacity-100 focus:placeholder:opacity-100" : ""
+        } ${GHOST_INPUT}`}
+        {...draft}
+        onBlur={() => {
+          draft.onBlur();
+          props.done?.();
+        }}
+      />
+    </span>
+  );
+};
 
 export type ButtonProps = { label: string; pressed?: boolean; onClick: (e: MouseEvent<HTMLButtonElement>) => void; children: ReactNode };
 // The grip, checkbox and ⋯ show on hovering the row, or focusing them; on

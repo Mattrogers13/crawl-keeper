@@ -29,6 +29,8 @@ const RowMenu = (props: {
   // focus check now (damage or distraction, p. 50).
   effects: Effects;
   addEffect: (ids: string[]) => void;
+  // Open the row's empty note to type in.
+  addNote: (id: string) => void;
   checkFocus: (effectId: string) => void;
 }) => {
   const { entries, close, change } = props;
@@ -63,6 +65,7 @@ const RowMenu = (props: {
     ["Turn marker on", some((e) => !e.marker), () => change("Turn marker on", (t) => setMarker(t, ids, true))],
     ["Turn marker off", some((e) => e.marker), () => change("Turn marker off", (t) => setMarker(t, ids, false))],
     ["Show on map", ids.length === 1, () => props.show(ids[0])],
+    ["Add note", ids.length === 1 && !entries[0].note, () => props.addNote(ids[0])],
     [ids.length === 1 ? "Add effect…" : `Add effect to ${ids.length}…`, true, () => props.addEffect(ids.filter((id) => id !== GM_ENTRY))],
     ...focusCheck(),
     ...giveLight(),

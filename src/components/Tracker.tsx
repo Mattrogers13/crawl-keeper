@@ -98,6 +98,8 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   // (right-click or ⋯), which acts on the selection.
   const [picked, setPicked] = useState<Selection>(NO_SELECTION);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  // The token row whose empty note the GM opened from its menu.
+  const [noting, setNoting] = useState<string | null>(null);
   // The GM's Add effect form, for these rows (none: free-standing).
   const [adding, setAdding] = useState<string[] | null>(null);
   // Focus checks the GM called for now (damage, distraction): this panel only.
@@ -268,7 +270,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
   const dueChecks = focusChecks(seenEffects, tracker);
   const calledChecks = seenEffects.effects.filter((e) => checkNow.includes(e.id) && !dueChecks.includes(e));
   const rowEffects = (e: Entry) => <RowEffects effects={effectsOf.get(e.id) ?? []} tracker={tracker} change={effectChange} />;
-  const rowProps = { gm, change, show, focus, openMenu, lightChange: gm ? lights.change : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker) };
+  const rowProps = { gm, change, show, focus, openMenu, lightChange: gm ? lights.change : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker), noting, setNoting };
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
   const round = tracker.round;
   const roundLabel =
@@ -578,6 +580,7 @@ const Tracker = (props: { role: Role; headerSlot?: HTMLElement | null; titleSlot
           clear={() => setPicked(NO_SELECTION)}
           effects={effects}
           addEffect={(ids) => setAdding(ids)}
+          addNote={setNoting}
           checkFocus={(id) => setCheckNow((c) => (c.includes(id) ? c : [...c, id]))}
         />
       )}

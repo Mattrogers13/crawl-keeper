@@ -15,7 +15,7 @@ v0.1.0 was room-tested PR by PR (the old lists in git history plus checks on #7�
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
 | 1 | GM: right-click tokens on the map → "Add / Remove Initiative" (a multi-select too); right-click one again | Added in order; a second click removes it. The player's right-click has no such item | 2026-11-01 |
-| 2 | GM: click a roll number, type, Enter; add a note (hover the row to see "Add a note") | Both save; the player sees them live, with no inputs | 2026-11-01 |
+| 2 | GM: click a roll number, type, Enter; add a note (row menu → Add note; the GM row: hover to see "Add a note"); clear a note | Both save; the player sees them live, with no inputs; a token row with no note has nothing under its name or chips; a cleared note goes | – |
 | 3 | GM: Sort (☰) | Highest roll first, unrolled last | 2026-11-01 |
 | 4 | GM: hover a row; drag it by its grip; focus a grip, Space, ↓, Space | Grip and ⋯ appear on hover; the row moves and stays; the player follows. On a touch screen grip and ⋯ always show | 2026-11-01 |
 | 5 | GM: right-click a row (or ⋯) → Mark as monster; click, Shift-click, Cmd-click rows, then right-click inside the selection | Monsters move into the GM / Monsters card ("Monsters · N", smaller portraits); the menu acts on all selected rows | 2026-11-01 |
