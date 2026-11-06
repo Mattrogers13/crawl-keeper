@@ -87,7 +87,7 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 38 | Player: the panel | Phase pill with the round (unless hidden), a card with the small d20 clock (unless hidden) and / or danger level (if shown); no gear, grips or checkboxes (the monster fold is theirs) | 2026-11-02 |
+| 38 | Player: the panel | Phase pill with the round (unless hidden), a card with the small d20 clock (unless hidden) and / or danger level (if shown); the scroll (their session log) and the flame; no gear, ⏳, grips or checkboxes (the monster fold is theirs) | 2026-11-02 |
 | 39 | Owlbear light theme, then dark | The panel follows: text, chips, amber, gold dot and switches readable in both | 2026-11-02 |
 | 40 | Toolbar | The Keeper's key icon (Dev: with a dot); one icon and one alert per client after reinstalling | 2026-11-02 |
 
