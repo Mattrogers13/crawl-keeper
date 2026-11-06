@@ -68,8 +68,8 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 29 | GM: Combat (player's panel closed) | "Roll for combat initiative" pops up for GM and player; rolls clear; no crawl card | 2026-11-02 |
-| 30 | GM: rolls, GM d20, Sort, ▶ through a round | GM / Monsters, then each living monster, then the next player; combat rounds don't count toward checks | 2026-11-02 |
+| 29 | GM: Combat (player's panel closed) | "Roll for combat initiative" pops up for GM and player; rolls clear; the crawl card becomes "Combat · encounter checks paused"; the log says "Combat: roll for initiative." | 2026-11-02 |
+| 30 | GM: rolls (the list sorts itself), the GM row's d20, ▶ through a round | GM / Monsters, then each living monster, then the next player; combat rounds don't count toward checks | 2026-11-02 |
 | 31 | GM: Crawl; Remove monsters → Remove | Order and rolls stay; monsters and the DEX box clear; Remove monsters isn't offered in Combat | 2026-11-02 |
 | 32 | Player: reload during combat | No alert on reload | 2026-11-02 |
 
