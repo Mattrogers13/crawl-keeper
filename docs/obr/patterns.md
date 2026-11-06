@@ -1,6 +1,6 @@
 # Patterns: adding Owlbear features
 
-Not shipped in the starter (most extensions don't need all of them). Each was built and used in Torchlight, which was merged into Crawl Keeper v0.3.0 (#36); most of that code now lives in this repo. "Torchlight: `path`" names a file in Torchlight's own repo, now deleted and archived on TITAN (restic fleet-archive, tags `project:obr-torchlight`, `project:obr-torchlight-github`).
+Not shipped in the starter (most extensions don't need all of them). Each was built in Torchlight (merged into Crawl Keeper v0.3.0, #36; its repo is deleted, archived on TITAN: restic fleet-archive, tags `project:obr-torchlight`, `project:obr-torchlight-github`) and lives on in this repo. "Crawl Keeper: `path`" names the file here that shows it.
 
 SDK reference: `sources/sdk/src/api/`.
 
@@ -14,7 +14,7 @@ Use for anything that must work with the panel closed: context menus, reacting t
 4. `src/background.ts`: wrap everything in `OBR.onReady(...)`. Keep it free of React imports; share constants via `src/constants.ts`.
 5. Every client with the extension enabled runs it. If only one client should act (e.g. update items), gate on role (GM) and re-check when the role changes (`OBR.player.onChange`).
 
-Torchlight: `src/background.ts`.
+Crawl Keeper: `src/background.ts`.
 
 ## Context menu (right-click on items)
 
@@ -23,7 +23,7 @@ Torchlight: `src/background.ts`.
 - `create` / `remove` can fail: track what Owlbear actually has, retry with back-off, and collapse overlapping syncs into one rerun.
 - For a submenu, use `embed: { url: "/menu", height }` with a separate small page (plain DOM, no React, so it opens instantly; also add it to Vite's `input`). Style it from `OBR.theme.getTheme()`.
 
-Torchlight: `src/background.ts` (menu), `menu.html` + `src/menu.ts` (embedded submenu).
+Crawl Keeper: `src/background.ts` (menu), `menu.html` + `src/menu.ts` (embedded submenu), rows in `src/mapMenu.ts`.
 
 ## Token attachments (badges, markers)
 
@@ -47,7 +47,7 @@ buildImage(
 - Find your items by your metadata key, and replace ones whose image URL is stale (lets you change the art later).
 - Decide what to do in a pure function (`plan(items, state) → { add, update, delete }`), unit-test that, and keep the SDK calls thin. Batch: one `addItems`, one `updateItems`, one `deleteItems`.
 
-Torchlight: `src/tokenSync.ts` (`planSync` is the pure part).
+Crawl Keeper: `src/effectIcons.ts` (`planEffectIcons` is the pure part) and `src/tokenLights.ts` (`planBadges`).
 
 ## Working with another extension's data (e.g. Dynamic Fog)
 
@@ -75,7 +75,7 @@ Use one key per player (`${ID}/player/<playerId>`) so players never write the sa
 
 Store the last-seen version in localStorage (through `storage.ts`) and show release highlights when the build's `VERSION` differs (any change, not just newer). Keep the notes in a `releaseNotes.ts` list and a human `RELEASE-NOTES.md`.
 
-Torchlight: `src/components/WhatsNew.tsx`.
+Torchlight: `src/components/WhatsNew.tsx` (Crawl Keeper has no What's New; the file is in the TITAN archive, ask Matt to restore it).
 
 ## Routing (multiple tabs in the panel)
 
