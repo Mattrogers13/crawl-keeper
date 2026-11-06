@@ -10,9 +10,9 @@ kind: web-app         # web-app | obsidian-plugin | script-utility | config-back
 # Current State
 
 **Updated:** 2026-11-06
-**In flight:** v0.4.0 release (PR #50): full TESTING.md pass 2026-11-06; merging, tagging `v0.4.0`.
-**Waiting on:** nothing (Matt said "merge" 2026-11-06).
-**Resume here:** continue the walkthrough at the next unrecorded section. After v0.4.0: step 5 of `docs/effects.md` (death timer), then v0.5 (Dice+, morale, encounter tables, End tracker).
+**In flight:** v0.5: the death timer (PR #52, `feat/death-timer`) and Dice+ (PR #53, `feat/dice-plus`, stacked on #52), both on Dev `28c5e00`. PR #51 (post-v0.4.0 docs) open too. Plan: `~/.claude/plans/async-mapping-scott.md`.
+**Waiting on:** Matt poking around on Dev and asking for changes, then a player session (TESTING.md rows 104–112; 109–110 settle the Dice+ unknowns: LOCAL vs ALL, "everyone" visible to players). No per-PR room test (Matt, 2026-11-06). Merge only on "merge"; retarget #53 to main before deleting `feat/death-timer`.
+**Resume here:** Matt's feedback on the death timer and Dice+. On hold: morale and encounter roll tables.
 
 **Notes:**
 - Latest release: v0.3.0 (2026-11-02), tag `v0.3.0`, `ee30f22`.
