@@ -89,7 +89,9 @@ const Homepage = () => {
         <p>
           The roll button is always there for an extra check (a loud noise, p. 112), which doesn't change the schedule.
           It's outlined when a roll is due and filled when it's due on the GM's turn. Undo (under the list, or Cmd/Ctrl+Z) takes back the last roll, or any other change you made.
-          Settings can roll it for you when ▶ reaches the GM's turn.
+          Settings can roll it for you when ▶ reaches the GM's turn. With the <b>Dice+</b> extension installed, these rolls
+          (and the monsters' initiative and the death timer) roll as 3D dice everyone sees; encounter rolls only you see
+          unless you show the rolls to players (Settings → Dice).
         </p>
       </Section>
 

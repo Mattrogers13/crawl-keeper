@@ -9,6 +9,7 @@ import Segmented from "./Segmented";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import { useRoomValue } from "../hooks/useRoomValue";
 import { syncTurnFromScene } from "../marker";
+import { checkDicePlus, setDicePlusEnabled } from "../diceRoller";
 import { resetAll } from "../resetAll";
 import { readLog } from "../sessionLog";
 import { record } from "../undo";
@@ -33,6 +34,7 @@ const SETTING_LABELS: Partial<Record<keyof SettingsDoc, string>> = {
   showLights: "show lights",
   playersLight: "players light their own",
   effectIcons: "effect icons",
+  dicePlus: "roll with Dice+",
 };
 
 // The four ways to run encounters, as the web toolkit shows them: one choice
@@ -239,6 +241,16 @@ const Settings = (props: { openLog?: () => void }) => {
         />
       </Group>
 
+      <Group title="Dice">
+        <Toggle
+          label="Roll with Dice+ when it's installed"
+          hint="Encounter checks, the clock, the monsters' initiative and the death timer roll as 3D dice everyone sees (encounter rolls only to you, unless players are set to see the rolls). Without Dice+, they roll here."
+          checked={settings.value.dicePlus}
+          onChange={(dicePlus) => set({ dicePlus })}
+        />
+        <DicePlusStatus on={settings.value.dicePlus} />
+      </Group>
+
       <Group title="About">
         <DataSize />
       </Group>
@@ -335,6 +347,27 @@ const ResetAll = () => {
         </button>
       </span>
     </div>
+  );
+};
+
+// Whether Dice+ answered (checked when Settings opens and on the switch).
+const DicePlusStatus = ({ on }: { on: boolean }) => {
+  const [found, setFound] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setDicePlusEnabled(on);
+    if (!on) return;
+    setFound(null);
+    void checkDicePlus().then((ok) => alive && setFound(ok));
+    return () => {
+      alive = false;
+    };
+  }, [on]);
+  if (!on) return null;
+  return (
+    <span role="status" className="px-4 pb-3 text-xs text-obr-text-secondary">
+      {found === null ? "Looking for Dice+…" : found ? "Dice+ found: rolls go to Dice+." : "Dice+ not found: rolling here. Install Dice+ and reopen Settings."}
+    </span>
   );
 };
 

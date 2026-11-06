@@ -43,7 +43,7 @@ export const CLOCK_DIE = 20;
 const CLOCK_FULL = 2 * CLOCK_DIE;
 export const clockStart = (dice: ClockDice) => CLOCK_DIE * dice;
 export const clockLeft = (c: Crawl, start: number) => Math.min(c.clock, start);
-const MAX_DICE = 10;
+export const MAX_DICE = 10;
 const CADENCE: Record<Danger, number> = { unsafe: 3, risky: 2, deadly: 1 };
 // How far lastCheck may run ahead of crawlRounds (◀ back over rolled rounds).
 // Past the longest cadence it would only hold checks off, so it's capped
@@ -133,6 +133,14 @@ export const cryptoRand: Rand = () => {
   const buf = new Uint32Array(1);
   crypto.getRandomValues(buf);
   return buf[0] / 2 ** 32;
+};
+
+// Dice rolled elsewhere (Dice+, src/diceRoller.ts) fed to the same pure
+// rules: each call gives the next value back through rollDie. Past the end
+// (never, when the caller rolled enough), a fair die.
+export const replayRand = (values: number[], sides: number): Rand => {
+  let i = 0;
+  return () => (i < values.length ? (Math.min(sides, Math.max(1, values[i++])) - 0.5) / sides : cryptoRand());
 };
 
 export const crawlDie = (dark: boolean) => (dark ? 8 : 6);
