@@ -39,7 +39,10 @@ const Homepage = () => {
             Monsters are listed under the <b>GM / Monsters</b> row and act on its roll. Put the highest DEX modifier among
             them in its <b>DEX</b> box and click the d20 to roll d20 + that (core pp. 83, 88).
           </li>
-          <li>Type each player's roll in their row (click the number to edit it), then press Sort (☰) for highest first.</li>
+          <li>
+            Type each player's roll in their row (click the number to edit it). The list sorts itself, highest first, as each
+            roll goes in; Sort (☰) puts it back in order after a drag.
+          </li>
         </Steps>
       </Section>
 
@@ -99,8 +102,12 @@ const Homepage = () => {
           </li>
           <li>
             The flame beside the gear opens the <b>Light Tracker</b>: every light's time left (click a time to correct
-            it), <b>Time passes</b> (10m, 1h, 1:30), Pause, Put lights out, and how a second light burns (Ride along or
-            Separate timers, p. 84). Torches and lanterns last an hour of real time (p. 82).
+            it), Pause, Put lights out, and how a second light burns (Ride along or Separate timers, p. 84). Torches and
+            lanterns last an hour of real time (p. 82).
+          </li>
+          <li>
+            The hourglass beside the title is <b>Time passes</b>: 10m, 30m, 1h, an 8 hour rest (p. 86) or any time
+            (1:30, 90). It shows what will happen first: each light's time before and after, and the effects that end.
           </li>
           <li>
             A torch, Light spell or campfire is used up once lit: putting it out spends it. A lantern put out keeps its oil,
@@ -122,13 +129,57 @@ const Homepage = () => {
         </Steps>
       </Section>
 
+      <Section title="Effects">
+        <Steps>
+          <li>
+            Add effects from a row's menu (⋯ or right-click), from a token on the map (right-click → Crawl Keeper → Add
+            effect…), or with <b>Add effect</b> under the turn bar for one on no token. With several rows selected, each
+            gets each.
+          </li>
+          <li>
+            The sheet takes several at once: click a condition (ADV, DIS, Blinded, Paralyzed, Invisible, Stuck,
+            Unconscious) or + Custom for each, and give each its own duration: Rounds, a Roll (1d4, 1d6…), Focus,
+            Ongoing, or "while a caster's focus lasts". Rounds count down at the start of the turn you pick. The eye hides
+            one from players.
+          </li>
+          <li>
+            <b>Focus</b>: on the caster's turn a reminder asks for the focus check, a spellcasting check as if casting it
+            (p. 50). <b>Lost</b> ends it and what lasts with it; <b>Nat 1</b> is also a critical failure (p. 45).
+          </li>
+          <li>
+            Effects sit under their row; two or more fold to one line and open on that row's turn. Click one to set its
+            rounds left or remove it. Icons show on the tokens (Settings can turn them off). Everyone gets a notice when an
+            effect runs out, and Time passes ends every rounds effect (p. 82).
+          </li>
+        </Steps>
+      </Section>
+
+      <Section title="Session log and Reset all">
+        <Steps>
+          <li>
+            Settings → <b>Session log</b> keeps every notice with its time: lights burning out, time passing, effects
+            ending or removed, combat, a focus lost. It's kept in this browser, per room; Download saves it as text.
+            Players have their own, from the scroll beside their flame.
+          </li>
+          <li>
+            Notices that need you (total darkness, a focus check) stay under the crawl card; the rest fold to one line, and
+            a burned-out light goes once you dismiss it or the turn moves on.
+          </li>
+          <li>
+            Settings → <b>Reset all</b>, at the bottom, starts a new session: the tracker back to the GM row, its effects
+            and the lights on its tokens gone, rounds, clock and danger level reset, and the log cleared (download it
+            first). Undo brings back all but the log.
+          </li>
+        </Steps>
+      </Section>
+
       <Section title="Combat">
         <Steps>
           <li>
             Press <b>Combat</b>. Everyone gets a "Roll for combat initiative" alert, and the rolls clear for a fresh roll
             (a setting; core p. 88).
           </li>
-          <li>Enter the new rolls, roll for the GM / Monsters row, Sort, then ▶.</li>
+          <li>Enter the new rolls and roll for the GM / Monsters row (the list sorts itself), then ▶.</li>
           <li>Each living monster takes its own turn right after the GM / Monsters row, in list order.</li>
           <li>
             Press <b>Crawl</b> when the fight ends. Below the list, <b>Remove monsters</b> clears them out (and the DEX
@@ -142,7 +193,8 @@ const Homepage = () => {
           The turn order, portraits, notes, whose turn it is, Crawl or Combat, and the round and the clock unless the GM
           hides them. Tokens hidden on the map stay out of their list. Their flame opens their own Light Tracker: whether
           the party has light, every light's time and the badges on the rows (unless the GM turns off Show lights to
-          players), and their own lights. Besides lighting their own when the GM allows it, players change nothing, and
+          players), and their own lights. They see effects and their notices, except those the GM hides, and a green eye on
+          the GM's crawl card marks what they can see. Besides lighting their own when the GM allows it, players change nothing, and
           nothing is truly secret: hiding is a display choice.
         </p>
       </Section>

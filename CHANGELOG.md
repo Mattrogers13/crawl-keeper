@@ -2,6 +2,22 @@
 
 Versions follow semver; the same number is in `package.json` and `public/manifest.json`.
 
+## v0.4.0 (2026-11-06)
+
+- Effects: focus, conditions and timed effects (`docs/effects.md`). Add them from a row's menu, from a token on the map (right-click → Crawl Keeper → Add effect…, which opens the panel on it), or with Add effect under the turn bar for one on no token; with rows selected, each gets each. The Add effects sheet covers the list and takes several at once, each with its own duration (Rounds, a Roll such as 1d4, Focus, Ongoing, or while a caster's focus lasts), the turn it counts down on, and a hide-from-players eye (green: players see it; red: hidden). One undo step for the lot; nothing is added if one is wrong, and the error says which.
+- Focus (p. 50): on the caster's turn a reminder asks for the focus check; Lost ends the focus and what lasts with it, Nat 1 also gives the critical-failure reminder (p. 45). Row menu → Focus check now asks off-turn. Mark dead ends a focus; Reset rounds keeps each effect's rounds left; Time passes ends rounds effects (p. 82). Up to 24 effects on a map.
+- Effects sit under their row, like the monsters under the GM row: one line each with its icon and time left; two or more fold to one line (their icons and the next to end) and open on that row's turn. Click one to set its rounds left or remove it. Players see them read-only, minus hidden ones and those on tokens hidden from them.
+- Effect icons on the map: up to three small icons along a token's bottom edge (focus, the condition, ✱ for custom, + for more); faded for the GM when hidden, never shown to players then. Settings → Show effect icons on the map.
+- Everyone gets a notice when an effect runs out ("Bless on Aria ended."), once.
+- The top of the panel, reorganized: the turn bar (Crawl / Combat, sort, ◀ ▶) sits right under the title, so it no longer moves when a notice appears; a slimmer crawl card; and one notices card under it: total darkness and focus checks always show, the rest (effects ending, lights burned out, effects on no token) fold to one line with a count. A burned-out light leaves once dismissed (✕) or when the turn moves on. The light strip is gone.
+- Time passes is the hourglass beside the title: 10m, 30m, 1h, an 8 hour rest (p. 86) or any time, with a preview of what it will do (each light before and after, the effects that end, what stays). The Light Tracker keeps its own field.
+- Session log (Settings → Session log; players: the scroll beside their flame): every notice kept with its time (lights burning out, Time passes, effects ending or removed, combat, a focus lost), per browser and per room, up to 500; Download as text, Clear.
+- Settings → Reset all (last on the page): one warning, then a new session: this map's tracker back to the GM row (rounds, phase, clock, rolls, danger level reset), its effects and the lights on its tokens removed, and the session log cleared (download it first). Undo brings back all but the log.
+- Entering a roll sorts the tracker by roll at once (the GM row's Roll d20+N too); clearing one leaves the order alone.
+- A small green eye on the GM's crawl card marks what players can see: the Crawling Clock, the danger level, the rolls.
+- Settings no longer shows the install link (the how-to guide has it) or the Dev-only scene size test.
+- Dev builds keep the manifest version within Owlbear's 16 characters.
+
 ## v0.3.0 (2026-11-01)
 
 - Light Tracker (GM): every light's timer, the party's light, Time passes (10m, 1h, 1:30), Put lights out, Pause, Ride along or Separate timers; click a time to correct it; Remove all lights. A torch, Light spell or campfire is used once lit: putting it out spends it. A lantern put out keeps its oil to the quarter hour (45, 30, 15 minutes, then empty), lights again and takes oil. Lights start on tokens: a row's menu → Give torch, lantern or Light spell (one lit light per token). Every change can be undone.

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import OBR from "@owlbear-rodeo/sdk";
 
 import ClockRules from "./ClockRules";
@@ -11,7 +11,6 @@ import { useRoomValue } from "../hooks/useRoomValue";
 import { syncTurnFromScene } from "../marker";
 import { resetAll } from "../resetAll";
 import { readLog } from "../sessionLog";
-import { describeResult, runSceneSizeTest } from "../sceneSizeTest";
 import { record } from "../undo";
 import { errorMessage } from "../utils";
 import { parseSettings, type Settings as SettingsDoc } from "../settings";
@@ -242,8 +241,6 @@ const Settings = (props: { openLog?: () => void }) => {
 
       <Group title="About">
         <DataSize />
-        {(import.meta.env.VITE_BUILD_LABEL || import.meta.env.DEV) && <SceneSizeTest />}
-        <InstallLink />
       </Group>
 
       {/* A fresh session, last on the page (Matt): one big warning first. */}
@@ -378,79 +375,6 @@ const DataSize = () => {
           : sizes
             ? `This map: ${sizes.tracker} tracker, ${sizes.scene} all extensions (limit not documented). Room: ${sizes.room} of 16 kB, all extensions.`
             : "Reading…"}
-      </span>
-    </div>
-  );
-};
-
-// Dev builds only (v0.4 step 1, docs/effects.md): how much scene metadata
-// Owlbear accepts. Writes and deletes a test key on the open map.
-const SceneSizeTest = () => {
-  const [status, setStatus] = useState("");
-  const [busy, setBusy] = useState(false);
-  const run = () => {
-    setBusy(true);
-    setStatus("Testing…");
-    runSceneSizeTest()
-      .then((r) => {
-        console.info("Scene size test", r);
-        setStatus(describeResult(r));
-      })
-      .catch((err) => setStatus(`Couldn't run: ${errorMessage(err)}`))
-      .finally(() => setBusy(false));
-  };
-
-  return (
-    <div className="flex flex-col gap-1.5 px-4 py-3">
-      <div className="flex items-center gap-3">
-        <span className="flex-1 font-medium">Scene size test (Dev)</span>
-        <button type="button" disabled={busy} className="h-8 rounded-full bg-obr-paper px-4 text-xs font-medium hover:bg-obr-text/10 disabled:opacity-50" onClick={run}>
-          Run
-        </button>
-      </div>
-      <span className="text-xs text-obr-text-secondary" role="status">
-        {status || "Writes 15, 20, 32 and 64 kB to this map, reads each back, stops at the first rejected, then deletes it."}
-      </span>
-    </div>
-  );
-};
-
-// This build's manifest: live on the live install, Dev on the Dev one.
-const InstallLink = () => {
-  const url = `${window.location.origin}/manifest.json`;
-  const input = useRef<HTMLInputElement>(null);
-  const [status, setStatus] = useState("");
-  // The clipboard may be missing or blocked inside Owlbear's iframe: fall
-  // back to selecting the text for Cmd+C.
-  const copy = () =>
-    Promise.resolve()
-      .then(() => navigator.clipboard.writeText(url))
-      .then(() => setStatus("Copied"))
-      .catch(() => {
-        input.current?.select();
-        setStatus("Press Cmd+C (Ctrl+C) to copy");
-      });
-
-  return (
-    <div className="flex flex-col gap-1.5 px-4 py-3">
-      <label htmlFor="install-link" className="font-medium">
-        Install link
-      </label>
-      <div className="flex gap-1">
-        <input
-          id="install-link"
-          ref={input}
-          readOnly
-          value={url}
-          onFocus={(e) => e.currentTarget.select()}
-          className="h-8 min-w-0 flex-1 rounded-full bg-obr-paper px-3 text-xs focus:ring-2 focus:ring-obr-primary focus:outline-none"
-        />
-        <button type="button" className="h-8 rounded-full bg-obr-paper px-4 text-xs font-medium hover:bg-obr-text/10" onClick={copy}>
-          Copy
-        </button>
-      </div>
-      <span className="text-xs text-obr-text-secondary" role="status">
-        {status || "In Owlbear: Extensions → Add Custom Extension, then paste."}
       </span>
     </div>
   );

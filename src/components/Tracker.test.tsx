@@ -139,7 +139,9 @@ describe("Tracker (GM)", () => {
     fireEvent.click(screen.getByLabelText("Select the current token", { exact: false }));
     await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ selectOnTurn: false }));
     expect(await screen.findByText(/This map: .* kB tracker/)).toBeInTheDocument();
-    expect(screen.getByLabelText("Install link")).toHaveValue(`${window.location.origin}/manifest.json`);
+    // Retired in v0.4.0: the install link (the guide has it) and the Dev scene size test.
+    expect(screen.queryByLabelText("Install link")).toBeNull();
+    expect(screen.queryByText(/Scene size test/)).toBeNull();
     fireEvent.click(screen.getByLabelText("Back to tracker"));
     expect(await screen.findByText("GM / Monsters")).toBeInTheDocument();
   });
@@ -154,18 +156,6 @@ describe("Tracker (GM)", () => {
     expect(rowOf("Borin")).toHaveAttribute("aria-current", "step");
     fireEvent.click(screen.getByLabelText("Next turn"));
     await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["b", GM_ENTRY]));
-  });
-
-  it("copies the install link, or selects it when the clipboard is blocked", async () => {
-    const writeText = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("blocked"));
-    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
-    render(<App />);
-    fireEvent.click(await screen.findByLabelText("Settings"));
-    fireEvent.click(await screen.findByText("Copy"));
-    expect(await screen.findByText("Copied")).toBeInTheDocument();
-    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/manifest.json`);
-    fireEvent.click(screen.getByText("Copy"));
-    expect(await screen.findByText(/Press Cmd\+C/)).toBeInTheDocument();
   });
 
   it("resets the rounds only after the GM confirms", async () => {
