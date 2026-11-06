@@ -55,10 +55,10 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 21 | GM: Settings → Crawling Clock; open "Crawling Clock rules" | The card shows the d20 dial at 20; the rules sheet opens | 2026-11-02 |
-| 22 | GM: ▶ to the GM turn; Roll d6 | Dice chips, "= total", "Clock 20 → N"; a 6 rolls again and adds; the dial empties to N | 2026-11-02 |
+| 21 | GM: Settings → Clock 1d20; open "Crawling Clock rules" | The card shows the d20 dial at 20; the rules sheet opens | 2026-11-02 |
+| 22 | GM: ▶ to the GM turn; Roll d6 | The die shows the total (a 6 rolls again and adds) with "Clock 20 → N" beside it; the dial empties to N | 2026-11-02 |
 | 23 | GM: Darkness; roll | The die is a d8 | 2026-11-02 |
-| 24 | GM: get the clock to 5 or lower | An amber "Omen · N" chip and an amber ring | 2026-11-02 |
+| 24 | GM: get the clock to 5 or lower | An amber "Omen · N" on the card and an amber ring | 2026-11-02 |
 | 25 | GM: roll past 0 (clock 3, roll 5) | Red "Encounter!" with "Next clock 18" | 2026-11-02 |
 | 26 | GM: Combat with the clock at 9, then Crawl | Still 9 (fights never reset the clock) | 2026-11-02 |
 | 27 | GM: Reset clock → Cancel; → Reset; right-click the dial → Reset | Cancel keeps it; Reset puts it back to 20 | 2026-11-02 |
