@@ -10,9 +10,9 @@ kind: web-app         # web-app | obsidian-plugin | script-utility | config-back
 # Current State
 
 **Updated:** 2026-11-05
-**In flight:** nothing. v0.4 steps 1–3 merged to `main` (live, unreleased): #39 scene limit 65 kB+, #40 `src/effects.ts`, #41 the effects panel (with notes on demand: token rows open a note from the row menu), and #42 (Dev manifest version cut to Owlbear's 16 characters). Room-tested 2026-11-05: TESTING.md rows 2, 77–84.
-**Waiting on:** nothing.
-**Resume here:** v0.4 step 4 (`docs/effects.md` build order): map icons, ended notices, right-click Add effect. Branch off `main`.
+**In flight:** v0.4 step 4a, effect notices: PR #43 (`feat/effects-map`; `src/effectNotices.ts`, started in `background.ts`), on Dev as `0.3.0-dev.cb236c`. Steps 1–3 merged to `main` (live, unreleased), with #42 (Dev manifest version cut to 16 characters).
+**Waiting on:** Matt's room test of TESTING.md row 85, then his "merge".
+**Resume here:** after #43: step 4b, right-click → Crawl Keeper → Add effect… (`OBR.action.open` from the background page is unverified; fallback: quick Focus / ADV / DIS toggles), then 4c map icons (draft the 9 icons in the light-badge style and show Matt before wiring). New branch off `main` each.
 
 **Notes:**
 - Latest release: v0.3.0 (2026-11-02), tag `v0.3.0`, `ee30f22`.
