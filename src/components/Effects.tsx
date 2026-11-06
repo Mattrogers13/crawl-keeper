@@ -5,7 +5,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 
 import { FOCUS } from "./CrawlBar";
-import { ChevronIcon, HiddenIcon } from "./icons";
+import { ChevronIcon, EyeIcon, HiddenIcon } from "./icons";
 import { iconOf } from "../effectIcons";
 import { cryptoRand } from "../crawl";
 import {
@@ -168,7 +168,7 @@ const ChipMenu = (props: { effect: Effect; tracker: Tracker; x: number; y: numbe
             max={ROUNDS_MAX}
             value={left}
             onChange={(ev) => setLeft(ev.target.value)}
-            className="h-7 w-14 rounded-md bg-obr-bg px-2 text-right font-mono focus:ring-2 focus:ring-obr-primary focus:outline-none"
+            className="no-spin h-7 w-14 rounded-md bg-obr-bg px-2 text-right font-mono focus:ring-2 focus:ring-obr-primary focus:outline-none"
           />
           <button type="submit" className="h-7 rounded-full bg-obr-bg px-3 text-xs font-medium hover:bg-obr-text/10">
             Set
@@ -571,13 +571,14 @@ export const AddEffect = (props: {
               type="button"
               aria-label="Hide from players"
               aria-pressed={d.hidden}
-              title={d.hidden ? "Hidden from players" : "Players see it; click to hide"}
+              title={d.hidden ? "Hidden from players; click to show" : "Players see it; click to hide"}
+              // Green open eye: players see it. Red struck-through eye: hidden.
               className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
-                d.hidden ? "bg-obr-primary/25 text-obr-text" : "text-obr-text-disabled hover:bg-obr-text/10"
-              }`}
+                d.hidden ? "bg-red-600/15 text-red-700 dark:text-red-300" : "bg-emerald-600/15 text-emerald-700 dark:text-emerald-300"
+              } hover:brightness-125`}
               onClick={() => edit(d.key, { hidden: !d.hidden })}
             >
-              <HiddenIcon className="h-3.5 w-3.5" />
+              {d.hidden ? <HiddenIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
             </button>
             <button
               type="button"
@@ -618,7 +619,7 @@ export const AddEffect = (props: {
                 max={ROUNDS_MAX}
                 value={d.rounds}
                 onChange={(ev) => edit(d.key, { rounds: ev.target.value })}
-                className={`${field} w-12 shrink-0 text-right font-mono`}
+                className={`${field} no-spin w-12 shrink-0 text-right font-mono`}
               />
             )}
             {d.duration === "roll" && (

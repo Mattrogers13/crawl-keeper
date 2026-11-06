@@ -34,3 +34,14 @@ body {
   color: var(--obr-text);
   font-family: Roboto, system-ui, sans-serif;
 }
+
+/* Number fields without the browser's tiny up / down arrows (typed instead). */
+.no-spin {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.no-spin::-webkit-inner-spin-button,
+.no-spin::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
