@@ -8,7 +8,8 @@ import { useEffect, useRef, useState } from "react";
 import { EffectLine, type EffectsChange } from "./Effects";
 import { ChevronIcon } from "./icons";
 import { ID } from "../constants";
-import { endFocus, type Effect } from "../effects";
+import { deathKey, DyingLine, type DeathActions, type DeathDecision } from "./Dying";
+import { endFocus, statusOf, type Effect } from "../effects";
 import { useNow } from "../hooks/useNow";
 import { burnedOut, LIGHT_KINDS, type Light } from "../lights";
 import type { Tracker } from "../tracker";
@@ -45,6 +46,11 @@ const Notices = (props: {
   tracker: Tracker;
   names: Map<string, string>;
   change: EffectsChange | null;
+  // Death timers on this map (p. 89): this turn's decisions and the GM's
+  // actions (Tracker's).
+  dying?: Effect[];
+  deathDone?: Record<string, DeathDecision>;
+  deathActions?: DeathActions | null;
 }) => {
   const { checks, names, change } = props;
   const [open, setOpen] = useState(false);
@@ -144,7 +150,15 @@ const Notices = (props: {
       ),
     })),
   ];
-  if (!props.dark && checks.length === 0 && more.length === 0) return null;
+  // Death timers: on the holder's turn (the last one too).
+  const t = props.tracker;
+  const dyingNow = (props.dying ?? []).filter((e) => {
+    if (e.holder === null || t.current !== e.holder) return false;
+    const st = statusOf(e, t).state;
+    return st === "active" || st === "ended";
+  });
+
+  if (!props.dark && checks.length === 0 && more.length === 0 && dyingNow.length === 0) return null;
   // One alone shows as itself; two or more fold.
   const folds = more.length > 1;
   const button = "h-6 rounded-full bg-obr-paper px-2.5 text-[11px] font-medium hover:bg-obr-text/10";
@@ -155,6 +169,16 @@ const Notices = (props: {
           <span className="font-semibold">Total darkness</span> (p. 84): disadvantage on tasks that need sight, for anyone not darkness-adapted.
         </p>
       )}
+      {dyingNow.map((e) => (
+        <DyingLine
+          key={e.id}
+          effect={e}
+          tracker={t}
+          name={names.get(e.holder!) ?? "A character"}
+          decided={props.deathDone?.[deathKey(e.holder!, t)]}
+          actions={change ? (props.deathActions ?? null) : null}
+        />
+      ))}
       {checks.map((e) => (
         <div key={e.id} className="flex min-h-7 flex-wrap items-center gap-x-1.5 gap-y-1 px-1.5">
           <img src="/img/effect-focus.webp" alt="" aria-hidden className="h-4 w-4 shrink-0 rounded-full" />

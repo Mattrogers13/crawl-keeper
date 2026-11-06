@@ -33,6 +33,7 @@ const SETTING_LABELS: Partial<Record<keyof SettingsDoc, string>> = {
   showLights: "show lights",
   playersLight: "players light their own",
   effectIcons: "effect icons",
+  showDeath: "show the death timer",
 };
 
 // The four ways to run encounters, as the web toolkit shows them: one choice
@@ -172,6 +173,12 @@ const Settings = (props: { openLog?: () => void }) => {
       </Group>
 
       <Group title="What players see">
+        <Toggle
+          label="Show the death timer to players"
+          hint="The Dying line and icon, its notices and the death rolls (the book has them in the open, p. 89). Off: only you see them."
+          checked={settings.value.showDeath}
+          onChange={(showDeath) => set({ showDeath })}
+        />
         {/* Manual: the rolls are the GM's own, never shown. */}
         {rolls && (
           <Toggle

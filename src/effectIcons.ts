@@ -14,7 +14,7 @@
 import OBR, { buildImage, type Image, type Item, type Metadata } from "@owlbear-rodeo/sdk";
 
 import { EFFECTS_KEY, EFFECT_ICON_KEY, EFFECT_SLOT_KEY, SETTINGS_KEY, TRACKER_KEY } from "./constants";
-import { CONDITION_IDS, parseEffects, statusOf, type Condition, type Effect, type Effects } from "./effects";
+import { CONDITION_IDS, hideDeath, parseEffects, statusOf, type Condition, type Effect, type Effects } from "./effects";
 import { isOurEffectIcon, tokenCells } from "./marker";
 import { parseSettings } from "./settings";
 import { parseTracker, type Tracker } from "./tracker";
@@ -132,7 +132,8 @@ export const watchEffectIcons = () => {
     const plan = planEffectIcons(
       ours.map((i) => ({ id: i.id, attachedTo: i.attachedTo, image: i.image?.url, visible: i.visible, slot: i.metadata[EFFECT_SLOT_KEY] })),
       items,
-      parseEffects(scene[EFFECTS_KEY]),
+      // Players don't see Dying when the GM keeps the death timer hidden.
+      hideDeath(parseEffects(scene[EFFECTS_KEY]), parseSettings(room[SETTINGS_KEY]).showDeath),
       parseTracker(scene[TRACKER_KEY]),
       parseSettings(room[SETTINGS_KEY]).effectIcons,
     );
@@ -156,9 +157,10 @@ export const watchEffectIcons = () => {
     lastScene = raw;
     sync();
   });
-  let lastOn: boolean | undefined;
+  let lastOn: string | undefined;
   const offRoom = OBR.room.onMetadataChange((m: Metadata) => {
-    const on = parseSettings(m[SETTINGS_KEY]).effectIcons;
+    const st = parseSettings(m[SETTINGS_KEY]);
+    const on = `${st.effectIcons}:${st.showDeath}`;
     if (on === lastOn) return;
     lastOn = on;
     sync();

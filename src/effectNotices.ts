@@ -6,8 +6,9 @@
 // repeat it while the room stays loaded.
 import OBR, { type Item, type Metadata } from "@owlbear-rodeo/sdk";
 
-import { EFFECTS_KEY, TRACKER_KEY } from "./constants";
-import { parseEffects, statusOf, type Effect, type Effects } from "./effects";
+import { EFFECTS_KEY, SETTINGS_KEY, TRACKER_KEY } from "./constants";
+import { hideDeath, parseEffects, statusOf, type Effect, type Effects } from "./effects";
+import { parseSettings } from "./settings";
 import { parseTracker, type Tracker } from "./tracker";
 import { logEvent } from "./sessionLog";
 import { errorMessage } from "./utils";
@@ -34,7 +35,8 @@ export const newlyEnded = (before: Reading, after: Reading, told: ReadonlySet<st
 // GM did it, so no notice.
 export const newlyGone = (before: Reading, after: Reading): Effect[] =>
   before.effects.effects.filter(
-    (e) => statusOf(e, before.tracker).state === "active" && !after.effects.effects.some((a) => a.id === e.id),
+    // Dying: the death events tell it (rises, stabilized, healed, died).
+    (e) => e.icon !== "dying" && statusOf(e, before.tracker).state === "active" && !after.effects.effects.some((a) => a.id === e.id),
   );
 
 // What a client says, or "" for nothing. Players don't hear of hidden
@@ -46,6 +48,7 @@ export const endedMessage = (ended: Effect[], items: Pick<Item, "id" | "name" | 
       const holder = e.holder === null ? null : items.find((i) => i.id === e.holder);
       if (!gm && (e.hidden || (e.holder !== null && (!holder || !holder.visible)))) return [];
       const on = holder?.name.trim() ? ` on ${holder.name.trim()}` : "";
+      if (e.icon === "dying" && verb === "ended") return [`${holder?.name.trim() || "A character"}'s death timer ran out.`];
       return [`${e.name}${on} ${verb}.`];
     })
     .join(" ");
@@ -66,8 +69,9 @@ export const watchEffectNotices = () => {
   const told = new Set<string>();
   const say = async (ended: Effect[]) => {
     const holders = [...new Set(ended.flatMap((e) => (e.holder === null ? [] : [e.holder])))];
-    const items = holders.length ? await OBR.scene.items.getItems(holders) : [];
-    const text = endedMessage(ended, items, gm);
+    const [items, room] = await Promise.all([holders.length ? OBR.scene.items.getItems(holders) : [], OBR.room.getMetadata()]);
+    // The GM can keep the death timer from players.
+    const text = endedMessage(hideDeath({ effects: ended }, parseSettings(room[SETTINGS_KEY]).showDeath).effects, items, gm);
     if (!text) return;
     logEvent(text, "effect");
     await OBR.notification.show(text, "INFO");

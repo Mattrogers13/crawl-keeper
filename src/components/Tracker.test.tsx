@@ -235,6 +235,7 @@ describe("Tracker (GM)", () => {
     expect(within(menu).getAllByRole("menuitem").map((b) => b.textContent)).toEqual([
       "Mark as monster",
       "Mark dead",
+      "Dying…",
       "Turn marker off",
       "Show on map",
       "Add note",

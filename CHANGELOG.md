@@ -2,6 +2,10 @@
 
 Versions follow semver; the same number is in `package.json` and `public/manifest.json`.
 
+## Unreleased
+
+- Death timer (p. 89): a row's menu → Dying… for a player at 0 HP (monsters at 0 just die). Roll 1d4 + CON (pick the modifier; at least 1) or type what the table rolled. A Dying line under the row and a cracked-heart icon on the token, seen by everyone. On each of their later turns, the last one too (the turn the timer runs out is a last chance), the notices offer Roll d20 (a natural 20 rises with 1 HP), Nat 20 and Not a 20 for a roll at the table, Stabilized (still unconscious), Healed and Dead; on the last turn anything but a 20 is death (skull on the row and the token, the turn passes on). ▶ on a dying character's turn with no decision yet opens a prompt with the same choices, then moves on. Healed and Stabilized are also on the Dying line's menu for a heal on someone else's turn. Dying again after being stabilized replaces Unconscious (they don't stack). Everyone gets a notice for each step, and it's in everyone's session log, unless Settings → What players see → Show the death timer to players is off (then the line, icon, notices and rolls are the GM's alone). Dying… sits under Mark dead in the row menu. Time passes leaves a dying character alone; Mark dead ends the timer.
+
 ## v0.4.0 (2026-11-06)
 
 - Effects: focus, conditions and timed effects (`docs/effects.md`). Add them from a row's menu, from a token on the map (right-click → Crawl Keeper → Add effect…, which opens the panel on it), or with Add effect under the turn bar for one on no token; with rows selected, each gets each. The Add effects sheet covers the list and takes several at once, each with its own duration (Rounds, a Roll such as 1d4, Focus, Ongoing, or while a caster's focus lasts), the turn it counts down on, and a hide-from-players eye (green: players see it; red: hidden). One undo step for the lot; nothing is added if one is wrong, and the error says which.

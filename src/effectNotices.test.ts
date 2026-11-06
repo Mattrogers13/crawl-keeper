@@ -103,6 +103,23 @@ describe("watchEffectNotices (every client)", () => {
     off();
   });
 
+  it("a death timer running out says so; Dying going away isn't logged as removed (the death events tell it)", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    const dying = { id: "d1", name: "Dying", icon: "dying", kind: "rounds", holder: "a", rounds: 2, end: { round: 3, at: "a" } };
+    obr.sceneMetadata = scene(GM_ENTRY, 2, [dying]);
+    const off = watchEffectNotices();
+    await settle();
+    await writeSceneFromElsewhere(scene("a", 3, [dying]));
+    await settle();
+    expect(shown()).toEqual(["Aria's death timer ran out."]);
+    const healed = { ...dying, id: "d2", end: { round: 9, at: "a" } };
+    await writeSceneFromElsewhere(scene("a", 3, [healed]));
+    await writeSceneFromElsewhere(scene("a", 3, []));
+    await settle();
+    expect(readLog().map((e) => e.text)).toEqual(["Aria's death timer ran out."]);
+    off();
+  });
+
   it("says nothing for what's already ended when the page loads or a scene opens", async () => {
     obr.sceneMetadata = scene("a", 3);
     const off = watchEffectNotices();
