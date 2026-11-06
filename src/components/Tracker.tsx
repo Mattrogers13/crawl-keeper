@@ -372,6 +372,8 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   };
   // With Dice+ the auto roll takes a moment: the turn moves now, the roll
   // lands as its own step. Without it, one step as before.
+  // Death rolls: in the open (p. 89), unless the GM keeps the timer to themselves.
+  const deathTarget: RollTarget = settings.value.showDeath ? "everyone" : "gm_only";
   const deferRoll = mode !== "manual" && settings.value.autoRoll && dicePlusActive();
   const advance = (t: TrackerDoc) =>
     mode === "manual"
@@ -554,7 +556,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
         names={names}
         change={effectChange}
         dying={seenEffects.effects.filter((e) => e.icon === "dying")}
-        rollD20={() => rollDice({ count: 1, sides: 20, label: "Death d20", target: "everyone" }).then((d) => d[0])}
+        rollD20={() => rollDice({ count: 1, sides: 20, label: "Death d20", target: deathTarget }).then((d) => d[0])}
         markDead={
           gm
             ? (id) => {
@@ -599,7 +601,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
               name={names.get(dyingFor) ?? "A character"}
               change={liveChangeEffects}
               close={() => setDyingFor(null)}
-              rollD4={() => rollDice({ count: 1, sides: 4, label: "Death timer", target: "everyone" }).then((d) => d[0])}
+              rollD4={() => rollDice({ count: 1, sides: 4, label: "Death timer", target: deathTarget }).then((d) => d[0])}
             />
           ) : (
             <TimeSheet lights={lights.lights} effects={effects} change={lights.change} names={names} close={() => setTiming(false)} />

@@ -4,7 +4,7 @@ import OBR from "@owlbear-rodeo/sdk";
 
 import { ID } from "./constants";
 import { replayRand, rollClock, emptyCrawl } from "./crawl";
-import { checkDicePlus, dicePlusActive, parseResult, READY_CHANNEL, REQUEST_CHANNEL, RESULT_MS, rollDice, rollExploding, setDicePlusEnabled } from "./diceRoller";
+import { checkDicePlus, dicePlusActive, parseExploding, parseResult, READY_CHANNEL, REQUEST_CHANNEL, RESULT_MS, rollDice, rollExploding, setDicePlusEnabled } from "./diceRoller";
 import { fakeDicePlus } from "./test/fakeDicePlus";
 
 const d6 = { count: 1, sides: 6, label: "Encounter check", target: "gm_only" as const };
@@ -63,12 +63,22 @@ describe("the dice roller", () => {
     expect(OBR.broadcast.sendMessage).not.toHaveBeenCalled();
   });
 
-  it("the crawling die explodes one die at a time; replayed, the clock rules see the same dice", async () => {
-    fakeDicePlus([[6], [6], [2]]);
+  it("the crawling die: one exploding roll when Dice+ takes \"1d6!\"; replayed, the clock rules see the same dice", async () => {
+    const requests = fakeDicePlus([[6, 6, 2]]);
     await checkDicePlus();
     const dice = await rollExploding(6, "Crawling die", "everyone");
     expect(dice).toEqual([6, 6, 2]);
+    expect(requests.map((r) => r.diceNotation)).toEqual(["1d6! # Crawling die"]);
     expect(rollClock({ ...emptyCrawl(), crawlRounds: 1 }, replayRand(dice, 6)).last).toMatchObject({ dice: [6, 6, 2], before: 20, after: 6 });
+  });
+
+  it("Dice+ refuses \"1d6!\": one die at a time, then and from then on, with no notice", async () => {
+    const requests = fakeDicePlus(["error", [6], [6], [2], [3]]);
+    await checkDicePlus();
+    expect(await rollExploding(6, "Crawling die", "everyone")).toEqual([6, 6, 2]);
+    expect(await rollExploding(6, "Crawling die", "everyone")).toEqual([3]);
+    expect(requests.map((r) => r.diceNotation)).toEqual(["1d6! # Crawling die", ...Array(4).fill("1d6 # Crawling die")]);
+    expect(notices()).toEqual([]);
   });
 
   it("parses results as untrusted", () => {
@@ -78,5 +88,9 @@ describe("the dice roller", () => {
     expect(parseResult({ rollId: "r", result: {} }, "r", { count: 1, sides: 6 })).toBeNull();
     expect(parseResult({ rollId: "r", result: { groups: [{ isCondensed: true, dice: [] }] } }, "r", { count: 1, sides: 6 })).toBeNull();
     expect(parseResult(ok, "r", { count: 2, sides: 6 })).toBeNull();
+    const roll = (values: number[]) => ({ rollId: "r", result: { groups: [{ dice: values.map((value) => ({ value, kept: true })) }] } });
+    expect(parseExploding(roll([6, 6, 1]), "r", 6)).toEqual([6, 6, 1]);
+    expect(parseExploding(roll([6]), "r", 6)).toBeNull();
+    expect(parseExploding(roll([3, 6]), "r", 6)).toBeNull();
   });
 });

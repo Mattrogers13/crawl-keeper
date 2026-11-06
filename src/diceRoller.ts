@@ -77,7 +77,7 @@ const local = ({ count, sides }: DiceRequest) => Array.from({ length: count }, (
 
 // Untrusted: the kept dice of `rollId`'s result, in order; null if it's
 // that roll but malformed; undefined if it's another roll's.
-export const parseResult = (data: unknown, rollId: string, req: Pick<DiceRequest, "count" | "sides">): number[] | null | undefined => {
+export const parseResult = (data: unknown, rollId: string, req: Pick<DiceRequest, "count" | "sides">, anyCount = false): number[] | null | undefined => {
   if (!data || typeof data !== "object") return undefined;
   const d = data as { rollId?: unknown; result?: { groups?: unknown } };
   if (d.rollId !== rollId) return undefined;
@@ -94,76 +94,108 @@ export const parseResult = (data: unknown, rollId: string, req: Pick<DiceRequest
       values.push(value);
     }
   }
-  return values.length === req.count ? values : null;
+  return anyCount || values.length === req.count ? values : null;
 };
 
-// The dice, from Dice+ when it's on and found, else here. Never rejects:
-// Dice+ failing (an error, no answer in 15 s, a garbled result) rolls here
-// and says so. A late answer is ignored.
-export const rollDice = async (req: DiceRequest): Promise<number[]> => {
-  if (!dicePlusActive()) {
-    if (enabled) void checkDicePlus();
-    return local(req);
-  }
+// One request to Dice+: the dice, or null with why (an error, a garbled
+// result, no answer in 15 s). A late answer is ignored.
+const ask = async (
+  notation: string,
+  target: RollTarget,
+  read: (data: unknown, rollId: string) => number[] | null | undefined,
+): Promise<{ values: number[] } | { why: string }> => {
   const playerName = await OBR.player.getName().catch(() => "GM");
-  return new Promise<number[]>((resolve) => {
+  return new Promise((resolve) => {
     const rollId = crypto.randomUUID();
     let settled = false;
     const offs: (() => void)[] = [];
-    const finish = (values: number[] | null, why = "") => {
+    const finish = (r: { values: number[] } | { why: string }) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       offs.forEach((off) => off());
-      if (values) return resolve(values);
-      notify(`Dice+ didn't roll ${req.label}${why ? ` (${why})` : ""}: rolled here instead.`, "WARNING");
-      resolve(local(req));
+      resolve(r);
     };
     const timer = setTimeout(() => {
       found = false;
-      finish(null, "no answer");
+      finish({ why: "no answer" });
     }, RESULT_MS);
     offs.push(
       OBR.broadcast.onMessage(RESULT_CHANNEL, ({ data }) => {
-        const values = parseResult(data, rollId, req);
-        if (values !== undefined) finish(values, "a result it couldn't read");
+        const values = read(data, rollId);
+        if (values !== undefined) finish(values ? { values } : { why: "a result it couldn't read" });
       }),
       OBR.broadcast.onMessage(ERROR_CHANNEL, ({ data }) => {
         const d = data as { rollId?: unknown; error?: unknown } | null;
-        if (d?.rollId === rollId) finish(null, typeof d.error === "string" ? d.error.slice(0, 120) : "an error");
+        if (d?.rollId === rollId) finish({ why: typeof d.error === "string" ? d.error.slice(0, 120) : "an error" });
       }),
     );
     OBR.broadcast
       .sendMessage(
         REQUEST_CHANNEL,
-        {
-          rollId,
-          playerId: OBR.player.id,
-          playerName,
-          rollTarget: req.target,
-          diceNotation: `${req.count}d${req.sides} # ${req.label}`,
-          showResults: true,
-          timestamp: Date.now(),
-          source: ID,
-        },
+        { rollId, playerId: OBR.player.id, playerName, rollTarget: target, diceNotation: notation, showResults: true, timestamp: Date.now(), source: ID },
         { destination: DESTINATION },
       )
-      .catch((err) => finish(null, errorMessage(err)));
+      .catch((err) => finish({ why: errorMessage(err) }));
   });
 };
 
-// The crawling die explodes on its top face (rollClock, crawl.ts): one die
-// at a time, again on a max, up to MAX_DICE.
+// The dice, from Dice+ when it's on and found, else here. Never rejects:
+// Dice+ failing rolls here and says so.
+export const rollDice = async (req: DiceRequest): Promise<number[]> => {
+  if (!dicePlusActive()) {
+    if (enabled) void checkDicePlus();
+    return local(req);
+  }
+  const r = await ask(`${req.count}d${req.sides} # ${req.label}`, req.target, (data, rollId) => parseResult(data, rollId, req));
+  if ("values" in r) return r.values;
+  notify(`Dice+ didn't roll ${req.label} (${r.why}): rolled here instead.`, "WARNING");
+  return local(req);
+};
+
+// Untrusted: an exploding roll's dice (every die but the last on the top
+// face, up to MAX_DICE); null if it isn't one.
+export const parseExploding = (data: unknown, rollId: string, sides: number): number[] | null | undefined => {
+  const values = parseResult(data, rollId, { count: -1, sides }, true);
+  if (!values) return values;
+  const ok = values.length >= 1 && values.length <= MAX_DICE && values.slice(0, -1).every((v) => v === sides) && (values[values.length - 1] < sides || values.length === MAX_DICE);
+  return ok ? values : null;
+};
+
+// Does Dice+ take "1d6!" (an exploding die, one roll on the table)? Unknown
+// until tried; if not, one die at a time from then on.
+let explodes: boolean | null = null;
+
+// The crawling die explodes on its top face (rollClock, crawl.ts).
 export const rollExploding = async (sides: number, label: string, target: RollTarget): Promise<number[]> => {
+  if (dicePlusActive() && explodes !== false) {
+    const r = await ask(`1d${sides}! # ${label}`, target, (data, rollId) => parseExploding(data, rollId, sides));
+    if ("values" in r) {
+      explodes = true;
+      return r.values;
+    }
+    if (r.why === "no answer") {
+      notify(`Dice+ didn't roll ${label} (no answer): rolled here instead.`, "WARNING");
+      return explodeHere(sides);
+    }
+    explodes = false;
+  }
   const dice: number[] = [];
   do dice.push((await rollDice({ count: 1, sides, label, target }))[0]);
   while (dice[dice.length - 1] === sides && dice.length < MAX_DICE);
   return dice;
 };
 
+const explodeHere = (sides: number) => {
+  const dice = [rollDie(sides, cryptoRand)];
+  while (dice[dice.length - 1] === sides && dice.length < MAX_DICE) dice.push(rollDie(sides, cryptoRand));
+  return dice;
+};
+
 // Tests only: forget what's known.
 export const resetDiceRoller = () => {
   generation++;
+  explodes = null;
   enabled = true;
   found = false;
   checking = null;
