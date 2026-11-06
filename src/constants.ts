@@ -30,3 +30,6 @@ export const HISTORY_KEY = `${ID}/history`;
 // Room metadata: the GM's light timers (see lights.ts); they cross maps with
 // the party.
 export const LIGHTS_KEY = `${ID}/lights`;
+// Scene metadata: this map's effects (focus, conditions, timed effects; see
+// effects.ts). Only the GM writes it.
+export const EFFECTS_KEY = `${ID}/effects`;

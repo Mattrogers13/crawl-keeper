@@ -1,7 +1,9 @@
 import { useEffect, useReducer } from "react";
 import OBR from "@owlbear-rodeo/sdk";
 
-import { LIGHTS_KEY } from "../constants";
+import { EFFECTS_KEY, LIGHTS_KEY } from "../constants";
+import { parseEffects, type Effects } from "../effects";
+import type { Change as HistoryChange } from "../history";
 import { lightStatus, msToNextBurnOut, parseLights, type Lights } from "../lights";
 import { record } from "../undo";
 import { errorMessage, notify } from "../utils";
@@ -17,7 +19,23 @@ import { useRoomValue } from "./useRoomValue";
 // moment it writes, so a player's light lit a moment ago isn't overwritten
 // by what the panel last saw. Burn-outs write nothing. `saved` runs once the
 // write lands.
-export type LightChange = (label: string, fn: (s: Lights, now: number) => Lights, opts?: { toast?: boolean; saved?: () => void }) => void;
+//
+// `effects`: a change to the open map's effects in the same undo step (Time
+// passes ends rounds effects, p. 82). The lights are saved first (room),
+// then the effects (scene); if the effects fail, the lights go back.
+export type LightChange = (
+  label: string,
+  fn: (s: Lights, now: number) => Lights,
+  opts?: { toast?: boolean; saved?: () => void; effects?: (e: Effects) => Effects },
+) => void;
+
+// The open map's effects and their change, if there's a map and a change.
+const effectsChange = async (fn: ((e: Effects) => Effects) | undefined) => {
+  if (!fn || !(await OBR.scene.isReady())) return null;
+  const before = parseEffects((await OBR.scene.getMetadata())[EFFECTS_KEY]);
+  const after = fn(before);
+  return after === before ? null : { before, after };
+};
 
 export const useLights = () => {
   const doc = useRoomValue(LIGHTS_KEY, parseLights);
@@ -31,9 +49,24 @@ export const useLights = () => {
         notify(errorMessage(err), "WARNING");
         return;
       }
-      if (after === before) return;
-      if (!(await doc.write(after))) return;
-      void record(label, [{ store: "room", key: LIGHTS_KEY, before, after }], opts);
+      const effects = await effectsChange(opts?.effects);
+      if (after === before && !effects) return;
+      const changes: HistoryChange[] = [];
+      if (after !== before) {
+        if (!(await doc.write(after))) return;
+        changes.push({ store: "room", key: LIGHTS_KEY, before, after });
+      }
+      if (effects) {
+        try {
+          await OBR.scene.setMetadata({ [EFFECTS_KEY]: effects.after });
+          changes.push({ store: "scene", key: EFFECTS_KEY, before: effects.before, after: effects.after });
+        } catch (err) {
+          if (after !== before) await doc.write(before);
+          notify(`Couldn't change this map's effects, so nothing changed: ${errorMessage(err)}`, "ERROR");
+          return;
+        }
+      }
+      void record(label, changes, opts);
       opts?.saved?.();
     };
     run().catch((err) => notify(`Couldn't change the lights: ${errorMessage(err)}`, "ERROR"));

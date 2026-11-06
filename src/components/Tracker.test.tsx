@@ -48,12 +48,39 @@ describe("Tracker (GM)", () => {
     fireEvent.change(roll, { target: { value: "17" } });
     fireEvent.blur(roll);
     await waitFor(() => expect(saved().entries[1].roll).toBe(17));
+    await pick("Aria", "Add note");
     const note = screen.getByLabelText("Note for Aria");
     fireEvent.change(note, { target: { value: "Has the key" } });
     fireEvent.blur(note);
     await waitFor(() => expect(saved().entries[0].note).toBe("Has the key"));
     fireEvent.click(screen.getByLabelText("Sort by roll"));
     await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["b", "a", GM_ENTRY]));
+  });
+
+  it("a token row's note: none until it has one or the menu opens it, so nothing hides under the effect chips", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    scene([{ id: "a" }, { id: "b", note: "Has the key" }, { id: GM_ENTRY }]);
+    render(<App />);
+    await screen.findByText("Aria");
+    expect(screen.queryByLabelText("Note for Aria")).toBeNull();
+    // An existing note stays click-to-edit; the GM row keeps its own field.
+    expect(screen.getByLabelText("Note for Borin")).toHaveValue("Has the key");
+    expect(screen.getByLabelText("Note for GM / Monsters")).toBeInTheDocument();
+    fireEvent.contextMenu(screen.getByText("Borin"));
+    expect(within(screen.getByRole("menu", { name: "Borin" })).queryByRole("menuitem", { name: "Add note" })).toBeNull();
+    fireEvent.keyDown(screen.getByRole("menu", { name: "Borin" }), { key: "Escape" });
+    // Add note opens a focused field; left empty, it goes away unsaved.
+    await pick("Aria", "Add note");
+    expect(screen.getByLabelText("Note for Aria")).toHaveFocus();
+    fireEvent.blur(screen.getByLabelText("Note for Aria"));
+    expect(screen.queryByLabelText("Note for Aria")).toBeNull();
+    expect(saved().entries[0].note).toBe("");
+    // Clearing a note removes it, field and all.
+    const borin = screen.getByLabelText("Note for Borin");
+    fireEvent.change(borin, { target: { value: "" } });
+    fireEvent.blur(borin);
+    await waitFor(() => expect(saved().entries[1].note).toBe(""));
+    await waitFor(() => expect(screen.queryByLabelText("Note for Borin")).toBeNull());
   });
 
   it("rejects an out-of-range roll and keeps the old value", async () => {
@@ -211,6 +238,8 @@ describe("Tracker (GM)", () => {
       "Mark dead",
       "Turn marker off",
       "Show on map",
+      "Add note",
+      "Add effect…",
       "Give torch",
       "Give lantern",
       "Give Light spell",
@@ -459,7 +488,7 @@ describe("Tracker (GM)", () => {
     scene([{ id: "a" }, { id: GM_ENTRY }], null, 0);
     render(<App />);
     await screen.findByText("Aria");
-    fireEvent.keyDown(screen.getByLabelText("Note for Aria"), { key: "n" });
+    fireEvent.keyDown(screen.getByLabelText("Note for GM / Monsters"), { key: "n" });
     expect(saved().current).toBeNull();
     fireEvent.keyDown(document.body, { key: "n" });
     await waitFor(() => expect(saved()).toMatchObject({ current: "a", round: 1 }));

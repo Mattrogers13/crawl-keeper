@@ -38,6 +38,7 @@ import {
   type Light,
   type LightKind,
 } from "../lights";
+import { timePassesEffects } from "../effects";
 
 // The Light Tracker (docs/design.md, Torchlight merge; mockups lt-*): every
 // light timer, the party's light, Time passes, Put lights out, Pause, and
@@ -160,7 +161,8 @@ export const TimePasses = ({ change, compact = false }: { change: LightChange; c
     e.preventDefault();
     const ms = parseTimeEntry(text);
     if (ms === null) return setSaid("Try 10m, 1h, 1:30 or 90 (minutes), up to 24 hours.");
-    change(`Time passes ${text.trim()}`, (s, now) => timePasses(s, now, ms), { saved: () => void sayTimePassed(ms) });
+    // Minutes pass: rounds effects end too (p. 82).
+    change(`Time passes ${text.trim()}`, (s, now) => timePasses(s, now, ms), { saved: () => void sayTimePassed(ms), effects: timePassesEffects });
     setSaid(`${text.trim()} passed`);
     setText("");
   };
