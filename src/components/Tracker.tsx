@@ -458,6 +458,11 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           dark={dark}
           following={following}
           change={(label, fn, opts) => change(label, (t) => updateCrawl(t, fn), opts)}
+          seen={{
+            clock: mode === "clock" && !settings.value.hideClock,
+            danger: mode !== "clock" && settings.value.showDanger,
+            rolls: mode !== "manual" && settings.value.showRolls,
+          }}
         />
       )}
       {gm && combat && (
