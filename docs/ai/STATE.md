@@ -10,8 +10,8 @@ kind: web-app         # web-app | obsidian-plugin | script-utility | config-back
 # Current State
 
 **Updated:** 2026-11-06
-**In flight:** v0.4.0 release PR (`release/v0.4.0`): version 0.4.0, CHANGELOG, homepage guide (Effects; Session log and Reset all), TESTING rows refreshed to the new layout. Steps 4a–4g (#43–#49) merged and live 2026-11-06.
-**Waiting on:** the full TESTING.md walkthrough, one section at a time (record each row's date); then Matt's "merge", tag `v0.4.0`, confirm live.
+**In flight:** v0.4.0 release (PR #50): full TESTING.md pass 2026-11-06; merging, tagging `v0.4.0`.
+**Waiting on:** nothing (Matt said "merge" 2026-11-06).
 **Resume here:** continue the walkthrough at the next unrecorded section. After v0.4.0: step 5 of `docs/effects.md` (death timer), then v0.5 (Dice+, morale, encounter tables, End tracker).
 
 **Notes:**
