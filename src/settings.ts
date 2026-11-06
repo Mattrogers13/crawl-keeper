@@ -35,6 +35,9 @@ export type Settings = {
   // Players see the lights: the darkness card, the row badges and DIS tags.
   // Off, they see only their own lights.
   showLights: boolean;
+  // Effect icons on the tokens (src/effectIcons.ts); off for tables that
+  // already use a condition marker extension.
+  effectIcons: boolean;
   // Players light and put out lights on their own tokens (asked of the
   // GM's client, which checks this: playerLights.ts). Off like Torchlight's.
   playersLight: boolean;
@@ -55,6 +58,7 @@ export const DEFAULT_SETTINGS: Settings = {
   selectOnTurn: true,
   showLights: true,
   playersLight: false,
+  effectIcons: true,
 };
 
 export const parseSettings = (raw: unknown): Settings => {
@@ -74,6 +78,7 @@ export const parseSettings = (raw: unknown): Settings => {
     selectOnTurn: r.selectOnTurn !== false,
     showLights: r.showLights !== false,
     playersLight: r.playersLight === true,
+    effectIcons: r.effectIcons !== false,
   };
 };
 

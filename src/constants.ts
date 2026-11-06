@@ -19,6 +19,10 @@ export const MARKER_KEY = `${ID}/marker`;
 export const SKULL_KEY = `${ID}/skull`;
 // On a lit token's light badge (tokenLights.ts).
 export const BADGE_KEY = `${ID}/badge`;
+// On an effect icon (effectIcons.ts), and its place in the token's row of
+// icons ("2/3": the second of three).
+export const EFFECT_ICON_KEY = `${ID}/effect-icon`;
+export const EFFECT_SLOT_KEY = `${ID}/effect-slot`;
 // localStorage (this browser only): the monsters folded under the GM row.
 export const MONSTERS_FOLDED_KEY = `${ID}/monsters-folded`;
 // Scene metadata: a random id for this map, written by the GM the first time

@@ -10,9 +10,9 @@ kind: web-app         # web-app | obsidian-plugin | script-utility | config-back
 # Current State
 
 **Updated:** 2026-11-05
-**In flight:** v0.4 step 4b, right-click → Crawl Keeper → Add effect…: PR (`feat/effects-right-click`; `src/addEffectHandoff.ts`, row in `mapMenu.ts`, wiring in `menu.ts`, `Panel.tsx`, `Tracker.tsx`). Step 4a (#43, effect notices + hidden-chip fix) merged and live.
-**Waiting on:** Matt's "merge" of #44 (row 87 passed 2026-11-05).
-**Resume here:** after merge: 4c map icons (draft the 9 icons in the light-badge style and show Matt before wiring). New branch off `main`.
+**In flight:** v0.4 step 4c, effect icons on the map: PR (`feat/effects-map-icons`; `src/effectIcons.ts` started in `background.ts`, art `art/effects/` → `public/img/effect-*.webp`, Settings → Show effect icons on the map, `effectIcons` in `settings.ts`). 4a (#43) and 4b (#44, right-click Add effect…) merged and live.
+**Waiting on:** Matt's room test of TESTING.md rows 88–90, then his "merge".
+**Resume here:** after merge, step 4 is done; next is the v0.4.0 release PR (version bump, CHANGELOG, full TESTING.md walkthrough one section at a time). Step 5 of `docs/effects.md` (death timer) is later, not v0.4.
 
 **Notes:**
 - Latest release: v0.3.0 (2026-11-02), tag `v0.3.0`, `ee30f22`.
