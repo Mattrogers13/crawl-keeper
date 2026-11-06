@@ -182,3 +182,13 @@ Torchlight uninstalled. Dynamic Fog on for rows 72–74. Rows 66–76 sum up the
 | 101 | GM: tokens, monsters, effects, lights (one on a campfire prop not in initiative), round 5 in combat, a few log entries. Settings → Reset all…: read the warning, Cancel; again, Download the log, Reset all. Then Undo | One red warning lists what goes and says the log can't be undone; Download saves it. After: only the GM row, round 0, Crawl, clock full, danger back to Unsafe; no effects or map icons; the tracked tokens' lights gone, the campfire still lit; rings and skulls gone; the log has only "Reset all" (and the removed effects). Undo puts the tracker, effects and lights back, not the log | 2026-11-06 |
 | 102 | GM: type rolls on three rows out of order; Roll d20+N on the GM row; clear one roll; drag a row, then type a roll | Each roll entered re-sorts the list highest first at once (monsters stay under the GM row); clearing a roll doesn't move anything; a drag holds until the next roll. Reset all is the last thing on the Settings page | 2026-11-06 |
 | 103 | GM: Settings → What players see: switch the clock, the danger level and the rolls on and off, in clock and standard mode; compare with the player's window | A small green eye sits on the dial (clock), beside the danger level, and on the die (rolls) exactly when the player sees that thing; hover says what. Light and dark theme | 2026-11-06 |
+
+### Death timer (v0.5)
+
+| # | Steps | Expect | Last pass |
+|---|---|---|---|
+| 104 | GM: row menu on a monster, the GM row, a dead row, then a player → Dying…; CON +1, Roll; again on another player with "Rolled at the table" 2 → Set | Only the player row offers Dying…. The sheet rolls 1d4 + 1 (at least 1); a Dying line under the row, a cracked heart on the token (player sees both); everyone gets "<name> is dying: dies in N rounds (d4 X + 1 CON)." | – |
+| 105 | GM: ▶ to the dying player's turns. The turn it started: the line says "timer rolled this turn", no d20. Later turns: Roll d20 (until not 20), then Nat 20 | "<name> is dying · N rounds left" in the notices on their turn; Roll d20 tells everyone the roll; Nat 20 (or a rolled 20) removes Dying and says "rises with 1 HP" | – |
+| 106 | GM: Stabilized from the notices; on another, Healed from the Dying line's menu on someone else's turn | Stabilized: Dying becomes Unconscious; Healed: Dying goes. Both told to everyone, in every session log | – |
+| 107 | GM: let a timer run out; Mark dead; Undo. Also Time passes 1h with someone dying | "<name>'s death timer ran out" with Mark dead; the row is dead (skull) and Dying gone, one undo step brings both back. Time passes leaves Dying alone | – |
+

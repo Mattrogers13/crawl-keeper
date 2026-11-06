@@ -151,6 +151,11 @@ const Homepage = () => {
             rounds left or remove it. Icons show on the tokens (Settings can turn them off). Everyone gets a notice when an
             effect runs out, and Time passes ends every rounds effect (p. 82).
           </li>
+          <li>
+            <b>Dying</b> (p. 89): a player at 0 HP → their row's menu → Dying…: roll 1d4 + CON (at least 1) for the
+            death timer. On each later turn the notices offer the d20 (a natural 20 rises with 1 HP), Stabilized and
+            Healed; when the timer runs out, Mark dead. Monsters at 0 just die.
+          </li>
         </Steps>
       </Section>
 

@@ -21,8 +21,10 @@ import { GM_ENTRY, turnOrder, type Tracker } from "./tracker";
 
 // Conditions with an icon (docs/effects.md, picked by how often the book
 // uses them). Focus is the icon of every focus effect and of nothing else.
-export type Condition = "focus" | "adv" | "dis" | "blinded" | "paralyzed" | "invisible" | "stuck" | "unconscious";
+export type Condition = "dying" | "focus" | "adv" | "dis" | "blinded" | "paralyzed" | "invisible" | "stuck" | "unconscious";
+// Dying is first so its map icon is never folded into the "+".
 export const CONDITIONS: Record<Condition, { label: string; hint?: string }> = {
+  dying: { label: "Dying", hint: "Dies when the timer runs out; a natural 20 on the d20 rises with 1 HP (p. 89)" },
   focus: { label: "Focus", hint: "A spellcasting check at the start of each turn keeps it (p. 50)" },
   adv: { label: "ADV", hint: "Advantage and disadvantage cancel each other (p. 77)" },
   dis: { label: "DIS", hint: "Advantage and disadvantage cancel each other (p. 77)" },
@@ -296,8 +298,59 @@ export const resetEffectRounds = (s: Effects, before: Tracker, after: Tracker): 
 
 // Time passes (p. 82: minutes pass, effects counted in rounds expire). Focus
 // and until-removed effects stay.
+// Dying stays: time passing over a dying character is the GM's call.
 export const timePassesEffects = (s: Effects): Effects =>
-  without(s, new Set(s.effects.filter((e) => e.kind === "rounds").map((e) => e.id)));
+  without(s, new Set(s.effects.filter((e) => e.kind === "rounds" && e.icon !== "dying").map((e) => e.id)));
+
+// --- The death timer (p. 89) ------------------------------------------------
+// A character at 0 HP is dying: on their turn they roll 1d4 + CON (at least
+// 1) and die in that many rounds unless healed or stabilized; on each later
+// turn a d20, a natural 20 rises with 1 HP. Player rows only: monsters at 0
+// just die. One Dying effect per token, never hidden (everyone sees it).
+
+export const deathTimer = (d4: number, con: number) => Math.max(1, Math.trunc(d4) + Math.trunc(con));
+
+export const dyingOf = (s: Effects, holder: string) => s.effects.find((e) => e.icon === "dying" && e.holder === holder) ?? null;
+
+// Can this row start dying? A living player token not already dying.
+export const canDie = (s: Effects, t: Tracker, holder: string) => {
+  const entry = t.entries.find((e) => e.id === holder);
+  return !!entry && holder !== GM_ENTRY && !entry.monster && !entry.dead && !dyingOf(s, holder);
+};
+
+// The timer counts from the turn it's rolled on: on the holder's own turn
+// that's now; otherwise their next turn is the rolling turn (one more). On
+// the rolling turn N rounds are left; it ends at the start of their turn N
+// rounds later, so they get N - 1 d20s.
+export const startDying = (state: Effects, t: Tracker, newId: () => string, holder: string, rounds: number): Effects => {
+  if (!canDie(state, t, holder)) throw new TypeError("Only a living player token that isn't dying can start dying");
+  if (!Number.isInteger(rounds) || rounds < 1 || rounds > ROUNDS_MAX) throw new RangeError(`1 to ${ROUNDS_MAX} rounds`);
+  const s = settle(state, t);
+  if (s.effects.length + 1 > MAX_EFFECTS) throw new RangeError(`Up to ${MAX_EFFECTS} effects on a map; remove one first`);
+  const end = endFor(t, holder, t.current === holder ? rounds : rounds + 1);
+  const dying: Effect = { id: newId(), name: "Dying", icon: "dying", holder, kind: "rounds", rounds, end, dice: null, endsWith: null, hidden: false };
+  return { ...s, effects: [...s.effects, dying] };
+};
+
+export const stopDying = (s: Effects, holder: string): Effects => {
+  const d = dyingOf(s, holder);
+  return d ? without(s, new Set([d.id])) : s;
+};
+
+// Stabilized (DC 15 INT first aid): no longer dying, still unconscious.
+export const stabilize = (s: Effects, t: Tracker, newId: () => string, holder: string): Effects => {
+  const stopped = stopDying(s, holder);
+  if (stopped === s) return s;
+  const unconscious: Effect = { id: newId(), name: "Unconscious", icon: "unconscious", holder, kind: "until", rounds: 0, end: null, dice: null, endsWith: null, hidden: false };
+  return { ...stopped, effects: [...settle(stopped, t).effects, unconscious] };
+};
+
+// The d20 is offered on the holder's turn after the rolling turn.
+export const deathRollDue = (e: Effect, t: Tracker) => {
+  if (e.icon !== "dying" || t.current !== e.holder) return false;
+  const st = statusOf(e, t);
+  return st.state === "active" && st.left !== null && st.left < e.rounds;
+};
 
 // Undo / redo of one step (undo.ts): put back only the effects the step
 // changed, over the doc as it is now. Parsing afterwards drops what no

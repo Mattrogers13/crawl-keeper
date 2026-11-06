@@ -239,6 +239,7 @@ describe("Tracker (GM)", () => {
       "Show on map",
       "Add note",
       "Add effect…",
+      "Dying…",
       "Give torch",
       "Give lantern",
       "Give Light spell",

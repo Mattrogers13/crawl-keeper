@@ -3,6 +3,13 @@ import { describe, expect, it } from "vitest";
 import {
   addEffects,
   AlreadyFocusingError,
+  canDie,
+  deathRollDue,
+  deathTimer,
+  dyingOf,
+  stabilize,
+  startDying,
+  stopDying,
   emptyEffects,
   endFocus,
   endFocusOf,
@@ -335,5 +342,68 @@ describe("parseEffects", () => {
       effects: s.effects.map((e) => ({ ...e, id: "abcd1234", holder: "h".repeat(36), end: { round: 9999, at: "a".repeat(36) }, endsWith: "abcd1234" })),
     };
     expect(new Blob([JSON.stringify(real)]).size).toBeLessThan(7000);
+  });
+});
+
+describe("the death timer (p. 89)", () => {
+  // The holder's timer status and whether the d20 is offered, turn by turn.
+  const trace = (s: Effects, from: Tracker, turns: number, holder = "a") => {
+    const out: string[] = [];
+    let t = from;
+    for (let i = 0; i < turns; i++) {
+      t = next(t);
+      if (t.current !== holder) continue;
+      const st = statusOf(s.effects[0], t);
+      out.push(`${t.round}:${st.state === "active" ? st.left : st.state}${deathRollDue(s.effects[0], t) ? "+d20" : ""}`);
+    }
+    return out;
+  };
+
+  it("1d4 + CON, at least 1", () => {
+    expect(deathTimer(2, 1)).toBe(3);
+    expect(deathTimer(1, -3)).toBe(1);
+  });
+
+  it("started on the holder's turn: N left now, a d20 on each later turn, ended N rounds on", () => {
+    const t = at(3, "a");
+    const s = startDying(emptyEffects(), t, newId, "a", 3);
+    expect(s.effects[0]).toMatchObject({ name: "Dying", icon: "dying", holder: "a", rounds: 3, hidden: false });
+    expect(statusOf(s.effects[0], t)).toEqual({ state: "active", left: 3 });
+    expect(deathRollDue(s.effects[0], t)).toBe(false);
+    expect(trace(s, t, 9)).toEqual(["4:2+d20", "5:1+d20", "6:ended"]);
+  });
+
+  it("started off their turn (after it, before it, between rounds): their next turn is the rolling turn", () => {
+    const betweenRounds = { ...at(3, GM_ENTRY), current: null };
+    const cases: [Tracker, string, string[]][] = [
+      [at(3, "b"), "a", ["4:2", "5:1+d20", "6:ended"]], // after a's turn in round 3
+      [at(3, "a"), "b", ["3:2", "4:1+d20", "5:ended"]], // before b's turn in round 3
+      [betweenRounds, "a", ["4:2", "5:1+d20", "6:ended"]],
+    ];
+    for (const [from, holder, expected] of cases) {
+      const s = startDying(emptyEffects(), from, newId, holder, 2);
+      expect(trace(s, from, 12, holder).slice(0, 3)).toEqual(expected);
+    }
+  });
+
+  it("player rows only, once; stop, stabilize (still unconscious), and Time passes leaves it", () => {
+    const t = at(2, "a");
+    expect(() => startDying(emptyEffects(), t, newId, "m", 2)).toThrow(TypeError);
+    expect(() => startDying(emptyEffects(), t, newId, GM_ENTRY, 2)).toThrow(TypeError);
+    expect(() => startDying(emptyEffects(), setDead(t, ["b"], true), newId, "b", 2)).toThrow(TypeError);
+    const s = startDying(emptyEffects(), t, newId, "a", 2);
+    expect(canDie(s, t, "a")).toBe(false);
+    expect(() => startDying(s, t, newId, "a", 2)).toThrow(TypeError);
+    expect(timePassesEffects(s)).toBe(s);
+    expect(stopDying(s, "a").effects).toEqual([]);
+    const st = stabilize(s, t, newId, "a");
+    expect(dyingOf(st, "a")).toBeNull();
+    expect(st.effects).toMatchObject([{ name: "Unconscious", icon: "unconscious", kind: "until", holder: "a" }]);
+    expect(stabilize(emptyEffects(), t, newId, "a")).toEqual(emptyEffects());
+  });
+
+  it("parses back from scene metadata", () => {
+    const s = startDying(emptyEffects(), at(2, "a"), newId, "a", 2);
+    expect(parseEffects(JSON.parse(JSON.stringify(s)))).toEqual(s);
   });
 });

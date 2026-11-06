@@ -16,6 +16,7 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 import Confirm from "./Confirm";
 import { onAddEffect, takeHandoff } from "../addEffectHandoff";
 import { AddEffect, RowEffects, type EffectsChange } from "./Effects";
+import DyingSheet from "./DyingSheet";
 import Notices from "./Notices";
 import TimeSheet from "./TimeSheet";
 import CrawlBar, { ClockDial, FOCUS, PlayerRoll } from "./CrawlBar";
@@ -26,6 +27,7 @@ import RowMenu from "./RowMenu";
 import Row, { INIT_SLOT, tokenInfo, type ButtonProps, type Token } from "./TrackerRow";
 import { EFFECTS_KEY, MONSTERS_FOLDED_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import {
+  endFocusOf,
   endingNow,
   focusChecks,
   parseEffects,
@@ -34,9 +36,11 @@ import {
   resetEffectRounds,
   settle,
   shown as shownEffects,
+  stopDying,
   type Effect,
   type Effects,
 } from "../effects";
+import { sayDeath } from "../deathNotices";
 import type { Change as HistoryChange } from "../history";
 import type { Role } from "../hooks/useRole";
 import { useLightStatus, useLights } from "../hooks/useLights";
@@ -63,6 +67,7 @@ import {
   prune,
   removeMonsters,
   resetRounds,
+  setDead,
   sortByRoll,
   toCombat,
   toCrawl,
@@ -109,10 +114,20 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   const [adding, setAdding] = useState<string[] | null>(null);
   // The Time passes sheet (the ⏳ beside the title).
   const [timing, setTiming] = useState(false);
-  // One sheet at a time: Add effects takes over from Time passes.
+  // The Dying sheet, for this row (row menu → Dying…).
+  const [dyingFor, setDyingFor] = useState<string | null>(null);
+  // One sheet at a time: the newest takes over.
   const openAdding = (ids: string[] | null) => {
-    if (ids) setTiming(false);
+    if (ids) {
+      setTiming(false);
+      setDyingFor(null);
+    }
     setAdding(ids);
+  };
+  const openDying = (id: string) => {
+    setAdding(null);
+    setTiming(false);
+    setDyingFor(id);
   };
   // Focus checks the GM called for now (damage, distraction): this panel only.
   const [checkNow, setCheckNow] = useState<string[]>([]);
@@ -294,7 +309,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   const calledChecks = seenEffects.effects.filter((e) => checkNow.includes(e.id) && !dueChecks.includes(e));
   const rowEffects = (e: Entry) => {
     const list = effectsOf.get(e.id);
-    return list ? <RowEffects effects={list} tracker={tracker} change={effectChange} current={e.id === current} /> : undefined;
+    return list ? <RowEffects effects={list} tracker={tracker} change={effectChange} current={e.id === current} name={names.get(e.id)} /> : undefined;
   };
   const rowProps = { gm, change, show, focus, openMenu, lightChange: gm ? lights.change : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker), noting, setNoting };
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
@@ -475,12 +490,21 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
         checks={[...dueChecks, ...calledChecks]}
         extra={calledChecks.map((e) => e.id)}
         dismiss={(id) => setCheckNow((c) => c.filter((x) => x !== id))}
-        ending={endingNow(seenEffects, tracker)}
+        ending={endingNow(seenEffects, tracker).filter((e) => e.icon !== "dying")}
         lights={gm && lights.loaded ? lights.lights.lights : NO_LIGHTS}
         loose={looseEffects}
         tracker={tracker}
         names={names}
         change={effectChange}
+        dying={seenEffects.effects.filter((e) => e.icon === "dying")}
+        markDead={
+          gm
+            ? (id) => {
+                change("Mark dead", (t) => setDead(t, [id], true), { effects: (s) => stopDying(endFocusOf(s, [id]), id) });
+                void sayDeath({ event: "died", name: names.get(id) ?? "A character" });
+              }
+            : null
+        }
       />
       {/* The GM's ⏳ beside the title: the Time passes sheet. */}
       {gm &&
@@ -494,6 +518,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
             className={`flex h-8 w-8 items-center justify-center rounded-full text-obr-text-secondary hover:bg-obr-bg hover:text-obr-text ${timing ? "bg-obr-primary/20 text-obr-text" : ""}`}
             onClick={() => {
               setAdding(null);
+              setDyingFor(null);
               setTiming(!timing);
             }}
           >
@@ -505,16 +530,18 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
       {/* Only the list scrolls: the controls above stay in view. */}
       <div className="relative -mx-1 flex min-h-0 flex-1 flex-col">
       {/* The Add effects and Time passes sheets cover the list while open (the panel is short). */}
-      {gm && (adding || timing) && (
+      {gm && (adding || timing || dyingFor) && (
         <div className="absolute inset-0 z-20 overflow-y-auto bg-obr-paper px-1">
           {adding ? (
             <AddEffect key={adding.join()} holders={adding} names={names} tracker={tracker} effects={effects} change={changeEffects} close={() => setAdding(null)} />
+          ) : dyingFor ? (
+            <DyingSheet key={dyingFor} holder={dyingFor} name={names.get(dyingFor) ?? "A character"} change={changeEffects} close={() => setDyingFor(null)} />
           ) : (
             <TimeSheet lights={lights.lights} effects={effects} change={lights.change} names={names} close={() => setTiming(false)} />
           )}
         </div>
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto px-1 pt-px" inert={gm && (adding || timing) ? true : undefined}>
+      <div className="min-h-0 flex-1 overflow-y-auto px-1 pt-px" inert={gm && (adding || timing || dyingFor) ? true : undefined}>
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -616,6 +643,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           effects={effects}
           addEffect={(ids) => openAdding(ids)}
           addNote={setNoting}
+          startDying={openDying}
           checkFocus={(id) => setCheckNow((c) => (c.includes(id) ? c : [...c, id]))}
         />
       )}
