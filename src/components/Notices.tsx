@@ -3,15 +3,32 @@
 // the rest (effects ending now, lights burned out, effects not on a row)
 // folds to one line with a count. Players get the same, read-only, minus
 // what's the GM's (darkness and lights are on their own rows).
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { EffectLine, type EffectsChange } from "./Effects";
 import { ChevronIcon } from "./icons";
+import { ID } from "../constants";
 import { endFocus, type Effect } from "../effects";
 import { useNow } from "../hooks/useNow";
 import { burnedOut, LIGHT_KINDS, type Light } from "../lights";
 import type { Tracker } from "../tracker";
+import { logEvent } from "../sessionLog";
+import { readSession, writeSession } from "../storage";
 import { errorMessage, notify } from "../utils";
+
+// Burned-out lights already told (✕, or the turn moved on): the session log
+// keeps them, the card lets them go. This tab's, like the undo history.
+const SEEN_KEY = `${ID}/lights-seen`;
+// One burning-out (a relit lantern that runs dry again is told again).
+const outKey = (l: Light) => `${l.id}@${l.spentAt ?? l.endsAt}`;
+const readSeen = (): Set<string> => {
+  try {
+    const ids = JSON.parse(readSession(SEEN_KEY) ?? "[]") as unknown;
+    return new Set(Array.isArray(ids) ? ids.filter((x): x is string => typeof x === "string").slice(-64) : []);
+  } catch {
+    return new Set();
+  }
+};
 
 type Line = { key: string; short: string; warn: boolean; node: React.ReactNode };
 
@@ -32,7 +49,26 @@ const Notices = (props: {
   const { checks, names, change } = props;
   const [open, setOpen] = useState(false);
   const now = useNow();
-  const spent = props.lights.filter((l) => burnedOut(l, now));
+  const [seen, setSeen] = useState(readSeen);
+  const spent = props.lights.filter((l) => burnedOut(l, now) && !seen.has(outKey(l)));
+  const letGo = (ids: string[]) => {
+    if (ids.length === 0) return;
+    setSeen((old) => {
+      const next = new Set([...old, ...ids]);
+      writeSession(SEEN_KEY, JSON.stringify([...next].slice(-64)));
+      return next;
+    });
+  };
+  // When the turn moves on, what burned out before it has been seen.
+  const turn = `${props.tracker.round}:${props.tracker.current}`;
+  const lastTurn = useRef(turn);
+  const spentNow = useRef(spent);
+  spentNow.current = spent;
+  useEffect(() => {
+    if (lastTurn.current === turn) return;
+    lastTurn.current = turn;
+    letGo(spentNow.current.map(outKey));
+  }, [turn]);
   const who = (e: Effect) => (e.holder === null ? "" : (names.get(e.holder) ?? "A token"));
   const lose = (e: Effect, nat1: boolean) => {
     try {
@@ -41,6 +77,7 @@ const Notices = (props: {
       notify(errorMessage(err), "WARNING");
       return;
     }
+    logEvent(`${who(e)} lost focus on ${e.name}${nat1 ? " (natural 1, a critical failure)" : ""}.`, "focus");
     if (nat1)
       notify(
         `${who(e)}: natural 1, a critical failure (p. 45). A wizard can't cast ${e.name} again until a rest and rolls on the Wizard Mishap table (p. 46); a priest can't until they do penance.`,
@@ -75,9 +112,18 @@ const Notices = (props: {
           <span className="w-4 text-center" aria-hidden>
             🔥
           </span>
-          <span>
+          <span className="min-w-0 flex-1">
             {LIGHT_KINDS[l.kind].label} · {names.get(l.tokenId) ?? l.carrier} burned out
           </span>
+          <button
+            type="button"
+            aria-label={`Dismiss: ${LIGHT_KINDS[l.kind].label} · ${names.get(l.tokenId) ?? l.carrier} burned out`}
+            title="Dismiss (the session log keeps it)"
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-obr-text-secondary hover:bg-obr-text/10"
+            onClick={() => letGo([outKey(l)])}
+          >
+            ✕
+          </button>
         </div>
       ),
     })),

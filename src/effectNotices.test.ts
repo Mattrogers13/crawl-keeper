@@ -1,3 +1,4 @@
+import { readLog } from "./sessionLog";
 import { describe, it, expect, vi } from "vitest";
 import OBR from "@owlbear-rodeo/sdk";
 
@@ -77,6 +78,7 @@ describe("watchEffectNotices (every client)", () => {
     await writeSceneFromElsewhere(scene("a", 3));
     await settle();
     expect(shown()).toEqual(["Bless on Aria ended. Cloudkill ended."]);
+    expect(readLog().map((e) => e.text)).toEqual(["Bless on Aria ended. Cloudkill ended."]);
     await writeSceneFromElsewhere(scene(GM_ENTRY, 2));
     await writeSceneFromElsewhere(scene("a", 3));
     await settle();

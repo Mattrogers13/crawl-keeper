@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import OBR from "@owlbear-rodeo/sdk";
 
 import ClockRules from "./ClockRules";
+import { ScrollIcon } from "./icons";
 import Loading from "./Loading";
 import Segmented from "./Segmented";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
@@ -50,7 +51,8 @@ const METHOD_HINTS: Record<Method, string> = {
     "No clock and no auto roll. The card shows the danger level and lights up on your turn when a check is due; roll its d6 or one at the table. A due check counts as made when you move on.",
 };
 
-const Settings = () => {
+// openLog: the Session log view (Panel's).
+const Settings = (props: { openLog?: () => void }) => {
   const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   if (!settings.loaded) return <Loading />;
   // Each change is an undo step named for the setting.
@@ -83,6 +85,25 @@ const Settings = () => {
         </span>
         <OpenIcon />
       </a>
+      {/* The session log: every notice, kept so the tracker can let them go. */}
+      {props.openLog && (
+        <button
+          type="button"
+          className="flex items-center gap-3 rounded-xl bg-obr-bg px-4 py-3 text-left ring-1 ring-obr-text/10 ring-inset hover:bg-obr-text/10 focus-visible:ring-2 focus-visible:ring-obr-primary focus-visible:outline-none"
+          onClick={props.openLog}
+        >
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-obr-primary/15 text-obr-primary" aria-hidden>
+            <ScrollIcon />
+          </span>
+          <span className="flex flex-1 flex-col">
+            <span className="font-medium">Session log</span>
+            <span className="text-xs text-obr-text-secondary">Lights out, Time passes, effects ending, combat, focus lost</span>
+          </span>
+          <span className="text-obr-text-secondary" aria-hidden>
+            ›
+          </span>
+        </button>
+      )}
 
       <Group title="Encounters">
         <div className="flex flex-col gap-2 px-4 py-3">
