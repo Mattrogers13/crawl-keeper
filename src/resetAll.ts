@@ -1,6 +1,6 @@
 // Settings → Reset all (Matt, 2026-11-06): a fresh session. This map's
 // tracker goes back to the GM row alone (rounds, phase, clock and rolls
-// reset; the danger level stays, it's the place), its effects go (and their
+// reset, the danger level back to Unsafe), its effects go (and their
 // map icons), the lights on the tracker's tokens go (a campfire prop not in
 // initiative keeps burning), and the session log is cleared (the panel
 // offers a download first). One undo step for the tracker, effects and
@@ -18,11 +18,9 @@ import { parseSettings } from "./settings";
 import { emptyTracker, parseTracker, type Tracker } from "./tracker";
 import { record } from "./undo";
 
-// Pure: the tracker after a reset.
-export const resetTracker = (t: Tracker): Tracker => {
-  const fresh = emptyTracker();
-  return { ...fresh, crawl: { ...fresh.crawl, danger: t.crawl.danger } };
-};
+// Pure: the tracker after a reset: as new (the danger level back to Unsafe
+// too, Matt 2026-11-06).
+export const resetTracker = (): Tracker => emptyTracker();
 
 // Pure: the lights after a reset: those on the tracker's tokens go (the
 // lighting rule is a setting; it stays). Paused only while lights remain.
@@ -52,7 +50,7 @@ const reset = async () => {
   let tracker: { before: Tracker; after: Tracker } | null = null;
   if (scene) {
     const before = parseTracker(scene[TRACKER_KEY]);
-    const after = resetTracker(before);
+    const after = resetTracker();
     const fxBefore = parseEffects(scene[EFFECTS_KEY]);
     await OBR.scene.setMetadata({ [TRACKER_KEY]: after, [EFFECTS_KEY]: emptyEffects() });
     tracker = { before, after };

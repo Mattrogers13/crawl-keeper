@@ -339,6 +339,13 @@ export const setRoll = (t: Tracker, id: string, roll: number | null): Tracker =>
   return id === GM_ENTRY && updated !== t && updated.gmDie ? { ...updated, gmDie: null } : updated;
 };
 
+// A roll typed or rolled: the list sorts itself by roll (Matt, 2026-11-06).
+// Clearing a roll leaves the order alone.
+export const enterRoll = (t: Tracker, id: string, roll: number | null): Tracker => {
+  const updated = setRoll(t, id, roll);
+  return roll === null || updated === t ? updated : sortByRoll(updated);
+};
+
 // The monsters' DEX modifier for the GM's initiative roll.
 export const setGmMod = (t: Tracker, mod: number): Tracker => {
   const gmMod = Math.max(MOD_MIN, Math.min(MOD_MAX, Math.trunc(mod)));
