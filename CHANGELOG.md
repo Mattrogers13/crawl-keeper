@@ -6,7 +6,7 @@ Versions follow semver; the same number is in `package.json` and `public/manifes
 
 - Party travels attached: pressing Party pulls each player to a free spot on their side of the party token, clear of Dynamic Fog's walls (no line through a wall from the party token, half a cell clear; otherwise they stack on it), attaches them to the party token (position only) and hides them, so they go wherever you drag it. Split detaches and shows them where they stand; anyone the trip carried behind a wall moves back to a legal spot. A player's own attachment (a mount) comes back on Split. To regroup somewhere else, drag the faded party token there first: it's the rally point.
 - Combat splits a party that's together, in the same step (one undo); with a light on the party token it asks for the carrier first.
-- A row's menu has Set as party token / Clear party token. Clearing or replacing the party token while together, or deleting it, lets the players go and shows them.
+- A row's menu has Set as party token / Clear party token. Clearing or replacing the party token while together splits first: its light goes back to the player who carried it (timer and all), and the players are let go and shown. Deleting it while together lets them go too.
 - If the switch fails, it now says so instead of doing nothing.
 
 ## v0.6.0 (2026-11-07)

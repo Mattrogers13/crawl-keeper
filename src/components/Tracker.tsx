@@ -60,7 +60,7 @@ import { NO_SELECTION, clickRow, keepRows, menuTargets, type Selection } from ".
 import { effectiveMode, parseSettings } from "../settings";
 import { readLocal, writeLocal } from "../storage";
 import { errorMessage, notify } from "../utils";
-import { switchParty, type Choice } from "../partyMode";
+import { changePartyToken, switchParty, type Choice } from "../partyMode";
 import {
   GM_ENTRY,
   gmEquation,
@@ -889,6 +889,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           addNote={setNoting}
           rename={setRenaming}
           party={tracker.party}
+          setParty={(id) => void changePartyToken(id).catch((err) => notify(`Couldn't change the party token: ${errorMessage(err)}`, "ERROR"))}
           startDying={openDying}
           checkFocus={(id) => setCheckNow((c) => (c.includes(id) ? c : [...c, id]))}
         />

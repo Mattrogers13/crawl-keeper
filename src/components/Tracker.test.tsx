@@ -128,6 +128,26 @@ describe("Tracker (GM)", () => {
     expect(at("p").visible).toBe(false);
   });
 
+  it("clearing the party token while together hands its light back to the carrier, timer and all, and lets the players go", async () => {
+    const torch = { id: "l1", kind: "torch", tokenId: "p", carrier: "Wagon", note: "", status: "lit", remainingMs: 1_800_000, endsAt: Date.now() + 1_800_000, spentAt: null };
+    obr.metadata = { [LIGHTS_KEY]: { lights: [torch] } };
+    obr.items = [
+      token("a", { name: "Aria", attachedTo: "p", visible: false }),
+      token("b", { name: "Borin", attachedTo: "p", visible: false }),
+      token("p", { name: "Wagon" }),
+    ];
+    scene([{ id: "a" }, { id: "b" }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p", together: true, carrier: "b" });
+    render(<App />);
+    await screen.findByText("Wagon");
+    await pick("Wagon", "Clear party token");
+    await waitFor(() => expect(saved().party).toBeNull());
+    const l = (obr.metadata[LIGHTS_KEY] as { lights: { tokenId: string; endsAt: number }[] }).lights[0];
+    expect(l.tokenId).toBe("b");
+    expect(l.endsAt).toBe(torch.endsAt);
+    await waitFor(() => expect(obr.items.filter((i) => i.id !== "p").map((i) => [i.attachedTo, i.visible])).toEqual([[undefined, true], [undefined, true]]));
+    expect(await screen.findByRole("button", { name: "Undo: Clear party token" })).toBeInTheDocument();
+  });
+
   it("Dynamic Fog's walls: nobody is pulled through one, and a player the trip carried behind one is moved back on Split", async () => {
     // A wall just east of the rally point, top to bottom (a local item, as Dynamic Fog builds them).
     obr.localItems = [{ ...token("w1"), type: "WALL", layer: "FOG", position: { x: 0, y: 0 }, points: [{ x: 900, y: 0 }, { x: 900, y: 2000 }], blocking: true } as never];

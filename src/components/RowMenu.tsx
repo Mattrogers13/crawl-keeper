@@ -4,7 +4,7 @@ import type { Change } from "./Tracker";
 import type { LightChange } from "../hooks/useLights";
 import { LIGHT_KINDS, addLight, formatRemaining, litOn, newLightId, outOn, relight, renew, swapLight, type LightKind, type Lights } from "../lights";
 import { dyingOf, endFocusOf, focusOf, stopDying, type Effects } from "../effects";
-import { GM_ENTRY, remove, setDead, setMarker, setMonster, toggleParty, type Entry } from "../tracker";
+import { GM_ENTRY, remove, setDead, setMarker, setMonster, type Entry } from "../tracker";
 
 // What a row can be given (a campfire goes on any token from the map's
 // right-click menu instead: docs/design.md).
@@ -32,8 +32,10 @@ const RowMenu = (props: {
   // Open the row's empty note to type in; edit the token's name in the row.
   addNote: (id: string) => void;
   rename: (id: string) => void;
-  // This map's Party token (Set / Clear party token from the row).
+  // This map's Party token (Set / Clear party token from the row), and the
+  // GM's way to change it (partyMode.ts: lights and players too).
   party: string | null;
+  setParty: (id: string) => void;
   checkFocus: (effectId: string) => void;
   // Open the Dying sheet for this row (the death timer, p. 89).
   startDying: (id: string) => void;
@@ -88,7 +90,7 @@ const RowMenu = (props: {
       [
         props.party === ids[0] ? "Clear party token" : "Set as party token",
         one && !entries[0].monster,
-        () => change(props.party === ids[0] ? "Clear party token" : "Set party token", (t) => toggleParty(t, ids[0])),
+        () => props.setParty(ids[0]),
       ],
       ["Add note", ids.length === 1 && !entries[0].note, () => props.addNote(ids[0])],
       ["Turn marker on", some((e) => !e.marker), () => change("Turn marker on", (t) => setMarker(t, ids, true))],
