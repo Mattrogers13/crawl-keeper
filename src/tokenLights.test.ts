@@ -40,6 +40,15 @@ describe("planTokenLights: the 3 ft minimum", () => {
     expect(planTokenLights(t, items, NONE, NOW, px)).toEqual([{ id: "p", light: dfLight(90), dim: true }]);
   });
 
+  it("with a Party token only the set taking turns: the players while split, the Party token while together", () => {
+    const entries = [{ id: "p" }, { id: "a" }, { id: GM_ENTRY }];
+    const items = [token("p"), token("a")];
+    const split = parseTracker({ entries, party: "p" });
+    expect(planTokenLights(split, items, NONE, NOW, px).map((c) => c.id)).toEqual(["a"]);
+    const together = parseTracker({ entries, party: "p", together: true });
+    expect(planTokenLights(together, items, NONE, NOW, px).map((c) => c.id)).toEqual(["p"]);
+  });
+
   it("ours come off when the token stops qualifying; one someone changed is theirs", () => {
     const ours = (id: string, l = dfLight(90)) => with_(id, { [DF_LIGHT_KEY]: l, [DIM_KEY]: true });
     const t = doc([{ id: "p", dead: true }, { id: "c", monster: true }, { id: "s" }]);

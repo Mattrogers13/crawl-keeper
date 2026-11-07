@@ -22,7 +22,7 @@ import { BADGE_KEY, ID, LIGHTS_KEY, TRACKER_KEY } from "./constants";
 import { isOurBadge, tokenCells } from "./marker";
 import { msToNextBurnOut, parseLights, shining, type LightKind, type Lights } from "./lights";
 import { isObject } from "./parse";
-import { parseTracker, type Tracker } from "./tracker";
+import { inTurns, parseTracker, type Tracker } from "./tracker";
 import { errorMessage, notify } from "./utils";
 
 // Dynamic Fog's light on a token (github.com/owlbear-rodeo/dynamic-fog).
@@ -77,7 +77,7 @@ export type TokenChange = { id: string; light?: unknown; lit?: LitMark | null; d
 // Pure: the changes that bring the map in line. `px` turns feet into this
 // map's pixels.
 export const planTokenLights = (t: Tracker, items: Item[], s: Lights, now: number, px: (ft: number) => number): TokenChange[] => {
-  const party = new Set(t.entries.filter((e) => !e.monster && !e.dead).map((e) => e.id));
+  const party = new Set(t.entries.filter((e) => !e.monster && !e.dead && inTurns(t, e)).map((e) => e.id));
   const lit = new Map<string, LightKind>();
   for (const l of s.lights) if (shining(l, now)) lit.set(l.tokenId, l.kind);
   const dimPx = px(DIM_FT);
