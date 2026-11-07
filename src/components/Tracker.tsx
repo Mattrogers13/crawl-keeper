@@ -499,7 +499,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
     n: goNext,
     b: () => change("Back", previous),
     r: () => {
-      if (!combat && due(tracker.crawl, mode, dark)) rollEncounter("Encounter roll");
+      if (!combat && mode !== "manual" && due(tracker.crawl, mode, dark)) rollEncounter("Encounter roll");
     },
   };
   const drop = ({ active, over }: DragEndEvent) => {

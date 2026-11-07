@@ -849,24 +849,20 @@ describe("Tracker (GM)", () => {
       await waitFor(() => expect(saved().crawl.last?.before).toBe(33));
     });
 
-    it("manual: the d6 and R roll a check; ▶ off the GM turn counts a due check made (rolled at the table)", async () => {
+    it("manual: just the darkness switch on the bar (no danger level, dial or die); R rolls nothing; ▶ off the GM turn still counts a due check made", async () => {
       obr.metadata = { [SETTINGS_KEY]: { encounterRolls: false, encounterMode: "clock", autoRoll: true } };
       obr.items = [token("a", { name: "Aria" })];
       scene([{ id: GM_ENTRY }, { id: "a" }], GM_ENTRY, 3, { crawl: { crawlRounds: 3 } });
       render(<App />);
-      // The standard cadence (Unsafe: due in crawl round 3), even with the clock chosen.
       const card = await screen.findByRole("region", { name: "Encounter checks" });
-      expect(card).toHaveTextContent("Check due: roll the d6, here or at the table");
-      expect(within(card).queryByRole("button", { name: "Roll d6" })).not.toBeInTheDocument();
-      fireEvent.click(screen.getByLabelText("Next turn"));
-      await waitFor(() => expect(saved()).toMatchObject({ current: "a", crawl: { lastCheck: 3, last: null } }));
       expect(card).toHaveTextContent("Manual rolls");
-      // An extra check from the die, any time; R only when one is due.
+      expect(within(card).queryByLabelText("Danger level")).not.toBeInTheDocument();
+      expect(within(card).queryByRole("button", { name: /Encounter check|Roll d/ })).not.toBeInTheDocument();
+      expect(within(card).getByRole("button", { name: /Torchlit|Darkness|dark/i })).toBeInTheDocument();
       fireEvent.keyDown(document.body, { key: "r" });
       expect(saved().crawl.last).toBeNull();
-      fireEvent.click(within(card).getByRole("button", { name: "Encounter check (d6)" }));
-      await waitFor(() => expect(saved().crawl.last).toMatchObject({ kind: "check" }));
-      expect(await screen.findByRole("button", { name: "Undo: Encounter check" })).toBeInTheDocument();
+      fireEvent.click(screen.getByLabelText("Next turn"));
+      await waitFor(() => expect(saved()).toMatchObject({ current: "a", crawl: { lastCheck: 3, last: null } }));
     });
 
     it("Settings: one choice of four sets the method; Manual keeps the clock size and hides auto roll and rolls", async () => {
