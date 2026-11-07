@@ -2,6 +2,19 @@
 
 Versions follow semver; the same number is in `package.json` and `public/manifest.json`.
 
+## v0.6.0 (2026-11-07)
+
+- Party token and Party | Split (after the first table session): right-click one character token → Crawl Keeper → Set as party token (it is tracked if it isn't yet; right-click it again to clear). A Party | Split switch then sits under the turn bar. Party: the party token takes the turns, at the highest-rolled player's roll and place, and the players sit out (their rows dim, their tokens hide on the map). Split: the reverse. Switching keeps the round and the turn in progress. The light goes with it: coming together, the players' lights move to the party token; splitting, the party token's light goes to a carrier you pick once (and the switch remembers). One undo step for the lot; setting or clearing the party token moves nothing by itself.
+- Hand light to…: select two tokens on the map, one holding a light (lit, or a lantern that's out), then right-click → Crawl Keeper → Hand light to…. The same timer, oil and note move to the other token, a prop included (a dropped torch, a set-down lantern). The menu has nine rows now.
+- Rename…: a row's menu renames the token itself in the row (Enter saves, Escape cancels). The row menu is grouped with thin lines between the groups.
+- Manual rolls: the crawl bar keeps only "Manual rolls", the Torchlit / Darkness switch and a small die (a d6, a d8 in darkness); no danger level or dial.
+- A small eye by the die shows or hides your rolls to players (Settings → Show rolls to players, now in every mode, the manual die included).
+- Settings are consistent: every switch under What players see reads "Show X to players" with on meaning shown (rounds and the clock were "Hide"; old rooms keep their choice). Show lights to players moved into that card.
+- Sort by roll is now the "Init" column heading (the top-bar button is gone). Possible deletion later; see docs/design.md.
+- Lights: once a torch, Light spell or campfire is out, it's out (no relight, no New torch, no setting its time back); its badge and notice stay through the turn and go at the next ▶. A lantern that ran dry can still be refilled. Remove works on a lit light too.
+- Pause: ❚❚ / ▶ in the panel header, and a red Paused bar across the top while the lights are paused (click it to resume).
+- The Light Tracker's rules moved behind an (i) popup; darkness reads "Darkness · DIS" everywhere, with the detail in a tooltip.
+
 ## v0.5.0 (2026-11-06)
 
 - Death timer (p. 89): a row's menu → Dying… for a player at 0 HP (monsters at 0 just die). Roll 1d4 + CON (pick the modifier; at least 1) or type what the table rolled. A Dying line under the row and a cracked-heart icon on the token, seen by everyone. On each of their later turns, the last one too (the turn the timer runs out is a last chance), the notices offer Roll d20 (a natural 20 rises with 1 HP), Nat 20 and Not a 20 for a roll at the table, Stabilized (still unconscious), Healed and Dead; on the last turn anything but a 20 is death (skull on the row and the token, the turn passes on). ▶ on a dying character's turn with no decision yet opens a prompt with the same choices, then moves on. Healed and Stabilized are also on the Dying line's menu for a heal on someone else's turn. Dying again after being stabilized replaces Unconscious (they don't stack). Everyone gets a notice for each step, and it's in everyone's session log, unless Settings → What players see → Show the death timer to players is off (then the line, icon, notices and rolls are the GM's alone). Dying… sits under Mark dead in the row menu. Time passes leaves a dying character alone; Mark dead ends the timer.
