@@ -314,17 +314,21 @@ describe("the strip, badges and DIS", () => {
   const strip = () => screen.getByRole("region", { name: "Notices" });
   const rowOf = (name: string) => screen.getAllByRole("listitem").reverse().find((r) => within(r).queryByText(name))!;
 
-  it("the GM clicks a torch's badge to put it out; spent, the badge is only a record", async () => {
+  it("the GM clicks a torch's badge and lands in the Light Tracker (nothing is put out); spent, it still opens it", async () => {
     obr.items = [token("a", { name: "Aria" })];
     obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a")] } };
     scene(["a"]);
     render(<App />);
-    const badge = await screen.findByRole("button", { name: "Torch: 1:00:00 left. Click: put out torch" });
+    fireEvent.click(await screen.findByRole("button", { name: "Torch: 1:00:00 left. Open the Light Tracker" }));
+    expect(await screen.findByRole("heading", { name: "Light Tracker" })).toBeInTheDocument();
+    await screen.findByRole("article", { name: "Torch · Aria" });
+    expect(saved().lights[0].status).toBe("lit");
+    // Spent, the badge is a picture, not a button.
     vi.setSystemTime(T0 + 5 * MINUTE);
-    fireEvent.click(badge);
+    fireEvent.click(within(card("Torch · Aria")).getByRole("button", { name: "Put out" }));
     await waitFor(() => expect(saved().lights[0].status).toBe("spent"));
-    expect(await screen.findByRole("img", { name: "Torch: spent" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Torch: spent/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back to tracker" }));
+    expect(await screen.findByRole("button", { name: "Torch: spent. Open the Light Tracker" })).toBeInTheDocument();
   });
 
   it("a spent torch's badge stays through the turn and goes at the next one", async () => {
@@ -332,22 +336,23 @@ describe("the strip, badges and DIS", () => {
     obr.metadata = { [LIGHTS_KEY]: { lights: [{ ...lit("l1", "a"), status: "spent", remainingMs: 0, endsAt: null, spentAt: T0 }] } };
     scene(["a"]);
     render(<App />);
-    expect(await screen.findByRole("img", { name: "Torch: spent" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Torch: spent. Open the Light Tracker" })).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText("Next turn"));
     await waitFor(() => expect(saved().lights).toHaveLength(0));
-    expect(screen.queryByRole("img", { name: "Torch: spent" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Torch: spent/ })).not.toBeInTheDocument();
   });
 
-  it("a lantern's badge: put out keeps the oil, rounded down; clicked again it burns on", async () => {
+  it("a lantern's badge opens the Light Tracker too; put out there keeps the oil, rounded down; Light burns on", async () => {
     obr.items = [token("a", { name: "Aria" })];
     obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a", "lantern")] } };
     scene(["a"]);
     render(<App />);
-    const badge = await screen.findByRole("button", { name: "Lantern: 1:00:00 left. Click: put out lantern" });
+    fireEvent.click(await screen.findByRole("button", { name: "Lantern: 1:00:00 left. Open the Light Tracker" }));
+    await screen.findByRole("heading", { name: "Light Tracker" });
     vi.setSystemTime(T0 + 5 * MINUTE);
-    fireEvent.click(badge);
+    fireEvent.click(within(card("Lantern · Aria")).getByRole("button", { name: "Put out" }));
     await waitFor(() => expect(saved().lights[0]).toMatchObject({ status: "out", remainingMs: 45 * MINUTE }));
-    fireEvent.click(await screen.findByRole("button", { name: "Lantern: out, 45:00 of oil. Click: light lantern" }));
+    fireEvent.click(within(card("Lantern · Aria")).getByRole("button", { name: "Light" }));
     await waitFor(() => expect(saved().lights[0].status).toBe("lit"));
     expect(left(0)).toBe(45 * MINUTE);
   });

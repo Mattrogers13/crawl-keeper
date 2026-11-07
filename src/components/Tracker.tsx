@@ -97,7 +97,7 @@ const NO_LIGHTS: Light[] = [];
 
 // toolSlot: the buttons beside the title (the GM's ⏳ Time passes); titleSlot:
 // beside the title, for the round count.
-const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?: HTMLElement | null }) => {
+const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?: HTMLElement | null; openLights?: () => void }) => {
   const { role, toolSlot = null, titleSlot = null } = props;
   const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   const doc = useSceneValue(TRACKER_KEY, parseTracker);
@@ -385,7 +385,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
       })
       .catch((err) => notify(`Couldn't rename the token: ${errorMessage(err)}`, "WARNING"));
   };
-  const rowProps = { gm, change: liveChange, show, focus, openMenu, lightChange: gm ? lights.change : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker), noting, setNoting, renaming, setRenaming, renameToken };
+  const rowProps = { gm, change: liveChange, show, focus, openMenu, openLights: gm ? (props.openLights ?? null) : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker), noting, setNoting, renaming, setRenaming, renameToken };
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
   const round = tracker.round;
   const roundLabel =

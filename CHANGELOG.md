@@ -12,6 +12,7 @@ Versions follow semver; the same number is in `package.json` and `public/manifes
 - Settings are consistent: every switch under What players see reads "Show X to players" with on meaning shown (rounds and the clock were "Hide"; old rooms keep their choice). Show lights to players moved into that card.
 - Sort by roll is now the "Init" column heading (the top-bar button is gone). Possible deletion later; see docs/design.md.
 - Lights: once a torch, Light spell or campfire is out, it's out (no relight, no New torch, no setting its time back); its badge and notice stay through the turn and go at the next ▶. A lantern that ran dry can still be refilled. Remove works on a lit light too.
+- A light badge on a row opens the Light Tracker (it used to put the light out on a click); the Light Tracker has the buttons.
 - Pause: ❚❚ / ▶ in the panel header, and a red Paused bar across the top while the lights are paused (click it to resume).
 - The Light Tracker's rules moved behind an (i) popup; darkness reads "Darkness · DIS" everywhere, with the detail in a tooltip.
 
