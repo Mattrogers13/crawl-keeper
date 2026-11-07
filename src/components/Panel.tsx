@@ -35,6 +35,7 @@ const Panel = ({ role }: { role: Role }) => {
   return (
     // Fills the popover: header and footer stay put, the content scrolls.
     <div className="flex h-screen flex-col gap-3 p-3 pb-0">
+      {role === "GM" && <PausedBar />}
       <header className="flex shrink-0 flex-col gap-2.5 border-b border-obr-text/10 pb-3">
         <div className="flex items-center gap-2">
           {away && (
@@ -123,6 +124,25 @@ const Panel = ({ role }: { role: Role }) => {
       <Footer />
       <ResizeGrip />
     </div>
+  );
+};
+
+// While the lights are paused, a red bar across the top (Matt, 2026-11-07);
+// clicking it resumes them and the normal view returns.
+const PausedBar = () => {
+  const { loaded, lights, change } = useLights();
+  if (!loaded || !lights.paused) return null;
+  return (
+    <button
+      type="button"
+      aria-label="Paused. Resume lights"
+      title="Lights are paused. Click to resume"
+      className="-mx-3 -mt-3 flex shrink-0 items-center justify-center gap-2 bg-red-700 px-3 py-2.5 text-base font-semibold tracking-wide text-white hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white"
+      onClick={() => change("Resume lights", resume)}
+    >
+      Paused
+      <span className="text-xs font-normal opacity-80">click to resume</span>
+    </button>
   );
 };
 

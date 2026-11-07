@@ -818,11 +818,16 @@ describe("Tracker (GM)", () => {
       render(<App />);
       const card = await screen.findByRole("region", { name: "Crawling Clock" });
       expect(within(card).getByRole("img", { name: "Players see the Crawling Clock" })).toBeInTheDocument();
-      expect(within(card).getByRole("img", { name: "Players see the rolls" })).toBeInTheDocument();
+      expect(within(card).getByRole("button", { name: "Hide rolls from players" })).toHaveAttribute("aria-pressed", "true");
       await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "standard", showClock: false, showDanger: true } });
       const standard = await screen.findByRole("region", { name: "Encounter checks" });
       expect(within(standard).getByRole("img", { name: "Players see the danger level" })).toBeInTheDocument();
       expect(within(standard).queryByRole("img", { name: /Players see the (Crawling Clock|rolls)/ })).toBeNull();
+      // The rolls are off here: the eye is muted, and one click shows them (an undo step).
+      fireEvent.click(within(standard).getByRole("button", { name: "Show rolls to players" }));
+      await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ showRolls: true }));
+      expect(await screen.findByRole("button", { name: "Undo: Setting: show rolls" })).toBeInTheDocument();
+      expect(within(standard).getByRole("button", { name: "Hide rolls from players" })).toBeInTheDocument();
     });
 
     it("sits under the turn bar (◀ ▶ never moves), not in the list; not there in Settings", async () => {

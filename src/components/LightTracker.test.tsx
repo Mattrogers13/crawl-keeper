@@ -208,6 +208,21 @@ describe("the Light Tracker", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("Paused: a red bar across the top that resumes on a click; Remove works on a lit light too", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    obr.metadata = { [LIGHTS_KEY]: { paused: true, lights: [{ ...lit("l1", "a"), endsAt: null }] } };
+    scene(["a"]);
+    render(<App />);
+    const bar = await screen.findByRole("button", { name: "Paused. Resume lights" });
+    expect(bar).toHaveTextContent("Paused");
+    fireEvent.click(bar);
+    await waitFor(() => expect(saved().paused).toBe(false));
+    expect(screen.queryByRole("button", { name: "Paused. Resume lights" })).not.toBeInTheDocument();
+    await open();
+    fireEvent.click(within(card("Torch · Aria")).getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(saved().lights).toHaveLength(0));
+  });
+
   it("Remove all lights asks first, then offers Undo", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a"), lit("l2", "b", "lightSpell")] } };

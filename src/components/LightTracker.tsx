@@ -68,9 +68,11 @@ const LightTracker = ({ names }: { names: Map<string, string> }) => {
         >
           {s.paused ? "▶ Resume" : "❚❚ Pause"}
         </button>
-        <InfoPopup label="How lights work" title="How lights work">
-          <LightRules />
-        </InfoPopup>
+        <span className="flex shrink-0 items-center self-center">
+          <InfoPopup label="How lights work" title="How lights work">
+            <LightRules />
+          </InfoPopup>
+        </span>
       </div>
 
       <TimePasses change={change} />
@@ -288,7 +290,7 @@ const LightCard = (props: { light: Light; name: string; now: number; paused: boo
           )}
           {lantern && !out && <Small onClick={on("Refill", (s, t) => refillOil(s, t, l.id))}>Refill oil</Small>}
           <Small onClick={() => setEditing(true)}>Edit</Small>
-          {!lit && <Small onClick={on("Remove", (s, t) => removeLight(s, t, l.id), { toast: true })}>Remove</Small>}
+          <Small onClick={on("Remove", (s, t) => removeLight(s, t, l.id), { toast: true })}>Remove</Small>
         </div>
       )}
     </article>
