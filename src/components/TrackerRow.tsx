@@ -1,6 +1,6 @@
 // One tracker row (token, or the GM / Monsters row with its monsters under
 // it) and its in-place inputs: roll, note, the monsters' DEX modifier.
-import { useState, type ChangeEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { useRef, useState, type ChangeEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { type Item } from "@owlbear-rodeo/sdk";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -75,6 +75,11 @@ const Row = (props: {
   // closing it again.
   noting: string | null;
   setNoting: (id: string | null) => void;
+  // The row whose token the GM is renaming (row menu → Rename…), saving the
+  // new name on the token itself, and closing the field.
+  renaming?: string | null;
+  setRenaming?: (id: string | null) => void;
+  renameToken?: (id: string, name: string) => void;
   // A monster under the GM row: indented, a smaller portrait.
   small?: boolean;
 }) => {
@@ -175,10 +180,19 @@ const Row = (props: {
         )}
         <div className="relative flex min-w-0 flex-1 flex-col">
           <span className="flex min-w-0 items-center gap-1">
-            <span className={`truncate leading-tight ${props.small ? "text-[13px]" : "font-medium"} ${entry.dead ? "line-through" : ""}`}>
-              {name}
-              {entry.dead && <span className="sr-only"> (dead)</span>}
-            </span>
+            {gm && token && props.renaming === entry.id ? (
+              <RenameInput
+                name={name}
+                small={props.small}
+                save={(n) => props.renameToken?.(entry.id, n)}
+                done={() => props.setRenaming?.(null)}
+              />
+            ) : (
+              <span className={`truncate leading-tight ${props.small ? "text-[13px]" : "font-medium"} ${entry.dead ? "line-through" : ""}`}>
+                {name}
+                {entry.dead && <span className="sr-only"> (dead)</span>}
+              </span>
+            )}
           </span>
           {gm && !token ? (
             // The GM row (no menu, no effects): an empty note hangs under the
@@ -460,6 +474,40 @@ const NoteInput = (props: { name: string; value: string; save: (n: string) => vo
         }}
       />
     </span>
+  );
+};
+
+// Renames the token itself (Owlbear's name, so the map label, the light cards
+// and the other tools follow). Enter or leaving the field saves; Escape
+// cancels; an empty or unchanged name does nothing.
+const RenameInput = (props: { name: string; small?: boolean; save: (name: string) => void; done: () => void }) => {
+  const [text, setText] = useState(props.name === "Unnamed" ? "" : props.name);
+  const finished = useRef(false);
+  const finish = (save: boolean) => {
+    if (finished.current) return;
+    finished.current = true;
+    const next = text.trim();
+    if (save && next !== "" && next !== props.name) props.save(next);
+    props.done();
+  };
+  return (
+    <input
+      aria-label={`Rename ${props.name}`}
+      autoFocus
+      value={text}
+      maxLength={100}
+      onChange={(e) => setText(e.target.value)}
+      onFocus={(e) => e.currentTarget.select()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") finish(true);
+        else if (e.key === "Escape") {
+          e.stopPropagation();
+          finish(false);
+        }
+      }}
+      onBlur={() => finish(true)}
+      className={`min-w-0 flex-1 rounded px-1 ${props.small ? "text-[13px]" : "font-medium"} ${GHOST_INPUT} ring-1 ring-obr-primary`}
+    />
   );
 };
 

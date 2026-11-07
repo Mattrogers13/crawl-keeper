@@ -55,13 +55,6 @@ export const UndoIcon = ({ redo = false }: { redo?: boolean }) => (
   </svg>
 );
 
-// Bars shortening downward: the usual "sort, highest first" icon.
-export const SortIcon = () => (
-  <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-    <path d="M2 4h12M2 8h8M2 12h4" />
-  </svg>
-);
-
 // A chevron: down when open, right when folded.
 export const ChevronIcon = ({ open }: { open: boolean }) => (
   <svg viewBox="0 0 10 10" className="h-2.5 w-2.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

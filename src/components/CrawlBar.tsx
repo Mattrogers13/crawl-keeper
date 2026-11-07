@@ -63,12 +63,14 @@ const CrawlBar = (props: {
   const last = lastFor(crawl, mode);
 
   // Manual rolls (Matt, 2026-11-07): the GM rolls at the table, so no danger
-  // level, dial or die; the darkness switch stays.
+  // level or dial; the darkness switch stays, with a small die for the
+  // occasional check (a d6, a d8 in darkness).
   if (manual) {
+    const sides = crawlDie(dark);
     return (
       <section
         aria-label="Encounter checks"
-        className="flex shrink-0 items-center justify-between gap-2.5 rounded-[14px] bg-obr-bg px-2.5 py-1.5 ring-1 ring-obr-text/10 ring-inset"
+        className="flex shrink-0 items-center gap-2.5 rounded-[14px] bg-obr-bg px-2.5 py-1 ring-1 ring-obr-text/10 ring-inset"
       >
         <span className="text-sm font-medium">Manual rolls</span>
         <TorchToggle
@@ -76,6 +78,20 @@ const CrawlBar = (props: {
           following={props.following}
           onClick={() => change(crawl.dark ? "Torchlit" : "Darkness", (c) => setDark(c, !c.dark))}
         />
+        <div className="relative ml-auto flex items-center gap-1.5">
+          {seen.rolls && <Seen what="the rolls" />}
+          <Die
+            tiny
+            roll={last}
+            sides={sides}
+            label={`Encounter check (d${sides})`}
+            rolling={props.rolling}
+            onClick={() => (props.roll ? props.roll("Encounter check") : change("Encounter check", (c) => rollFor(mode, start, dark)(c, cryptoRand)))}
+          />
+          <div role="status" aria-label="Last roll" className="flex max-w-[64px] flex-col items-center">
+            {last && <Outcome roll={last} />}
+          </div>
+        </div>
       </section>
     );
   }
@@ -272,19 +288,19 @@ const ChevronDown = ({ className }: { className: string }) => (
 // check, the total for the crawling die). Shaped like the next roll's die: a
 // d6, or a d8 for the crawling die in darkness. Red on an encounter, ringed
 // while a roll is due. Without onClick (players) it's a picture of the roll.
-const Die = (props: { roll: CrawlRoll | null; sides: number; label: string; due?: boolean; onClick?: () => void; small?: boolean; rolling?: boolean }) => {
+const Die = (props: { roll: CrawlRoll | null; sides: number; label: string; due?: boolean; onClick?: () => void; small?: boolean; tiny?: boolean; rolling?: boolean }) => {
   const { roll } = props;
   const enc = roll?.encounter ?? false;
   const d8 = props.sides === 8;
   const Face = props.onClick ? "button" : "span";
   return (
-    <div className={`flex shrink-0 items-center justify-center ${props.small ? "h-[52px] w-[52px]" : "h-[76px] w-[76px]"}`}>
+    <div className={`flex shrink-0 items-center justify-center ${props.tiny ? "h-9 w-9" : props.small ? "h-[52px] w-[52px]" : "h-[76px] w-[76px]"}`}>
       <Face
         {...(props.onClick
           ? { type: "button" as const, onClick: props.onClick, disabled: props.rolling, "aria-busy": props.rolling || undefined, title: `${props.label} (R when due)` }
           : { role: "img" })}
         aria-label={props.label}
-        className={`relative flex items-center justify-center ${props.small ? "h-11 w-11" : "h-14 w-14"} ${
+        className={`relative flex items-center justify-center ${props.tiny ? "h-7 w-7" : props.small ? "h-11 w-11" : "h-14 w-14"} ${
           props.onClick
             ? "transition-transform active:translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-obr-primary focus-visible:ring-offset-2 focus-visible:ring-offset-obr-bg"
             : ""
@@ -300,9 +316,9 @@ const Die = (props: { roll: CrawlRoll | null; sides: number; label: string; due?
         {props.rolling ? (
           <span className={`relative animate-pulse font-bold tracking-wide opacity-70 ${d8 ? "-translate-y-0.5 text-[11px]" : "text-xs"}`}>Dice+</span>
         ) : !roll ? (
-          <span className={`relative font-bold tracking-wide uppercase opacity-60 ${d8 ? "-translate-y-0.5 text-[11px]" : "text-xs"}`}>Roll</span>
+          <span className={`relative font-bold tracking-wide uppercase opacity-60 ${props.tiny ? "text-[9px]" : d8 ? "-translate-y-0.5 text-[11px]" : "text-xs"}`}>Roll</span>
         ) : roll.kind === "check" ? (
-          <Pips n={roll.dice[0]} />
+          <Pips n={roll.dice[0]} tiny={props.tiny} />
         ) : (
           <>
             <span className={`relative font-extrabold tabular-nums ${d8 ? "-translate-y-0.5 text-[20px]" : "text-[22px]"}`}>{roll.dice.reduce((a, b) => a + b, 0)}</span>
@@ -344,15 +360,15 @@ const PIPS: Record<number, [number, number][]> = {
   5: [[25, 25], [75, 25], [50, 50], [25, 75], [75, 75]],
   6: [[28, 22], [72, 22], [28, 50], [72, 50], [28, 78], [72, 78]],
 };
-const Pips = ({ n }: { n: number }) => (
+const Pips = ({ n, tiny = false }: { n: number; tiny?: boolean }) => (
   <>
     <span className="sr-only">{n}</span>
     {(PIPS[n] ?? []).map(([x, y], i) => (
       <i
         key={i}
         aria-hidden
-        className="absolute h-2.5 w-2.5 rounded-full bg-current"
-        style={{ left: `calc(${x}% - 5px)`, top: `calc(${y}% - 5px)` }}
+        className={`absolute rounded-full bg-current ${tiny ? "h-1.5 w-1.5" : "h-2.5 w-2.5"}`}
+        style={{ left: `calc(${x}% - ${tiny ? 3 : 5}px)`, top: `calc(${y}% - ${tiny ? 3 : 5}px)` }}
       />
     ))}
   </>
