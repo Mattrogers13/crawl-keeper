@@ -79,9 +79,29 @@ export const runRoomCheck = async (): Promise<CheckLine[]> => {
     say("Items on this map", null, [...census].map(([k, n]) => `${k} ×${n}`).join(", ") || "none");
     const fogKeys = new Map<string, number>();
     for (const i of all)
-      for (const k of Object.keys(i.metadata)) if (k.toLowerCase().includes("fog") || k.toLowerCase().includes("wall")) fogKeys.set(`${i.layer}/${i.type} ${k}`, (fogKeys.get(`${i.layer}/${i.type} ${k}`) ?? 0) + 1);
+      for (const k of Object.keys(i.metadata)) if (/fog|wall|door/i.test(k)) fogKeys.set(`${i.layer}/${i.type} ${k}`, (fogKeys.get(`${i.layer}/${i.type} ${k}`) ?? 0) + 1);
     say("Fog or wall data on items", fogKeys.size > 0 ? true : null, [...fogKeys].map(([k, n]) => `${k} ×${n}`).join("; ") || "none");
-    const sceneKeys = Object.keys(await OBR.scene.getMetadata()).filter((k) => /fog|wall/i.test(k));
+    // Dynamic Fog builds its walls from the fog tool's shapes: FOG-layer PATHs.
+    // How are they drawn (straight lines or curves, relative to the item's
+    // position?), and what do their own metadata keys say (doors?).
+    const shapes = all.filter((i) => i.layer === "FOG" && i.type === "PATH") as (Item & { commands?: unknown[][] })[];
+    for (const [n, sh] of shapes.slice(0, 3).entries()) {
+      const kinds = new Map<number, number>();
+      for (const c of sh.commands ?? []) kinds.set(c[0] as number, (kinds.get(c[0] as number) ?? 0) + 1);
+      const named = [...kinds].map(([k, v]) => `${["move", "line", "quad", "conic", "cubic", "close"][k] ?? k} ×${v}`).join(", ");
+      const first = (sh.commands ?? [])[0];
+      const b = await OBR.scene.items.getItemBounds([sh.id]).catch(() => null);
+      say(
+        `Fog shape ${n + 1}`,
+        null,
+        `${named}; first point (${first?.[1]}, ${first?.[2]}); item position (${Math.round(sh.position.x)}, ${Math.round(sh.position.y)}), rotation ${sh.rotation}, scale ${sh.scale.x}; bounds ${b ? `(${Math.round(b.min.x)}, ${Math.round(b.min.y)})–(${Math.round(b.max.x)}, ${Math.round(b.max.y)})` : "?"}; metadata: ${Object.keys(sh.metadata).join(", ") || "none"}`,
+      );
+    }
+    const local = await OBR.scene.local.getItems().catch(() => []);
+    const localCensus = new Map<string, number>();
+    for (const i of local) localCensus.set(`${i.layer}/${i.type}`, (localCensus.get(`${i.layer}/${i.type}`) ?? 0) + 1);
+    say("Local items (this browser only)", null, [...localCensus].map(([k, n]) => `${k} ×${n}`).join(", ") || "none");
+    const sceneKeys = Object.keys(await OBR.scene.getMetadata()).filter((k) => /fog|wall|door/i.test(k));
     say("Fog or wall data on the scene", sceneKeys.length > 0 ? true : null, sceneKeys.join(", ") || "none");
     say(
       "Walls readable",
