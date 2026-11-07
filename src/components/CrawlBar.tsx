@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 
 import Confirm from "./Confirm";
-import { EyeIcon } from "./icons";
+import { EyeIcon, HiddenIcon } from "./icons";
 import type { Change } from "./Tracker";
 import {
   CLOCK_DIE,
@@ -46,6 +46,8 @@ const CrawlBar = (props: {
   // What players see of this card (Settings → What players see): a small
   // green eye on each (Matt, 2026-11-06).
   seen?: { clock: boolean; danger: boolean; rolls: boolean };
+  // Show or hide the rolls to players: a small eye by the die (Matt, 2026-11-07).
+  toggleRolls?: () => void;
   // The roll (Tracker's: here or Dice+); `rolling` while Dice+ rolls.
   roll?: (label: string) => void;
   rolling?: boolean;
@@ -79,7 +81,7 @@ const CrawlBar = (props: {
           onClick={() => change(crawl.dark ? "Torchlit" : "Darkness", (c) => setDark(c, !c.dark))}
         />
         <div className="relative ml-auto flex items-center gap-1.5">
-          {seen.rolls && <Seen what="the rolls" />}
+          <RollsEye shown={seen.rolls} toggle={props.toggleRolls} />
           <Die
             tiny
             roll={last}
@@ -179,7 +181,7 @@ const CrawlBar = (props: {
       </div>
 
       <div className="relative flex items-center gap-1.5">
-        {seen.rolls && <Seen what="the rolls" />}
+        <RollsEye shown={seen.rolls} toggle={props.toggleRolls} />
         <Die
           small
           roll={last}
@@ -198,6 +200,27 @@ const CrawlBar = (props: {
         </div>
       </div>
     </section>
+  );
+};
+
+// By the die: green when players see the rolls, muted and struck when they
+// don't. One click flips it (the same setting as Settings → Show rolls to
+// players, and an undo step). Without a way to flip it, only the green eye.
+const RollsEye = ({ shown, toggle }: { shown: boolean; toggle?: () => void }) => {
+  if (!toggle) return shown ? <Seen what="the rolls" /> : null;
+  return (
+    <button
+      type="button"
+      aria-label={shown ? "Hide rolls from players" : "Show rolls to players"}
+      aria-pressed={shown}
+      title={shown ? "Players see the rolls. Click to hide them" : "Players don't see the rolls. Click to show them"}
+      className={`absolute -top-1 -left-1 z-10 flex h-4 w-4 shrink-0 items-center justify-center rounded-full ring-2 ring-obr-bg ${
+        shown ? "bg-emerald-600/90 text-white" : "bg-obr-text/15 text-obr-text-secondary hover:bg-obr-text/25"
+      }`}
+      onClick={toggle}
+    >
+      {shown ? <EyeIcon className="h-2.5 w-2.5" /> : <HiddenIcon className="h-2.5 w-2.5" />}
+    </button>
   );
 };
 

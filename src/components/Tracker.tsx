@@ -366,6 +366,15 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
     const list = effectsOf.get(e.id);
     return list ? <RowEffects effects={list} tracker={tracker} change={effectChange} current={e.id === current} name={names.get(e.id)} /> : undefined;
   };
+  // The eye by the die: show or hide the rolls to players, the Settings switch
+  // as an undo step.
+  const toggleRolls = () => {
+    const before = settings.value;
+    const after = { ...before, showRolls: !before.showRolls };
+    void settings.write(after).then((saved) => {
+      if (saved) void record(`Setting: ${after.showRolls ? "show" : "hide"} rolls`, [{ store: "room", key: SETTINGS_KEY, before, after }]);
+    });
+  };
   // Renames the token itself, so the map label, the light cards and every
   // other tool follow. Not an undo step (the scene's items aren't ours to
   // restore); rename it back.
@@ -666,6 +675,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           change={(label, fn, opts) => change(label, (t) => updateCrawl(t, fn), opts)}
           roll={rollEncounter}
           rolling={rolling}
+          toggleRolls={toggleRolls}
           seen={{
             clock: mode === "clock" && settings.value.showClock,
             danger: mode !== "clock" && settings.value.showDanger,
