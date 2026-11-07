@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import OBR from "@owlbear-rodeo/sdk";
 
 import ClockRules from "./ClockRules";
@@ -478,7 +478,7 @@ const RoomCheck = () => {
       >
         {busy ? "Checking…" : "Run the room check"}
       </button>
-      <DebugLog />
+      <DebugLog key={lines ? lines.length : 0} check={lines} />
       {lines && (
         <ul className="flex flex-col gap-1">
           {lines.map((l, i) => (
@@ -493,12 +493,38 @@ const RoomCheck = () => {
   );
 };
 
-// Dev only (debugLog.ts): the last switch steps, notices and map changes, to
-// copy into a bug report.
-const DebugLog = () => {
+// Dev only (debugLog.ts): the room check's results and the last switch
+// steps, notices and map changes, to copy into a bug report. Owlbear's frame
+// may block the clipboard API, so Copy falls back to selecting the box and
+// the browser's own copy.
+const DebugLog = ({ check }: { check: CheckLine[] | null }) => {
   const [log, setLog] = useState(readDebug);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"" | "Copied" | "Press Cmd+C">("");
+  const box = useRef<HTMLTextAreaElement>(null);
   const small = "h-7 rounded-md px-2.5 font-medium ring-1 ring-obr-text/15 ring-inset hover:bg-obr-text/10";
+  const report = [
+    ...(check ? ["Room check", ...check.map((l) => `${l.ok === true ? "OK" : l.ok === false ? "FAIL" : "-"} ${l.label}: ${l.detail}`), ""] : []),
+    "Debug log",
+    ...log,
+  ].join("\n");
+  const copy = () => {
+    const el = box.current;
+    if (!el) return;
+    el.focus();
+    el.select();
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch {
+      ok = false;
+    }
+    if (ok) return setCopied("Copied");
+    void navigator.clipboard
+      ?.writeText(report)
+      .then(() => setCopied("Copied"))
+      .catch(() => setCopied("Press Cmd+C"));
+    if (!navigator.clipboard) setCopied("Press Cmd+C");
+  };
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-1.5">
@@ -506,18 +532,8 @@ const DebugLog = () => {
         <button type="button" className={small} onClick={() => setLog(readDebug())}>
           Refresh
         </button>
-        <button
-          type="button"
-          className={small}
-          onClick={() => {
-            const text = readDebug().join("\n");
-            void navigator.clipboard
-              .writeText(text)
-              .then(() => setCopied(true))
-              .catch(() => setCopied(false));
-          }}
-        >
-          {copied ? "Copied" : "Copy"}
+        <button type="button" className={small} onClick={copy}>
+          {copied || "Copy all"}
         </button>
         <button
           type="button"
@@ -525,17 +541,18 @@ const DebugLog = () => {
           onClick={() => {
             clearDebug();
             setLog([]);
-            setCopied(false);
+            setCopied("");
           }}
         >
           Clear
         </button>
       </div>
       <textarea
+        ref={box}
         aria-label="Debug log"
         readOnly
-        value={log.join("\n")}
-        rows={8}
+        value={report}
+        rows={10}
         onFocus={(e) => e.currentTarget.select()}
         className="w-full resize-y rounded-md bg-obr-paper p-2 font-mono text-[10px] ring-1 ring-obr-text/15 ring-inset"
       />

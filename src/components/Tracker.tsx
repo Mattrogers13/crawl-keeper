@@ -61,6 +61,7 @@ import { effectiveMode, parseSettings } from "../settings";
 import { readLocal, writeLocal } from "../storage";
 import { errorMessage, notify } from "../utils";
 import { changePartyToken, switchParty, type Choice } from "../partyMode";
+import { debug } from "../debugLog";
 import {
   GM_ENTRY,
   gmEquation,
@@ -371,10 +372,12 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   // Party | Split (and Combat's split). A light on the Party token asks who
   // carries it first; the pick runs it again.
   const runSwitch = (together: boolean, pick?: string, combat = false) => {
+    if (carrierChoices && pick === undefined) return; // the question is open: answer it or cancel
     setCarrierChoices(null);
     setAskedByCombat(combat);
     switchParty(together, pick, combat ? { clearRolls: settings.value.clearRollsOnCombat } : undefined)
       .then((choices) => {
+        if (choices) debug("switch", "asking who carries the light", { choices: choices.map((c) => c.name) });
         setCarrierChoices(choices);
         if (!choices) setAskedByCombat(false);
       })
@@ -961,22 +964,35 @@ const PartySwitch = (props: {
         </div>
         <span className="text-xs text-obr-text-secondary">{together ? "Party token has the turns" : "Players have the turns"}</span>
       </div>
+      {/* A dialog over the panel: inline under the switch it was easy to miss,
+          and each press redrew it (Matt's "flicker", 2026-11-07). */}
       {choices && (
-        <div role="group" aria-label="Who carries the light" className="flex flex-wrap items-center gap-1.5 rounded-xl bg-obr-bg px-3 py-2 text-xs ring-1 ring-obr-text/10 ring-inset">
-          <span className="font-medium">Who carries the light?</span>
-          {choices.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              className="h-7 rounded-md px-2.5 font-medium ring-1 ring-obr-text/15 ring-inset hover:bg-obr-text/10"
-              onClick={() => props.go(false, c.id)}
-            >
-              {c.name}
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-3 pt-16" onPointerDown={(e) => e.target === e.currentTarget && props.cancel()}>
+          <div
+            role="dialog"
+            aria-label="Who carries the light"
+            className="flex w-full max-w-sm flex-col gap-3 rounded-xl bg-obr-paper p-4 text-sm shadow-xl ring-1 ring-obr-text/10"
+            onKeyDown={(e) => e.key === "Escape" && props.cancel()}
+          >
+            <h2 className="text-base font-semibold">Who carries the light?</h2>
+            <p className="text-xs text-obr-text-secondary">The party token's light goes to this player when the party splits, timer and all. Next time they're asked first.</p>
+            <div className="flex flex-wrap gap-1.5">
+              {choices.map((c, i) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  autoFocus={i === 0}
+                  className="h-8 rounded-md px-3 font-medium ring-1 ring-obr-text/15 ring-inset hover:bg-obr-text/10 focus-visible:ring-2 focus-visible:ring-obr-primary focus-visible:outline-none"
+                  onClick={() => props.go(false, c.id)}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+            <button type="button" className="h-8 self-end rounded-md px-3 text-obr-text-secondary hover:bg-obr-text/10" onClick={props.cancel}>
+              Cancel
             </button>
-          ))}
-          <button type="button" className="h-7 rounded-md px-2.5 text-obr-text-secondary hover:bg-obr-text/10" onClick={props.cancel}>
-            Cancel
-          </button>
+          </div>
         </div>
       )}
     </div>
