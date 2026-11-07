@@ -18,7 +18,6 @@ import {
   formatRemaining,
   lightStatus,
   low,
-  moveLight,
   parseClockEntry,
   parseTimeEntry,
   pause,
@@ -46,10 +45,8 @@ import { timePassesEffects } from "../effects";
 // the p. 84 lighting rule. GM only, inside the panel like Settings. Lights start
 // on tokens (a row's menu: Give torch), so there are no + buttons here.
 // `names`: token id → its name on the open map (a light off the map shows
-// the name it was lit with). `targets`: the open map's tokens a light can be
-// handed to.
-export type Target = { id: string; name: string; layer?: string };
-const LightTracker = ({ names, targets = [] }: { names: Map<string, string>; targets?: Target[] }) => {
+// the name it was lit with).
+const LightTracker = ({ names }: { names: Map<string, string> }) => {
   const { loaded, lights: s, change } = useLights();
   // Read only (Settings writes it): with Follow light off, no light shining
   // isn't darkness; the crawl card's switch decides.
@@ -84,7 +81,7 @@ const LightTracker = ({ names, targets = [] }: { names: Map<string, string>; tar
       </button>
 
       {s.lights.map((l) => (
-        <LightCard key={l.id} light={l} name={names.get(l.tokenId) ?? l.carrier} targets={targets} now={now} paused={s.paused} change={change} />
+        <LightCard key={l.id} light={l} name={names.get(l.tokenId) ?? l.carrier} now={now} paused={s.paused} change={change} />
       ))}
       {s.lights.length > 0 && (
         <div className="-mt-1">
@@ -197,11 +194,10 @@ export const TimePasses = ({ change, compact = false }: { change: LightChange; c
 
 export const ICONS: Record<LightKind, string> = { torch: "🔥", lantern: "🏮", lightSpell: "✨", campfire: "🏕️" };
 
-const LightCard = (props: { light: Light; name: string; targets: Target[]; now: number; paused: boolean; change: LightChange }) => {
+const LightCard = (props: { light: Light; name: string; now: number; paused: boolean; change: LightChange }) => {
   const { light: l, name, now, change } = props;
   const [editing, setEditing] = useState(false);
   const [settingTime, setSettingTime] = useState(false);
-  const [handing, setHanding] = useState(false);
   const kind = LIGHT_KINDS[l.kind];
   const label = kind.label.toLowerCase();
   const out = burnedOut(l, now);
@@ -258,12 +254,6 @@ const LightCard = (props: { light: Light; name: string; targets: Target[]; now: 
           close={() => setEditing(false)}
           save={(note) => change(`Note on ${label}`, (s, t) => editNote(s, t, l.id, note))}
         />
-      ) : handing ? (
-        <HandTo
-          targets={props.targets.filter((x) => x.id !== l.tokenId)}
-          close={() => setHanding(false)}
-          pick={(x) => change(`Hand ${label} to ${x.name}`, (s, t) => moveLight(s, t, l.id, x.id, x.name))}
-        />
       ) : (
         <div className="flex flex-wrap gap-1.5">
           {lit && <Small onClick={on("Put out", (s, t) => putOut(s, t, l.id))}>Put out</Small>}
@@ -278,7 +268,6 @@ const LightCard = (props: { light: Light; name: string; targets: Target[]; now: 
             </Small>
           )}
           {lantern && !out && <Small onClick={on("Refill", (s, t) => refillOil(s, t, l.id))}>Refill oil</Small>}
-          {!burnedOut(l, now) && l.status !== "spent" && <Small onClick={() => setHanding(true)}>Hand to…</Small>}
           <Small onClick={() => setEditing(true)}>Edit</Small>
           {!lit && <Small onClick={on("Remove", (s, t) => removeLight(s, t, l.id), { toast: true })}>Remove</Small>}
         </div>
@@ -297,34 +286,6 @@ const Small = ({ primary = false, onClick, children }: { primary?: boolean; onCl
   >
     {children}
   </button>
-);
-
-// Picks the token a light moves to; the timer goes with it.
-const HandTo = ({ targets, close, pick }: { targets: Target[]; close: () => void; pick: (t: Target) => void }) => (
-  <div className="flex items-center gap-1.5">
-    <select
-      aria-label="Hand the light to"
-      autoFocus
-      defaultValue=""
-      onChange={(e) => {
-        const x = targets.find((t) => t.id === e.target.value);
-        if (x) pick(x);
-        close();
-      }}
-      onKeyDown={(e) => e.key === "Escape" && close()}
-      className="h-7 min-w-0 flex-1 rounded-md bg-obr-paper px-2 text-xs ring-1 ring-obr-text/15 ring-inset focus:ring-2 focus:ring-obr-primary focus:outline-none"
-    >
-      <option value="" disabled>
-        {targets.length === 0 ? "No other tokens on this map" : "Choose a token…"}
-      </option>
-      {targets.map((x) => (
-        <option key={x.id} value={x.id}>
-          {x.layer && x.layer !== "CHARACTER" ? `${x.name} (${x.layer.toLowerCase()})` : x.name}
-        </option>
-      ))}
-    </select>
-    <Small onClick={close}>Cancel</Small>
-  </div>
 );
 
 // The carrier is the token (its name follows it), so only the note edits.
