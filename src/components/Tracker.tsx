@@ -743,6 +743,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
                   token={tokenFor(entry)}
                   current={entry.id === current}
                   selected={selection.ids.includes(entry.id)}
+                  party={entry.id === tracker.party}
                   {...rowProps}
                 >
                   {entry.id === GM_ENTRY && monsters.length > 0 && (

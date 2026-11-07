@@ -72,6 +72,9 @@ export type Tracker = {
   // (`d20 12 + 2`). Shown only while it still adds up to that row's roll (a
   // typed roll replaces it).
   gmDie: GmDie | null;
+  // The Party token: one tracked player entry standing for the whole party
+  // while exploring. Null when the map has none.
+  party: string | null;
 };
 
 export type GmDie = { die: number; mod: number };
@@ -84,6 +87,7 @@ export const emptyTracker = (): Tracker => ({
   crawl: emptyCrawl(),
   gmMod: 0,
   gmDie: null,
+  party: null,
 });
 
 
@@ -124,6 +128,7 @@ export const parseTracker = (raw: unknown): Tracker => {
     crawl: parseCrawl(raw.crawl),
     gmMod: intIn(raw.gmMod, MOD_MIN, MOD_MAX) ?? 0,
     gmDie: parseGmDie(raw.gmDie),
+    party: typeof raw.party === "string" && entries.some((e) => e.id === raw.party && e.id !== GM_ENTRY && !e.monster) ? raw.party : null,
   };
   // A turn only exists inside a round, and only for an entry that takes
   // turns now (living; monsters only in combat).
@@ -305,7 +310,8 @@ export const remove = (t: Tracker, ids: string[]): Tracker => {
 // passes to whoever would have been next (in the old order) and still gets
 // turns.
 const withEntries = (t: Tracker, entries: Entry[]): Tracker => {
-  const updated = { ...t, entries };
+  const party = t.party !== null && entries.some((e) => e.id === t.party && !e.monster) ? t.party : null;
+  const updated = { ...t, entries, party };
   const turns = new Set(turnOrder(updated).map((e) => e.id));
   if (t.current === null || turns.has(t.current)) return updated;
   const order = turnOrder(t);
@@ -411,3 +417,19 @@ export const toggle = (t: Tracker, ids: string[]): Tracker => {
   const have = new Set(t.entries.map((e) => e.id));
   return ids.length > 0 && ids.every((id) => have.has(id)) ? remove(t, ids) : add(t, ids);
 };
+
+// The Party token (right-click "Set as party token"): a player entry that
+// stands for everyone. Setting it tracks the token if it isn't yet (no room,
+// a monster or the GM row: nothing changes); another token replaces it; null
+// clears it.
+export const setParty = (t: Tracker, id: string | null): Tracker => {
+  if (id === null) return t.party === null ? t : { ...t, party: null };
+  if (id === GM_ENTRY || t.party === id) return t;
+  const tracked = add(t, [id]);
+  const entry = tracked.entries.find((e) => e.id === id);
+  if (!entry || entry.monster) return t;
+  return { ...tracked, party: id };
+};
+
+// The right-click row: the Party token again clears it.
+export const toggleParty = (t: Tracker, id: string): Tracker => setParty(t, t.party === id ? null : id);

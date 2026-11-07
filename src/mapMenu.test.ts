@@ -28,13 +28,13 @@ const apply = (s: Lights, tokens: MenuToken[], i: number) => {
 
 describe("the map menu's rows", () => {
   it("one untracked token: Add to initiative and every light; nothing to put out", () => {
-    expect(labels(none, [tok("b")])).toEqual(["Add to initiative", "Add effect…", "Light torch", "Light lantern", "Cast Light", "Light campfire", "(Put out light)", "(Hand light to…)"]);
+    expect(labels(none, [tok("b")])).toEqual(["Add to initiative", "Add effect…", "Light torch", "Light lantern", "Cast Light", "Light campfire", "(Put out light)", "(Hand light to…)", "Set as party token"]);
   });
 
   it("a tracked token holding a torch: Remove, the torch row off, a swap for the others, Put out the torch", () => {
     const s = parseLights({ lights: [lit("a")] });
     const rows = menuRows(t, s, [tok("a")], NOW);
-    expect(labels(s, [tok("a")])).toEqual(["Remove from initiative", "Add effect…", "(Light torch)", "Light lantern", "Cast Light", "Light campfire", "Put out the torch", "(Hand light to…)"]);
+    expect(labels(s, [tok("a")])).toEqual(["Remove from initiative", "Add effect…", "(Light torch)", "Light lantern", "Cast Light", "Light campfire", "Put out the torch", "(Hand light to…)", "Set as party token"]);
     expect(rows[2].title).toBe("Torch already lit");
     expect(rows[3].title).toBe("Puts out the torch");
     const swapped = apply(s, [tok("a")], 3);
@@ -51,14 +51,14 @@ describe("the map menu's rows", () => {
 
   it("a prop: Add effect and a campfire; initiative and the carried lights are off", () => {
     const rows = menuRows(t, none, [tok("f", "PROP")], NOW);
-    expect(rows.map((r) => r.enabled)).toEqual([false, true, false, false, false, true, false, false]);
+    expect(rows.map((r) => r.enabled)).toEqual([false, true, false, false, false, true, false, false, false]);
     expect(rows[0].title).toBe("Character tokens only");
   });
 
   it("several tokens: each one lit, skipping those already holding it; Put out lights for the lit ones", () => {
     const s = parseLights({ lights: [lit("a")] });
     const tokens = [tok("a"), tok("b"), tok("c")];
-    expect(labels(s, tokens)).toEqual(["Add to initiative", "Add effect to 3…", "Light torch (2)", "Light lantern (3)", "Cast Light (3)", "Light campfire (3)", "Put out the torch", "(Hand light to…)"]);
+    expect(labels(s, tokens)).toEqual(["Add to initiative", "Add effect to 3…", "Light torch (2)", "Light lantern (3)", "Cast Light (3)", "Light campfire (3)", "Put out the torch", "(Hand light to…)", "(Set as party token)"]);
     expect(menuRows(t, s, tokens, NOW)[1].action).toEqual({ type: "addEffect", ids: ["a", "b", "c"] });
     const after = apply(s, tokens, 2);
     expect(after.lights.filter((l) => l.status === "lit").map((l) => l.tokenId).sort()).toEqual(["a", "b", "c"]);
@@ -88,6 +88,19 @@ describe("Hand light to… (two tokens selected)", () => {
     expect(hand(none, [tok("a"), tok("b")])).toMatchObject({ enabled: false, title: "Neither token holds a light" });
     expect(hand(s, [tok("a"), tok("b")])).toMatchObject({ enabled: false, title: "Both tokens hold a light" });
     expect(hand(parseLights({ lights: [lit("a")] }), [tok("a"), tok("b"), tok("c")]).enabled).toBe(false);
+  });
+});
+
+describe("Set as party token", () => {
+  const row = (tokens: MenuToken[], tr = t) => menuRows(tr, none, tokens, NOW)[8];
+
+  it("one character token sets it; the party token itself offers Clear", () => {
+    expect(row([tok("a")])).toMatchObject({ label: "Set as party token", enabled: true, action: { type: "party", id: "a" } });
+    expect(row([tok("a")], { ...t, party: "a" })).toMatchObject({ label: "Clear party token", enabled: true });
+  });
+
+  it("off, with the reason, for none, several, or a prop", () => {
+    for (const tokens of [[], [tok("a"), tok("b")], [tok("p", "PROP")]]) expect(row(tokens)).toMatchObject({ enabled: false, title: "Select one character token" });
   });
 });
 
