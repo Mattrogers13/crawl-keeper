@@ -218,4 +218,7 @@ Torchlight uninstalled. Dynamic Fog on for rows 72–74. Rows 66–76 sum up the
 | 122 | GM: Light Tracker: the i; the header row; Settings → darkness text | Rules sit in the popup (Escape closes), the i is centred with the Pause button; darkness reads "Darkness · DIS" with detail on hover | |
 | 123 | GM: ❚❚ in the panel header; the red bar; click it; Light Tracker's Pause | While paused: amber ▶ in the header and a red Paused bar across the top (every view); clicking the bar resumes and the bar goes; times freeze while paused | |
 | 124 | Player (private window): Party / Split and a dropped torch | The player sees only visible tokens and the tracker rows for them; their Light view follows a handoff; they can light only visible party tokens | |
+| 125 | GM: players spread in a loose group, a party token placed far away; press Party | The party token jumps to the middle of the players, then the players hide; the next Split brings them back in the same shape | |
+| 126 | GM: Party, drag the party token across the map, Split; again with a new player token added in between | The players appear around the party token where they stood relative to the group; a player added since lands on a ring beside it; undo restores visibility and lights but not positions | |
+| 127 | GM: Party with one player's token deleted, then Split; a dead player in the group | A deleted token is skipped without an error; a dead player stays where they are and isn't pulled in | |
 
