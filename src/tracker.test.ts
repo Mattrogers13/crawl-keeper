@@ -23,7 +23,7 @@ import {
   removeMonsters,
   setMarker,
   setMonster,
-  setFormation,
+  setPrior,
   setParty,
   setTogether,
   toggleParty,
@@ -55,7 +55,7 @@ const tracker = (rolls: Record<string, number | null>, current: string | null = 
   party: null,
   together: false,
   carrier: null,
-  formation: {},
+  prior: {},
 });
 const ids = (t: { id: string }[]) => t.map((e) => e.id);
 
@@ -593,18 +593,16 @@ describe("Party / Split", () => {
     expect(parseTracker({ ...raw, carrier: "p" }).carrier).toBeNull();
   });
 
-  it("formation: kept for tracked players only, whole pixels, bounded; gone when the Party token is cleared or a player leaves", () => {
-    const t = setFormation(withParty(false), { a: { x: -100.4, y: 50 }, b: { x: 1, y: 2 } });
-    expect(t.formation).toEqual({ a: { x: -100.4, y: 50 }, b: { x: 1, y: 2 } });
-    const round = parseTracker(JSON.parse(JSON.stringify(t)));
-    expect(round.formation).toEqual({ a: { x: -100, y: 50 }, b: { x: 1, y: 2 } });
+  it("prior attachments: kept for tracked players only, checked when read; gone when the Party token is cleared or a player leaves", () => {
+    const t = setPrior(withParty(false), { a: { to: "mount", off: ["ROTATION"] }, b: { to: null, off: null } });
+    expect(parseTracker(JSON.parse(JSON.stringify(t))).prior).toEqual({ a: { to: "mount", off: ["ROTATION"] }, b: { to: null, off: null } });
     const raw = JSON.parse(JSON.stringify(t));
-    const bad = parseTracker({ ...raw, formation: { a: { x: "no", y: 1 }, m1: { x: 1, y: 1 }, p: { x: 1, y: 1 }, b: { x: 1e9, y: 0 }, zzz: { x: 1, y: 1 } } });
-    expect(bad.formation).toEqual({});
-    expect(remove(t, ["a"]).formation).toEqual({ b: { x: 1, y: 2 } });
-    expect(setParty(t, null).formation).toEqual({});
-    expect(setParty(t, "a").formation).toEqual({});
-    expect(setFormation(tracker({ a: 1, [GM_ENTRY]: 2 }), { a: { x: 1, y: 1 } }).formation).toEqual({});
+    const bad = parseTracker({ ...raw, prior: { a: { to: 5, off: ["ROTATION", "NOPE", 3] }, m1: { to: "x", off: null }, p: { to: "x", off: null }, b: { to: "p", off: "x" }, zzz: { to: "x", off: null } } });
+    expect(bad.prior).toEqual({ a: { to: null, off: ["ROTATION"] }, b: { to: null, off: null } });
+    expect(remove(t, ["a"]).prior).toEqual({ b: { to: null, off: null } });
+    expect(setParty(t, null).prior).toEqual({});
+    expect(setParty(t, "a").prior).toEqual({});
+    expect(setPrior(tracker({ a: 1, [GM_ENTRY]: 2 }), { a: { to: null, off: null } }).prior).toEqual({});
   });
 
   it("a saved turn on a token that now sits out moves on", () => {

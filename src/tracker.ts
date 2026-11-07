@@ -82,11 +82,15 @@ export type Tracker = {
   // The player who carried the party's light the last time it split, so the
   // next split offers them first. A tracked player entry, else null.
   carrier: string | null;
-  // Where each player stood, relative to the group's centre, when the party
-  // last came together (px on the map): Split puts them back in that shape
-  // around the Party token. Tracked player entries only.
-  formation: Record<string, Point>;
+  // While together, each player's token is attached to the Party token so it
+  // travels with it (Owlbear's attach, position only). What it was attached to
+  // before (a mount, say), to put back on Split. Tracked player entries only.
+  prior: Record<string, PriorAttach>;
 };
+
+// A token's own attachment before the party took it: its parent and the
+// behaviours it had switched off (null: none).
+export type PriorAttach = { to: string | null; off: string[] | null };
 
 export type Point = { x: number; y: number };
 
@@ -103,7 +107,7 @@ export const emptyTracker = (): Tracker => ({
   party: null,
   together: false,
   carrier: null,
-  formation: {},
+  prior: {},
 });
 
 
@@ -147,7 +151,7 @@ export const parseTracker = (raw: unknown): Tracker => {
     party: null,
     together: false,
     carrier: null,
-    formation: {},
+    prior: {},
   };
   const party =
     typeof raw.party === "string" && entries.some((e) => e.id === raw.party && e.id !== GM_ENTRY && !e.monster) ? raw.party : null;
@@ -156,23 +160,24 @@ export const parseTracker = (raw: unknown): Tracker => {
       ? raw.carrier
       : null;
   const together = party !== null && raw.together === true;
-  const parsed: Tracker = { ...t, party, together, carrier, formation: party === null ? {} : parseFormation(raw.formation, entries, party) };
+  const parsed: Tracker = { ...t, party, together, carrier, prior: party === null ? {} : parsePrior(raw.prior, entries, party) };
   // A turn only exists inside a round, and only for an entry that takes
   // turns now (living, in the party's mode; monsters only in combat).
   const current = parsed.round > 0 && typeof raw.current === "string" ? turnFor(parsed, raw.current) : null;
   return current ? { ...parsed, current } : parsed;
 };
 
-const FORMATION_LIMIT = 1_000_000;
-// Untrusted: keep finite, bounded offsets for tracked player entries only.
-const parseFormation = (raw: unknown, entries: Entry[], party: string): Record<string, Point> => {
-  const out: Record<string, Point> = {};
+const BEHAVIOURS = ["VISIBLE", "SCALE", "ROTATION", "POSITION", "DELETE", "LOCKED", "COPY"];
+// Untrusted: tracked player entries only; an id-sized parent; known behaviours.
+const parsePrior = (raw: unknown, entries: Entry[], party: string): Record<string, PriorAttach> => {
+  const out: Record<string, PriorAttach> = {};
   if (!isObject(raw)) return out;
   for (const e of entries) {
     const v = raw[e.id];
     if (e.monster || e.id === GM_ENTRY || e.id === party || !isObject(v)) continue;
-    const { x, y } = v;
-    if (typeof x === "number" && typeof y === "number" && Math.abs(x) <= FORMATION_LIMIT && Math.abs(y) <= FORMATION_LIMIT) out[e.id] = { x: Math.round(x), y: Math.round(y) };
+    const to = typeof v.to === "string" && v.to !== "" && v.to.length <= 64 && v.to !== party ? v.to : null;
+    const off = Array.isArray(v.off) ? v.off.filter((b): b is string => typeof b === "string" && BEHAVIOURS.includes(b)) : null;
+    out[e.id] = { to, off };
   }
   return out;
 };
@@ -359,8 +364,8 @@ export const remove = (t: Tracker, ids: string[]): Tracker => {
 const withEntries = (t: Tracker, entries: Entry[]): Tracker => {
   const party = t.party !== null && entries.some((e) => e.id === t.party && !e.monster) ? t.party : null;
   const carrier = t.carrier !== null && party !== null && entries.some((e) => e.id === t.carrier && !e.monster) ? t.carrier : null;
-  const formation = party === null ? {} : Object.fromEntries(Object.entries(t.formation).filter(([id]) => entries.some((e) => e.id === id && !e.monster)));
-  const updated = { ...t, entries, party, together: party !== null && t.together, carrier, formation };
+  const prior = party === null ? {} : Object.fromEntries(Object.entries(t.prior).filter(([id]) => entries.some((e) => e.id === id && !e.monster)));
+  const updated = { ...t, entries, party, together: party !== null && t.together, carrier, prior };
   const turns = new Set(turnOrder(updated).map((e) => e.id));
   if (t.current === null || turns.has(t.current)) return updated;
   const order = turnOrder(t);
@@ -473,12 +478,12 @@ export const toggle = (t: Tracker, ids: string[]): Tracker => {
 // clears it. Either way the players are split afterwards and nothing is
 // hidden or moved by the change itself (the switch does that).
 export const setParty = (t: Tracker, id: string | null): Tracker => {
-  if (id === null) return t.party === null ? t : { ...t, party: null, together: false, carrier: null, formation: {} };
+  if (id === null) return t.party === null ? t : { ...t, party: null, together: false, carrier: null, prior: {} };
   if (id === GM_ENTRY || t.party === id) return t;
   const tracked = add(t, [id]);
   const entry = tracked.entries.find((e) => e.id === id);
   if (!entry || entry.monster) return t;
-  return { ...tracked, party: id, together: false, carrier: null, formation: {} };
+  return { ...tracked, party: id, together: false, carrier: null, prior: {} };
 };
 
 // The right-click row: the Party token again clears it.
@@ -519,7 +524,7 @@ export const setTogether = (t: Tracker, together: boolean, carrier: string | nul
   return { ...t, entries, together, carrier: keep, current };
 };
 
-// The shape the players stood in when the party came together (setTogether
-// leaves it alone: the map decides where they stood).
-export const setFormation = (t: Tracker, formation: Record<string, Point>): Tracker =>
-  t.party === null || JSON.stringify(t.formation) === JSON.stringify(formation) ? t : { ...t, formation };
+// The players' own attachments, saved as the party comes together (kept
+// until it splits, then cleared).
+export const setPrior = (t: Tracker, prior: Record<string, PriorAttach>): Tracker =>
+  t.party === null || JSON.stringify(t.prior) === JSON.stringify(prior) ? t : { ...t, prior };

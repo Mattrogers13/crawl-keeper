@@ -36,11 +36,12 @@ const Homepage = () => {
             once.
           </li>
           <li>
-            Exploring on one token? Right-click it → Crawl Keeper → <b>Set as party token</b>. A <b>Party | Split</b> switch
-            appears under the turn bar: Party, the party token jumps to the middle of the players and takes the turns (at the highest player's roll) while the
-            players sit out and are hidden; Split, the players return to the shape they stood in, around the party token. The light goes with the switch: coming together it moves to
-            the party token, splitting you pick who carries it. The round carries on. <b>Rename…</b> in a row's menu renames
-            the token itself.
+            Exploring on one token? Right-click it → Crawl Keeper → <b>Set as party token</b> (or use a row's menu). A <b>Party | Split</b> switch
+            appears under the turn bar. Party: the players gather around the party token (clear of Dynamic Fog's walls),
+            attach to it and hide, so they travel with it; the party token takes the turns at the highest player's roll.
+            Split (or Combat): they show again where they stand and take their own turns. To regroup elsewhere, drag the
+            faded party token there before pressing Party. The light goes with the switch: coming together it moves to the
+            party token, splitting you pick who carries it. <b>Rename…</b> in a row's menu renames the token itself.
           </li>
           <li>
             Monsters are listed under the <b>GM / Monsters</b> row and act on its roll. Put the highest DEX modifier among

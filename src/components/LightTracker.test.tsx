@@ -348,7 +348,7 @@ describe("the strip, badges and DIS", () => {
     scene(["a"]);
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "Lantern: 1:00:00 left. Open the Light Tracker" }));
-    await screen.findByRole("heading", { name: "Light Tracker" });
+    await screen.findByRole("article", { name: "Lantern · Aria" });
     vi.setSystemTime(T0 + 5 * MINUTE);
     fireEvent.click(within(card("Lantern · Aria")).getByRole("button", { name: "Put out" }));
     await waitFor(() => expect(saved().lights[0]).toMatchObject({ status: "out", remainingMs: 45 * MINUTE }));

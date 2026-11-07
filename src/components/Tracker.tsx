@@ -117,6 +117,8 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   const [picked, setPicked] = useState<Selection>(NO_SELECTION);
   // The Party / Split switch asking who carries the party's light.
   const [carrierChoices, setCarrierChoices] = useState<Choice[] | null>(null);
+  // The carrier question came from Combat: the answer starts combat too.
+  const [askedByCombat, setAskedByCombat] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   // The token row whose empty note the GM opened from its menu.
   const [noting, setNoting] = useState<string | null>(null);
@@ -366,6 +368,18 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
     const list = effectsOf.get(e.id);
     return list ? <RowEffects effects={list} tracker={tracker} change={effectChange} current={e.id === current} name={names.get(e.id)} /> : undefined;
   };
+  // Party | Split (and Combat's split). A light on the Party token asks who
+  // carries it first; the pick runs it again.
+  const runSwitch = (together: boolean, pick?: string, combat = false) => {
+    setCarrierChoices(null);
+    setAskedByCombat(combat);
+    switchParty(together, pick, combat ? { clearRolls: settings.value.clearRollsOnCombat } : undefined)
+      .then((choices) => {
+        setCarrierChoices(choices);
+        if (!choices) setAskedByCombat(false);
+      })
+      .catch((err) => notify(`Couldn't ${together ? "bring the party together" : "split the party"}: ${errorMessage(err)}`, "ERROR"));
+  };
   // The eye by the die: show or hide the rolls to players, the Settings switch
   // as an undo step.
   const toggleRolls = () => {
@@ -563,7 +577,8 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
               type="button"
               aria-pressed={combat}
               className={`h-8 rounded-full px-4 ${combat ? "bg-red-700 text-white" : "hover:bg-obr-text/10"}`}
-              onClick={() => change("Combat", (t) => toCombat(t, settings.value.clearRollsOnCombat))}
+              // Combat splits a party that's together (Matt, 2026-11-07), in the same step.
+              onClick={() => (tracker.party !== null && tracker.together ? runSwitch(false, undefined, true) : change("Combat", (t) => toCombat(t, settings.value.clearRollsOnCombat)))}
             >
               Combat
             </button>
@@ -582,13 +597,11 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
         <PartySwitch
           together={tracker.together}
           choices={carrierChoices}
-          go={(together, pick) => {
+          go={(together, pick) => runSwitch(together, pick, !together && pick !== undefined && askedByCombat)}
+          cancel={() => {
             setCarrierChoices(null);
-            switchParty(together, pick)
-              .then(setCarrierChoices)
-              .catch((err) => notify(`Couldn't ${together ? "bring the party together" : "split the party"}: ${errorMessage(err)}`, "ERROR"));
+            setAskedByCombat(false);
           }}
-          cancel={() => setCarrierChoices(null)}
         />
       )}
       {/* Under the turn bar, where they're easy to find (each asks first). */}
