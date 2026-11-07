@@ -92,10 +92,10 @@ describe("the GM's undo in the panel", () => {
     scene([{ id: GM_ENTRY }]);
     render(<App />);
     fireEvent.click(await screen.findByLabelText("Settings"));
-    fireEvent.click(await screen.findByRole("switch", { name: /Hide rounds from players/ }));
-    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ hideRound: true }));
-    fireEvent.click(await screen.findByRole("button", { name: "Undo: Setting: hide rounds" }));
-    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ hideRound: false }));
+    fireEvent.click(await screen.findByRole("switch", { name: /Show rounds to players/ }));
+    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ showRound: false }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo: Setting: show rounds" }));
+    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ showRound: true }));
   });
 
   it("players get no undo, even in a tab with history", async () => {

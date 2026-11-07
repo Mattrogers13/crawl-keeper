@@ -634,12 +634,12 @@ describe("parseSettings", () => {
       encounterRolls: true,
       encounterMode: "standard",
       clockDice: 1,
-      hideClock: false,
+      showClock: true,
       showDanger: false,
       autoRoll: false,
       showRolls: false,
       followLight: true,
-      hideRound: false,
+      showRound: true,
       clearRollsOnCombat: true,
       showMarker: true,
       selectOnTurn: true,
@@ -649,10 +649,13 @@ describe("parseSettings", () => {
       showDeath: true,
       dicePlus: true,
     });
-    const off = { encounterRolls: false, encounterMode: "clock", clockDice: 2, hideClock: true, showDanger: true, autoRoll: true, showRolls: true, followLight: false, hideRound: true, clearRollsOnCombat: false, showMarker: false, selectOnTurn: false, showLights: false, playersLight: true, effectIcons: false, showDeath: false, dicePlus: false };
+    const off = { encounterRolls: false, encounterMode: "clock", clockDice: 2, showClock: false, showDanger: true, autoRoll: true, showRolls: true, followLight: false, showRound: false, clearRollsOnCombat: false, showMarker: false, selectOnTurn: false, showLights: false, playersLight: true, effectIcons: false, showDeath: false, dicePlus: false };
     expect(parseSettings(off)).toEqual(off);
     // Rooms saved while Table order existed keep working.
-    expect(parseSettings({ orderMode: "table", hideRound: "yes", clearRollsOnCombat: "no", showMarker: 0 })).toEqual(DEFAULT_SETTINGS);
+    expect(parseSettings({ orderMode: "table", showRound: "no", clearRollsOnCombat: "no", showMarker: 0 })).toEqual(DEFAULT_SETTINGS);
+    // Rooms saved with the old hide switches keep their choice.
+    expect(parseSettings({ hideRound: true, hideClock: true })).toMatchObject({ showRound: false, showClock: false });
+    expect(parseSettings({ hideRound: true, showRound: true })).toMatchObject({ showRound: true });
     expect(parseSettings({ encounterRolls: 0, clockDice: 3 })).toMatchObject({ encounterRolls: true, clockDice: 1 });
   });
 

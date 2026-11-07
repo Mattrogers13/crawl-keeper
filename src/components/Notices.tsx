@@ -165,8 +165,11 @@ const Notices = (props: {
   return (
     <section aria-label="Notices" className="flex shrink-0 flex-col gap-0.5 rounded-[14px] bg-obr-bg px-1.5 py-1.5 text-xs ring-1 ring-obr-text/10 ring-inset">
       {props.dark && (
-        <p className="rounded-[10px] bg-red-600/15 px-2 py-1 text-red-800 dark:text-red-200">
-          <span className="font-semibold">Total darkness</span> (p. 84): disadvantage on tasks that need sight, for anyone not darkness-adapted.
+        <p
+          title="Darkness (p. 84): disadvantage on tasks that need sight, for anyone not darkness-adapted."
+          className="rounded-[10px] bg-red-600/15 px-2 py-1 text-red-800 dark:text-red-200"
+        >
+          <span className="font-semibold">Darkness · DIS</span>
         </p>
       )}
       {dyingNow.map((e) => (

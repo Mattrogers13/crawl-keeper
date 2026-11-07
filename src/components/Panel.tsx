@@ -11,6 +11,7 @@ import Tracker from "./Tracker";
 import UndoBar from "./UndoBar";
 import { onAddEffect } from "../addEffectHandoff";
 import { useLights } from "../hooks/useLights";
+import { pause, resume } from "../lights";
 import type { Role } from "../hooks/useRole";
 import { useSceneItems, useSceneReady } from "../hooks/useScene";
 import { VERSION } from "../version";
@@ -68,6 +69,7 @@ const Panel = ({ role }: { role: Role }) => {
           {role === "GM" && !away && (
             <div className="ml-auto flex shrink-0">
               <span ref={setToolSlot} className="flex empty:hidden" />
+              <PauseButton />
               <LightsButton open={() => setView("lights")} />
               <button
                 type="button"
@@ -121,6 +123,29 @@ const Panel = ({ role }: { role: Role }) => {
       <Footer />
       <ResizeGrip />
     </div>
+  );
+};
+
+// Pause / resume the light timers from the main page (Matt, 2026-11-07), the
+// same change as the Light Tracker's button. Only once there are lights; lit
+// amber while paused.
+const PauseButton = () => {
+  const { loaded, lights, change } = useLights();
+  if (!loaded || lights.lights.length === 0) return null;
+  const paused = lights.paused;
+  return (
+    <button
+      type="button"
+      aria-label={paused ? "Resume lights" : "Pause lights"}
+      aria-pressed={paused}
+      title={paused ? "Lights paused. Resume" : "Pause the lights"}
+      className={`flex h-8 w-8 items-center justify-center rounded-full text-sm hover:bg-obr-bg ${
+        paused ? "bg-amber-500/20 text-amber-700 dark:text-amber-300" : "text-obr-text-secondary hover:text-obr-text"
+      }`}
+      onClick={() => (paused ? change("Resume lights", resume) : change("Pause lights", pause))}
+    >
+      {paused ? "▶" : "❚❚"}
+    </button>
   );
 };
 
