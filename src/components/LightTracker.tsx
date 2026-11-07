@@ -48,7 +48,7 @@ import { timePassesEffects } from "../effects";
 // `names`: token id → its name on the open map (a light off the map shows
 // the name it was lit with). `targets`: the open map's tokens a light can be
 // handed to.
-export type Target = { id: string; name: string };
+export type Target = { id: string; name: string; layer?: string };
 const LightTracker = ({ names, targets = [] }: { names: Map<string, string>; targets?: Target[] }) => {
   const { loaded, lights: s, change } = useLights();
   // Read only (Settings writes it): with Follow light off, no light shining
@@ -319,7 +319,7 @@ const HandTo = ({ targets, close, pick }: { targets: Target[]; close: () => void
       </option>
       {targets.map((x) => (
         <option key={x.id} value={x.id}>
-          {x.name}
+          {x.layer && x.layer !== "CHARACTER" ? `${x.name} (${x.layer.toLowerCase()})` : x.name}
         </option>
       ))}
     </select>

@@ -5,12 +5,13 @@
 // token outside the initiative list can still carry a light (Matt,
 // 2026-10-31): the menu neither asks nor adds it.
 //
-// The rows are always the same seven (the embed's height is fixed when the
+// The rows are always the same eight (the embed's height is fixed when the
 // menu is made); one that doesn't apply is disabled and says why.
 import {
   LIGHT_KINDS,
   formatRemaining,
   litOn,
+  moveLight,
   outOn,
   putOut,
   settle,
@@ -40,7 +41,7 @@ export type MenuRow = {
     | null;
 };
 
-export const MENU_ROWS = 7;
+export const MENU_ROWS = 8;
 export const PLAYER_MENU_ROWS = 4;
 
 // Torch, lantern and Light spell are carried (character tokens); a campfire
@@ -118,6 +119,29 @@ const putOutRow = (s: Lights, tokens: MenuToken[]): MenuRow => {
   };
 };
 
+// Two tokens selected, one holding a light (lit, else a lantern that's out):
+// the light goes to the other, timer and all. Whatever moveLight refuses
+// (the other already burns a light) is the row's reason.
+const handRow = (s: Lights, tokens: MenuToken[], now: number): MenuRow => {
+  const base = { icon: "/img/menu-hand.svg", label: "Hand light to…" };
+  const no = (title: string): MenuRow => ({ ...base, enabled: false, title, action: null });
+  if (tokens.length !== 2) return no("Select the token holding the light and the one to give it to");
+  const [a, b] = tokens;
+  const held = (x: MenuToken) => litOn(s, x.id) ?? outOn(s, x.id);
+  const [la, lb] = [held(a), held(b)];
+  if (!la && !lb) return no("Neither token holds a light");
+  if (la && lb) return no("Both tokens hold a light");
+  const [light, to] = la ? [la, b] : [lb!, a];
+  const fn = (st: Lights, at: number) => moveLight(st, at, light.id, to.id, to.name);
+  try {
+    fn(s, now);
+  } catch (err) {
+    return no(err instanceof Error ? err.message : "Can't hand it on");
+  }
+  const kind = lower(light.kind);
+  return { ...base, label: `Hand light to ${to.name}`, enabled: true, action: { type: "lights", step: `Hand ${kind} to ${to.name}`, fn } };
+};
+
 export const menuRows = (t: Tracker, s: Lights, tokens: MenuToken[], now: number): MenuRow[] => {
   const settled = settle(s, now);
   return [
@@ -126,6 +150,7 @@ export const menuRows = (t: Tracker, s: Lights, tokens: MenuToken[], now: number
     ...CARRIED.map((kind) => lightRow(settled, tokens, kind)),
     lightRow(settled, tokens, "campfire"),
     putOutRow(settled, tokens),
+    handRow(settled, tokens, now),
   ];
 };
 
