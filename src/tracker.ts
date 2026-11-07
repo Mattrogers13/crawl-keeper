@@ -461,11 +461,37 @@ export const setParty = (t: Tracker, id: string | null): Tracker => {
 // The right-click row: the Party token again clears it.
 export const toggleParty = (t: Tracker, id: string): Tracker => setParty(t, t.party === id ? null : id);
 
-// The Party / Split switch. Ends the round, like a phase switch (the next ▶
-// starts a new one). `carrier`: who has the light now when splitting, kept
-// for next time; when the party comes together it's who the light came from.
+// The Party / Split switch. It doesn't end the round (Matt, 2026-11-07).
+// Coming together, the Party token takes the initiative of the party's
+// highest roll and sits where that player sat (no rolls: it stays put); the
+// turn in progress carries over: a player's turn is the Party token's. Splitting,
+// the Party token's turn is the first player's (the one with the highest
+// roll: the player after it in the list). `carrier`: who has the light now when splitting, kept for next time;
+// coming together, who it came from.
 export const setTogether = (t: Tracker, together: boolean, carrier: string | null = t.carrier): Tracker => {
   if (t.party === null || t.together === together) return t;
-  const keep = carrier !== null && carrier !== t.party && t.entries.some((e) => e.id === carrier && !e.monster && e.id !== GM_ENTRY) ? carrier : null;
-  return { ...t, together, carrier: keep, current: null };
+  const party = t.party;
+  const keep = carrier !== null && carrier !== party && t.entries.some((e) => e.id === carrier && !e.monster && e.id !== GM_ENTRY) ? carrier : null;
+  const isPlayer = (e: Entry) => !e.monster && e.id !== GM_ENTRY && e.id !== party && !e.dead;
+  let entries = t.entries;
+  if (together) {
+    const rolled = t.entries.filter((e) => isPlayer(e) && e.roll !== null);
+    if (rolled.length > 0) {
+      const top = Math.max(...rolled.map((e) => e.roll as number));
+      const at = t.entries.findIndex((e) => isPlayer(e) && e.roll === top);
+      const me = t.entries.find((e) => e.id === party)!;
+      const rest = t.entries.filter((e) => e.id !== party);
+      const place = rest.findIndex((e) => e.id === t.entries[at].id);
+      entries = [...rest.slice(0, place), { ...me, roll: top }, ...rest.slice(place)];
+    }
+  }
+  const players = entries.filter(isPlayer);
+  const current = t.current === null || t.current === GM_ENTRY || entries.some((e) => e.id === t.current && e.monster)
+    ? t.current
+    : together
+      ? (t.current === party ? party : players.some((e) => e.id === t.current) ? party : t.current)
+      : t.current === party
+        ? (players.find((e) => entries.indexOf(e) > entries.findIndex((x) => x.id === party))?.id ?? players[0]?.id ?? null)
+        : t.current;
+  return { ...t, entries, together, carrier: keep, current };
 };
