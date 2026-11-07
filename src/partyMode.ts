@@ -31,24 +31,29 @@ export const switchParty = async (together: boolean, pick?: string): Promise<Cho
   const plan = planSwitch(tracker, lights, Date.now(), together, nameOf, pick);
   if (!plan.done) return plan.choices.map((id) => ({ id, name: nameOf(id) }));
   if (plan.tracker === tracker && plan.lights === lights) return null;
-  // Where the tokens stand now (bounding-box centres), read before anything changes.
-  const here = async (ids: string[]): Promise<Placed[]> => {
-    const found = new Set((await OBR.scene.items.getItems(ids)).map((i) => i.id));
-    return Promise.all(ids.filter((id) => found.has(id)).map(async (id) => ({ id, center: (await OBR.scene.items.getItemBounds([id])).center })));
-  };
+  // Where the tokens stand now: each one's position, which for a token is its
+  // centre (Owlbear places an image by its grid offset, the middle by
+  // default). Read from the items already fetched, before anything changes:
+  // no extra round trips that could stall the switch.
+  const byId = new Map(items.map((i) => [i.id, i]));
+  const here = (ids: string[]): Placed[] =>
+    ids.flatMap((id) => {
+      const i = byId.get(id);
+      return i ? [{ id, center: { x: i.position.x, y: i.position.y } }] : [];
+    });
   let move: Move = {};
   let moved = plan.tracker;
   try {
-    const players = await here(carriers(tracker));
+    const players = here(carriers(tracker));
     if (together) {
-      const [party] = await here([tracker.party]);
+      const [party] = here([tracker.party]);
       if (party && players.length > 0) {
         const c = combine(party, players);
         move = c.move;
         moved = setFormation(plan.tracker, c.formation);
       }
     } else {
-      const [party] = await here([tracker.party]);
+      const [party] = here([tracker.party]);
       if (party && players.length > 0) {
         const cell = await OBR.scene.grid.getDpi().catch(() => 150);
         move = expand(party.center, tracker.formation, players, cell);

@@ -584,7 +584,9 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           choices={carrierChoices}
           go={(together, pick) => {
             setCarrierChoices(null);
-            void switchParty(together, pick).then(setCarrierChoices);
+            switchParty(together, pick)
+              .then(setCarrierChoices)
+              .catch((err) => notify(`Couldn't ${together ? "bring the party together" : "split the party"}: ${errorMessage(err)}`, "ERROR"));
           }}
           cancel={() => setCarrierChoices(null)}
         />
@@ -873,6 +875,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           addEffect={(ids) => openAdding(ids)}
           addNote={setNoting}
           rename={setRenaming}
+          party={tracker.party}
           startDying={openDying}
           checkFocus={(id) => setCheckNow((c) => (c.includes(id) ? c : [...c, id]))}
         />

@@ -1,8 +1,9 @@
 // Combine and expand (Matt, 2026-11-07): the geometry, pure. When the party
 // comes together the Party token moves to the players' centre and each
 // player's offset from it is remembered; on Split the players go back to that
-// shape around wherever the Party token is now. Centres are the tokens'
-// bounding-box centres (px on the map), so tokens of different sizes line up.
+// shape around wherever the Party token is now. A token's centre is its
+// position (px on the map; Owlbear anchors an image at its grid offset, the
+// middle by default, so tokens of different sizes still line up).
 import type { Point } from "./tracker";
 
 export type Placed = { id: string; center: Point };

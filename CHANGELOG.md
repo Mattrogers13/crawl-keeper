@@ -5,6 +5,8 @@ Versions follow semver; the same number is in `package.json` and `public/manifes
 ## Unreleased
 
 - Combine and expand: Party | Split now moves the tokens. Party: the party token goes to the middle of the players and the shape they stood in is remembered. Split: the players go back into that shape around the party token, wherever it has travelled. Undo does not move tokens back.
+- A row's menu has Set as party token / Clear party token, like the map's right-click. Clearing or replacing the party token while the party is together shows the players again.
+- If the switch fails, it now says so instead of doing nothing.
 
 ## v0.6.0 (2026-11-07)
 
