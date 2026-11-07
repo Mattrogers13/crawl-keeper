@@ -15,7 +15,7 @@ import OBR, { type Item } from "@owlbear-rodeo/sdk";
 
 import { LIGHTS_KEY, TRACKER_KEY } from "./constants";
 import { parseLights } from "./lights";
-import { afterChange, readSettings } from "./marker";
+import { afterChange, readSettings, syncParty } from "./marker";
 import { carriers, planSwitch } from "./partySwitch";
 import { around, gather, strays, type Placed, type Wall } from "./placement";
 import { MAX_ENTRIES, parseTracker, setParty, setPrior, toCombat, type Point, type PriorAttach } from "./tracker";
@@ -109,6 +109,11 @@ export const switchParty = async (together: boolean, pick?: string, combat?: { c
   }
 
   trace("spots", spots);
+  // Tokens first, lights after: Dynamic Fog draws a token's light hidden if
+  // the light is set while the token is hidden and misses the token being
+  // shown a moment later (Matt's room, 2026-11-07: a shown party token whose
+  // drawn light stayed hidden; hiding and showing it again fixed it).
+  await syncParty(tracker, next).catch((err) => notify(`Couldn't move the party's tokens together or apart: ${errorMessage(err)}`, "WARNING"));
   const lightsChanged = plan.lights !== lights;
   try {
     if (lightsChanged) await OBR.room.setMetadata({ [LIGHTS_KEY]: plan.lights });
@@ -120,6 +125,7 @@ export const switchParty = async (together: boolean, pick?: string, combat?: { c
       throw err;
     }
   } catch (err) {
+    await syncParty(next, tracker).catch(() => undefined);
     notify(`Couldn't ${together ? "bring the party together" : "split the party"}: ${errorMessage(err)}`, "WARNING");
     return null;
   }
@@ -127,7 +133,8 @@ export const switchParty = async (together: boolean, pick?: string, combat?: { c
     ...(lightsChanged ? [{ store: "room" as const, key: LIGHTS_KEY, before: lights, after: plan.lights }] : []),
     { store: "scene" as const, key: TRACKER_KEY, before: scene[TRACKER_KEY], after: next },
   ]);
-  // Players move first, then attach / detach and show / hide (afterChange).
+  // Players to their spots; afterChange does the rest (the turn ring; the
+  // party's tokens again, already in place).
   const ids = Object.keys(spots);
   if (ids.length > 0) {
     await OBR.scene.items
@@ -171,6 +178,8 @@ export const changePartyToken = async (id: string | null) => {
   const next = setParty(base, target);
   if (target !== null && next.party !== target) return notify(`Initiative is full (${MAX_ENTRIES} rows): the party token wasn't set.`, "WARNING");
   if (next === tracker && newLights === lights) return;
+  // Tokens first, lights after (see switchParty).
+  await syncParty(tracker, next).catch((err) => notify(`Couldn't let the party's tokens go: ${errorMessage(err)}`, "WARNING"));
   const lightsChanged = newLights !== lights;
   try {
     if (lightsChanged) await OBR.room.setMetadata({ [LIGHTS_KEY]: newLights });
@@ -181,6 +190,7 @@ export const changePartyToken = async (id: string | null) => {
       throw err;
     }
   } catch (err) {
+    await syncParty(next, tracker).catch(() => undefined);
     return notify(`Couldn't ${target === null ? "clear" : "set"} the party token: ${errorMessage(err)}`, "WARNING");
   }
   await record(target === null ? "Clear party token" : "Set party token", [
