@@ -23,6 +23,7 @@ import {
   removeMonsters,
   setMarker,
   setMonster,
+  setFormation,
   setParty,
   setTogether,
   toggleParty,
@@ -54,6 +55,7 @@ const tracker = (rolls: Record<string, number | null>, current: string | null = 
   party: null,
   together: false,
   carrier: null,
+  formation: {},
 });
 const ids = (t: { id: string }[]) => t.map((e) => e.id);
 
@@ -589,6 +591,20 @@ describe("Party / Split", () => {
     expect(parseTracker({ ...raw, party: null })).toMatchObject({ together: false, carrier: null });
     expect(parseTracker({ ...raw, carrier: "m1" }).carrier).toBeNull();
     expect(parseTracker({ ...raw, carrier: "p" }).carrier).toBeNull();
+  });
+
+  it("formation: kept for tracked players only, whole pixels, bounded; gone when the Party token is cleared or a player leaves", () => {
+    const t = setFormation(withParty(false), { a: { x: -100.4, y: 50 }, b: { x: 1, y: 2 } });
+    expect(t.formation).toEqual({ a: { x: -100.4, y: 50 }, b: { x: 1, y: 2 } });
+    const round = parseTracker(JSON.parse(JSON.stringify(t)));
+    expect(round.formation).toEqual({ a: { x: -100, y: 50 }, b: { x: 1, y: 2 } });
+    const raw = JSON.parse(JSON.stringify(t));
+    const bad = parseTracker({ ...raw, formation: { a: { x: "no", y: 1 }, m1: { x: 1, y: 1 }, p: { x: 1, y: 1 }, b: { x: 1e9, y: 0 }, zzz: { x: 1, y: 1 } } });
+    expect(bad.formation).toEqual({});
+    expect(remove(t, ["a"]).formation).toEqual({ b: { x: 1, y: 2 } });
+    expect(setParty(t, null).formation).toEqual({});
+    expect(setParty(t, "a").formation).toEqual({});
+    expect(setFormation(tracker({ a: 1, [GM_ENTRY]: 2 }), { a: { x: 1, y: 1 } }).formation).toEqual({});
   });
 
   it("a saved turn on a token that now sits out moves on", () => {

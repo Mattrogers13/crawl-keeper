@@ -37,8 +37,8 @@ const Homepage = () => {
           </li>
           <li>
             Exploring on one token? Right-click it → Crawl Keeper → <b>Set as party token</b>. A <b>Party | Split</b> switch
-            appears under the turn bar: Party, the party token takes the turns (at the highest player's roll) and the
-            players sit out and are hidden; Split, the reverse. The light goes with the switch: coming together it moves to
+            appears under the turn bar: Party, the party token jumps to the middle of the players and takes the turns (at the highest player's roll) while the
+            players sit out and are hidden; Split, the players return to the shape they stood in, around the party token. The light goes with the switch: coming together it moves to
             the party token, splitting you pick who carries it. The round carries on. <b>Rename…</b> in a row's menu renames
             the token itself.
           </li>

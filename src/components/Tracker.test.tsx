@@ -67,6 +67,30 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(obr.items.map((i) => [i.id, i.visible])).toEqual([["a", true], ["b", true], ["p", false]]));
   });
 
+  it("combine and expand: the Party token moves to the players' centre; split puts them back in that shape around it", async () => {
+    obr.items = [
+      token("a", { name: "Aria", position: { x: 100, y: 100 } }),
+      token("b", { name: "Borin", position: { x: 300, y: 100 } }),
+      token("p", { name: "Wagon", position: { x: 0, y: 0 }, visible: false }),
+    ];
+    scene([{ id: "a" }, { id: "b" }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p" });
+    render(<App />);
+    await screen.findByText("Wagon");
+    const at = (id: string) => obr.items.find((i) => i.id === id)!.position;
+    fireEvent.click(screen.getByRole("button", { name: "Party" }));
+    await waitFor(() => expect(saved().together).toBe(true));
+    await waitFor(() => expect(at("p")).toEqual({ x: 200, y: 100 }));
+    expect(saved().formation).toEqual({ a: { x: -100, y: 0 }, b: { x: 100, y: 0 } });
+    // The party travels.
+    await setItems(obr.items.map((i) => (i.id === "p" ? { ...i, position: { x: 1000, y: 700 } } : i)));
+    fireEvent.click(screen.getByRole("button", { name: "Split" }));
+    await waitFor(() => expect(saved().together).toBe(false));
+    await waitFor(() => expect(at("a")).toEqual({ x: 900, y: 700 }));
+    expect(at("b")).toEqual({ x: 1100, y: 700 });
+    expect(at("p")).toEqual({ x: 1000, y: 700 });
+    expect(obr.items.map((i) => [i.id, i.visible])).toEqual([["a", true], ["b", true], ["p", false]]);
+  });
+
   it("Split with a light on the Party token asks who carries it, then moves it with its timer", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" }), token("p", { name: "Wagon" })];
     obr.metadata = { [LIGHTS_KEY]: { lights: [{ id: "l1", kind: "torch", tokenId: "p", carrier: "Wagon", note: "", status: "lit", remainingMs: 3_600_000, endsAt: Date.now() + 3_600_000, spentAt: null }] } };

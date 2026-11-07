@@ -2,6 +2,10 @@
 
 Versions follow semver; the same number is in `package.json` and `public/manifest.json`.
 
+## Unreleased
+
+- Combine and expand: Party | Split now moves the tokens. Party: the party token goes to the middle of the players and the shape they stood in is remembered. Split: the players go back into that shape around the party token, wherever it has travelled. Undo does not move tokens back.
+
 ## v0.6.0 (2026-11-07)
 
 - Party token and Party | Split (after the first table session): right-click one character token → Crawl Keeper → Set as party token (it is tracked if it isn't yet; right-click it again to clear). A Party | Split switch then sits under the turn bar. Party: the party token takes the turns, at the highest-rolled player's roll and place, and the players sit out (their rows dim, their tokens hide on the map). Split: the reverse. Switching keeps the round and the turn in progress. The light goes with it: coming together, the players' lights move to the party token; splitting, the party token's light goes to a carrier you pick once (and the switch remembers). One undo step for the lot; setting or clearing the party token moves nothing by itself.

@@ -1,15 +1,18 @@
 // The GM's Party / Split switch (the panel's button): reads the room and the
 // map fresh, plans it (partySwitch.ts), saves the lights then the tracker as
-// one undo step, then shows and hides the tokens (marker.ts afterChange, which
-// undo runs too). The lights go first so the map is never left dark; if the
+// one undo step, then moves the tokens (together: the Party token to the
+// players' centre; split: the players back into their old shape around it,
+// formation.ts) and shows and hides them (marker.ts afterChange, which undo
+// runs too; undo doesn't move tokens back). The lights go first so the map is never left dark; if the
 // tracker then fails to save, the lights go back.
 import OBR from "@owlbear-rodeo/sdk";
 
 import { LIGHTS_KEY, TRACKER_KEY } from "./constants";
 import { parseLights } from "./lights";
+import { combine, expand, type Move, type Placed } from "./formation";
 import { afterChange, readSettings } from "./marker";
 import { carriers, planSwitch } from "./partySwitch";
-import { parseTracker } from "./tracker";
+import { parseTracker, setFormation } from "./tracker";
 import { record } from "./undo";
 import { errorMessage, notify } from "./utils";
 
@@ -28,11 +31,37 @@ export const switchParty = async (together: boolean, pick?: string): Promise<Cho
   const plan = planSwitch(tracker, lights, Date.now(), together, nameOf, pick);
   if (!plan.done) return plan.choices.map((id) => ({ id, name: nameOf(id) }));
   if (plan.tracker === tracker && plan.lights === lights) return null;
+  // Where the tokens stand now (bounding-box centres), read before anything changes.
+  const here = async (ids: string[]): Promise<Placed[]> => {
+    const found = new Set((await OBR.scene.items.getItems(ids)).map((i) => i.id));
+    return Promise.all(ids.filter((id) => found.has(id)).map(async (id) => ({ id, center: (await OBR.scene.items.getItemBounds([id])).center })));
+  };
+  let move: Move = {};
+  let moved = plan.tracker;
+  try {
+    const players = await here(carriers(tracker));
+    if (together) {
+      const [party] = await here([tracker.party]);
+      if (party && players.length > 0) {
+        const c = combine(party, players);
+        move = c.move;
+        moved = setFormation(plan.tracker, c.formation);
+      }
+    } else {
+      const [party] = await here([tracker.party]);
+      if (party && players.length > 0) {
+        const cell = await OBR.scene.grid.getDpi().catch(() => 150);
+        move = expand(party.center, tracker.formation, players, cell);
+      }
+    }
+  } catch (err) {
+    notify(`Couldn't work out where the tokens go, so they stay put: ${errorMessage(err)}`, "WARNING");
+  }
   const lightsChanged = plan.lights !== lights;
   try {
     if (lightsChanged) await OBR.room.setMetadata({ [LIGHTS_KEY]: plan.lights });
     try {
-      await OBR.scene.setMetadata({ [TRACKER_KEY]: plan.tracker });
+      await OBR.scene.setMetadata({ [TRACKER_KEY]: moved });
     } catch (err) {
       if (lightsChanged) await OBR.room.setMetadata({ [LIGHTS_KEY]: lights }).catch(() => undefined);
       throw err;
@@ -43,9 +72,18 @@ export const switchParty = async (together: boolean, pick?: string): Promise<Cho
   }
   await record(together ? "Party together" : "Split the party", [
     ...(lightsChanged ? [{ store: "room" as const, key: LIGHTS_KEY, before: lights, after: plan.lights }] : []),
-    { store: "scene" as const, key: TRACKER_KEY, before: scene[TRACKER_KEY], after: plan.tracker },
+    { store: "scene" as const, key: TRACKER_KEY, before: scene[TRACKER_KEY], after: moved },
   ]);
-  await afterChange(tracker, plan.tracker, settings);
+  // Tokens move before they are shown, so nobody sees them jump.
+  const ids = Object.keys(move).filter((id) => move[id].x !== 0 || move[id].y !== 0);
+  if (ids.length > 0) {
+    await OBR.scene.items
+      .updateItems(ids, (drafts) => {
+        for (const d of drafts) d.position = { x: d.position.x + move[d.id].x, y: d.position.y + move[d.id].y };
+      })
+      .catch((err) => notify(`Couldn't move the tokens: ${errorMessage(err)}`, "WARNING"));
+  }
+  await afterChange(tracker, moved, settings);
   if (plan.stayed > 0) notify(`${plan.stayed} light${plan.stayed === 1 ? "" : "s"} stayed put: that token already burns one.`, "WARNING");
   return null;
 };
