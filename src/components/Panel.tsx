@@ -152,7 +152,12 @@ const NO_NAMES = new Map<string, string>();
 const LightsOnMap = () => {
   const items = useSceneItems();
   if (items === null) return <Loading />;
-  return <LightTracker names={new Map(items.map((i) => [i.id, i.name?.trim() || "Unnamed"]))} />;
+  const names = new Map(items.map((i) => [i.id, i.name?.trim() || "Unnamed"]));
+  // A light goes to any token on the map, a prop too (not our own rings and badges).
+  const targets = items
+    .filter((i) => i.type === "IMAGE" && !i.attachedTo && (i.layer === "CHARACTER" || i.layer === "MOUNT" || i.layer === "PROP"))
+    .map((i) => ({ id: i.id, name: names.get(i.id) ?? "Unnamed" }));
+  return <LightTracker names={names} targets={targets} />;
 };
 
 // The players' view needs the open map's tokens (which are theirs, names).

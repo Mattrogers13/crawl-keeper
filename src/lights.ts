@@ -325,6 +325,27 @@ export const renameCarrier = (state: Lights, tokenId: string, name: string): Lig
   return { ...state, lights: state.lights.map((l) => (l.tokenId === tokenId ? { ...l, carrier: text } : l)) };
 };
 
+// Hands a light to another token: the same timer, oil and note, a new
+// carrier (the party token splitting into its players, a torch dropped on a
+// prop and picked up again). Only a light that's lit or a lantern that's out
+// moves; a spent one is just a record. The destination's spent lights go
+// (as with any new light); one that already holds a lit light, or an out
+// lantern when this is one too, refuses (one light out per token).
+export const moveLight = (state: Lights, now: number, id: string, tokenId: string, carrier: string): Lights => {
+  if (!tokenId) throw new TypeError("A light needs a token");
+  const s = settle(state, now);
+  const light = find(s, id);
+  if (light.status === "spent") throw new Error(`A spent ${LIGHT_KINDS[light.kind].label.toLowerCase()} can't be handed on`);
+  if (light.tokenId === tokenId) return s;
+  const held = litOn(s, tokenId, id);
+  if (held) throw new AlreadyLitError({ ...held, carrier: cleanText(carrier, MAX_CARRIER) || held.carrier });
+  if (light.status === "out" && outOn(s, tokenId)) throw new Error("That token already has a light out");
+  const kept = s.lights.filter((l) => l.tokenId !== tokenId || l.status !== "spent");
+  // `by` goes: it's the GM's hand now, and a player's panel lists the tokens
+  // they lit.
+  return mapLight({ ...s, lights: kept }, id, ({ by: _by, ...l }) => ({ ...l, tokenId, carrier: cleanText(carrier, MAX_CARRIER) }));
+};
+
 // Freezes every light (a break, a rules lookup).
 export const pause = (state: Lights, now: number): Lights => {
   const s = settle(state, now);

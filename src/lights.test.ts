@@ -342,6 +342,77 @@ describe("tokens, notes, limits", () => {
   });
 });
 
+describe("handing a light to another token", () => {
+  it("keeps the timer, oil and note; only the carrier changes", () => {
+    const t = setup();
+    t.add("torch", "party", "Party", "the long hall");
+    t.advance(20 * MIN);
+    t.do((s, now) => L.moveLight(s, now, "light-1", "bram", "Bram"));
+    expect(t.light(0)).toMatchObject({ tokenId: "bram", carrier: "Bram", note: "the long hall", status: "lit" });
+    expect(t.left(0)).toBe(40 * MIN);
+    t.do((s, now) => L.moveLight(s, now, "light-1", "party", "Party"));
+    expect(t.left(0)).toBe(40 * MIN);
+  });
+
+  it("a paused light stays frozen; a lantern that's out keeps its oil", () => {
+    const t = setup();
+    t.add("lantern", "a", "A");
+    t.advance(20 * MIN);
+    t.do((s, now) => L.pause(s, now));
+    t.do((s, now) => L.moveLight(s, now, "light-1", "b", "B"));
+    expect(t.light(0)).toMatchObject({ tokenId: "b", endsAt: null });
+    expect(t.left(0)).toBe(40 * MIN);
+    t.do((s, now) => L.resume(s, now));
+    t.do((s, now) => L.putOut(s, now, "light-1"));
+    t.do((s, now) => L.moveLight(s, now, "light-1", "c", "C"));
+    expect(t.light(0)).toMatchObject({ tokenId: "c", status: "out", remainingMs: 30 * MIN });
+  });
+
+  it("refuses a destination that holds a lit light, or an out lantern for an out lantern", () => {
+    const t = setup("separate");
+    t.add("torch", "a");
+    t.add("torch", "b");
+    expect(() => L.moveLight(t.s, t.now(), "light-1", "b", "B")).toThrow(L.AlreadyLitError);
+    const u = setup("separate");
+    u.add("lantern", "a");
+    u.add("lantern", "b");
+    u.do((s, now) => L.putOut(s, now, "light-1"));
+    u.do((s, now) => L.putOut(s, now, "light-2"));
+    expect(() => L.moveLight(u.s, u.now(), "light-1", "b", "B")).toThrow(/light out/);
+  });
+
+  it("a spent light can't move; moving to its own token changes nothing; the destination's spent lights go", () => {
+    const t = setup("separate");
+    t.add("torch", "a");
+    t.add("torch", "b");
+    t.advance(61 * MIN);
+    t.do((s, now) => L.settle(s, now));
+    expect(() => L.moveLight(t.s, t.now(), "light-1", "c", "C")).toThrow(/spent/);
+    const u = setup("separate");
+    u.add("torch", "a");
+    u.add("torch", "b");
+    u.do((s, now) => L.putOut(s, now, "light-2"));
+    expect(L.moveLight(u.s, u.now(), "light-1", "a", "A")).toBe(L.settle(u.s, u.now()));
+    u.do((s, now) => L.moveLight(s, now, "light-1", "b", "B"));
+    expect(u.s.lights.map((l) => l.id)).toEqual(["light-1"]);
+  });
+
+  it("a player's light handed on by the GM is no longer theirs", () => {
+    const t = setup();
+    t.add("torch", "a");
+    t.do((s) => ({ ...s, lights: s.lights.map((l) => ({ ...l, by: "player-2" })) }));
+    t.do((s, now) => L.moveLight(s, now, "light-1", "b", "B"));
+    expect(t.light(0)).not.toHaveProperty("by");
+  });
+
+  it("unknown light or empty token throws", () => {
+    const t = setup();
+    t.add("torch", "a");
+    expect(() => L.moveLight(t.s, t.now(), "nope", "b", "B")).toThrow();
+    expect(() => L.moveLight(t.s, t.now(), "light-1", "", "B")).toThrow();
+  });
+});
+
 describe("manual fixes", () => {
   it("a torch burns once: it can't be lit again, only replaced by a new one keeping carrier and note", () => {
     const t = setup();
