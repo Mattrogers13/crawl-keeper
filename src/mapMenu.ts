@@ -5,7 +5,7 @@
 // token outside the initiative list can still carry a light (Matt,
 // 2026-10-31): the menu neither asks nor adds it.
 //
-// The rows are always the same eight (the embed's height is fixed when the
+// The rows are always the same nine (the embed's height is fixed when the
 // menu is made); one that doesn't apply is disabled and says why.
 import {
   LIGHT_KINDS,
@@ -33,6 +33,8 @@ export type MenuRow = {
   icon: string;
   action:
     | { type: "initiative"; ids: string[] }
+    // Sets (or clears, if it already is) the Party token.
+    | { type: "party"; id: string }
     | { type: "lights"; step: string; fn: (s: Lights, now: number, newId: () => string) => Lights }
     // A player's: asked of the GM's client, one token at a time (playerLights.ts).
     | { type: "request"; asks: LightAsk[] }
@@ -41,7 +43,7 @@ export type MenuRow = {
     | null;
 };
 
-export const MENU_ROWS = 8;
+export const MENU_ROWS = 9;
 export const PLAYER_MENU_ROWS = 4;
 
 // Torch, lantern and Light spell are carried (character tokens); a campfire
@@ -142,6 +144,16 @@ const handRow = (s: Lights, tokens: MenuToken[], now: number): MenuRow => {
   return { ...base, label: `Hand light to ${to.name}`, enabled: true, action: { type: "lights", step: `Hand ${kind} to ${to.name}`, fn } };
 };
 
+// One character token: it stands for the whole party (it is tracked if it
+// isn't yet); the Party token again clears it.
+const partyRow = (t: Tracker, tokens: MenuToken[]): MenuRow => {
+  const base = { icon: "/img/menu-party.svg" };
+  const one = tokens.length === 1 && carries(tokens[0]) ? tokens[0] : null;
+  if (!one) return { ...base, label: "Set as party token", enabled: false, title: "Select one character token", action: null };
+  const clearing = t.party === one.id;
+  return { ...base, label: clearing ? "Clear party token" : "Set as party token", enabled: true, action: { type: "party", id: one.id } };
+};
+
 export const menuRows = (t: Tracker, s: Lights, tokens: MenuToken[], now: number): MenuRow[] => {
   const settled = settle(s, now);
   return [
@@ -151,6 +163,7 @@ export const menuRows = (t: Tracker, s: Lights, tokens: MenuToken[], now: number
     lightRow(settled, tokens, "campfire"),
     putOutRow(settled, tokens),
     handRow(settled, tokens, now),
+    partyRow(t, tokens),
   ];
 };
 

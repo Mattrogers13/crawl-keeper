@@ -4,7 +4,7 @@ import OBR from "@owlbear-rodeo/sdk";
 import { TRACKER_KEY } from "./constants";
 import { afterChange, readSettings } from "./marker";
 import { record } from "./undo";
-import { MAX_ENTRIES, parseTracker, toggle } from "./tracker";
+import { MAX_ENTRIES, parseTracker, toggle, toggleParty } from "./tracker";
 import { notify } from "./utils";
 
 // Read the doc fresh at click time, so a click never writes a stale copy.
@@ -30,3 +30,14 @@ export const toggleInitiative = async (ids: string[]) => {
   await afterChange(tracker, updated, settings);
 };
 
+
+// The right-click Set / Clear party token: the same fresh read, one undo step.
+export const togglePartyToken = async (id: string) => {
+  const [scene, settings] = await Promise.all([OBR.scene.getMetadata(), readSettings()]);
+  const tracker = parseTracker(scene[TRACKER_KEY]);
+  const updated = toggleParty(tracker, id);
+  if (updated === tracker) return notify(`Initiative is full (${MAX_ENTRIES} rows): the party token wasn't set.`, "WARNING");
+  await OBR.scene.setMetadata({ [TRACKER_KEY]: updated });
+  await record(updated.party === null ? "Clear party token" : "Set party token", [{ store: "scene", key: TRACKER_KEY, before: scene[TRACKER_KEY], after: updated }]);
+  await afterChange(tracker, updated, settings);
+};

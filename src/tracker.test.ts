@@ -23,6 +23,8 @@ import {
   removeMonsters,
   setMarker,
   setMonster,
+  setParty,
+  toggleParty,
   resetRounds,
   rollGmInitiative,
   gmEquation,
@@ -48,6 +50,7 @@ const tracker = (rolls: Record<string, number | null>, current: string | null = 
   crawl: emptyCrawl(),
   gmMod: 0,
   gmDie: null,
+  party: null,
 });
 const ids = (t: { id: string }[]) => t.map((e) => e.id);
 
@@ -485,6 +488,47 @@ describe("toggle (right-click)", () => {
     expect(ids(toggle(t, ["a", "b"]).entries)).toEqual(["a", "gm", "b"]);
     expect(ids(toggle(t, ["a"]).entries)).toEqual(["gm"]);
     expect(toggle(t, [])).toBe(t);
+  });
+});
+
+describe("the Party token", () => {
+  const base = () => tracker({ a: 1, b: 2, m1: null, [GM_ENTRY]: 3 });
+
+  it("set tracks the token if it isn't yet, and another replaces it", () => {
+    const t = setParty(base(), "p");
+    expect(t.party).toBe("p");
+    expect(t.entries.find((e) => e.id === "p")).toMatchObject({ monster: false, dead: false });
+    expect(setParty(t, "a").party).toBe("a");
+  });
+
+  it("a monster, the GM row or a full list can't be the party", () => {
+    const t = base();
+    expect(setParty(t, "m1")).toBe(t);
+    expect(setParty(t, GM_ENTRY)).toBe(t);
+    const full = tracker(Object.fromEntries([...Array.from({ length: MAX_ENTRIES - 1 }, (_, i) => [`x${i}`, null]), [GM_ENTRY, null]]));
+    expect(setParty(full, "new")).toBe(full);
+  });
+
+  it("toggle: the party token again clears it; clearing nothing changes nothing", () => {
+    const t = toggleParty(base(), "a");
+    expect(t.party).toBe("a");
+    expect(toggleParty(t, "a").party).toBeNull();
+    const none = base();
+    expect(setParty(none, null)).toBe(none);
+  });
+
+  it("goes when its entry is removed, pruned, or made a monster", () => {
+    const t = setParty(base(), "a");
+    expect(remove(t, ["a"]).party).toBeNull();
+    expect(prune(t, (id) => id !== "a").party).toBeNull();
+    expect(setMonster(t, ["a"], true).party).toBeNull();
+    expect(remove(t, ["b"]).party).toBe("a");
+  });
+
+  it("parsing keeps it only for a tracked player entry", () => {
+    const t = setParty(base(), "a");
+    expect(parseTracker(JSON.parse(JSON.stringify(t))).party).toBe("a");
+    for (const bad of ["zzz", "m1", GM_ENTRY, 5, null]) expect(parseTracker({ ...JSON.parse(JSON.stringify(t)), party: bad }).party).toBeNull();
   });
 });
 

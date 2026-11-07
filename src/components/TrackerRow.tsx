@@ -54,6 +54,8 @@ const Row = (props: {
   lightChange: LightChange | null;
   // Disadvantage: total darkness, on a living player's row (p. 84).
   dis?: boolean;
+  // This is the Party token (right-click: Set as party token).
+  party?: boolean;
   openMenu: (id: string, x: number, y: number) => void;
   select: (id: string, mods: { shift: boolean; toggle: boolean }) => void;
   selected: boolean;
@@ -206,6 +208,11 @@ const Row = (props: {
           )}
         </div>
         {props.lights && <LightBadge lights={props.lights} change={props.lightChange} />}
+        {props.party && (
+          <span title="Party token: stands for the whole party" className="shrink-0 rounded bg-obr-primary/15 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-obr-text">
+            PARTY
+          </span>
+        )}
         {props.dis && (
           <span title="Total darkness: disadvantage on tasks that need sight (p. 84)" className="shrink-0 rounded bg-red-600/15 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-red-700 dark:text-red-300">
             DIS

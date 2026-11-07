@@ -40,6 +40,15 @@ describe("Tracker (GM)", () => {
     expect(screen.getByText("Round 2")).toBeInTheDocument();
   });
 
+  it("the Party token's row carries a PARTY chip", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("p", { name: "Party" })];
+    scene([{ id: "p" }, { id: "a" }, { id: GM_ENTRY }], null, 0, { party: "p" });
+    render(<App />);
+    await screen.findByText("Party");
+    expect(within(rowOf("Party")).getByText("PARTY")).toBeInTheDocument();
+    expect(within(rowOf("Aria")).queryByText("PARTY")).toBeNull();
+  });
+
   it("edits rolls and notes; a roll entered sorts the list (clearing one doesn't); Sort by roll still works", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
