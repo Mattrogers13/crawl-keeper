@@ -10,7 +10,6 @@ import Settings from "./Settings";
 import Tracker from "./Tracker";
 import UndoBar from "./UndoBar";
 import { onAddEffect } from "../addEffectHandoff";
-import { isOurBadge, isOurEffectIcon, isOurMarker, isOurSkull } from "../marker";
 import { useLights } from "../hooks/useLights";
 import type { Role } from "../hooks/useRole";
 import { useSceneItems, useSceneReady } from "../hooks/useScene";
@@ -154,13 +153,7 @@ const LightsOnMap = () => {
   const items = useSceneItems();
   if (items === null) return <Loading />;
   const names = new Map(items.map((i) => [i.id, i.name?.trim() || "Unnamed"]));
-  // A light goes to any image on the map, a prop or a mount too, whatever its
-  // layer (not our own rings, skulls and badges).
-  const ours = (i: (typeof items)[number]) => isOurMarker(i) || isOurSkull(i) || isOurBadge(i) || isOurEffectIcon(i);
-  const targets = items
-    .filter((i) => i.type === "IMAGE" && !ours(i))
-    .map((i) => ({ id: i.id, name: names.get(i.id) ?? "Unnamed", layer: i.layer }));
-  return <LightTracker names={names} targets={targets} />;
+  return <LightTracker names={names} />;
 };
 
 // The players' view needs the open map's tokens (which are theirs, names).

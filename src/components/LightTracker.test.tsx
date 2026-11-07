@@ -190,23 +190,6 @@ describe("the Light Tracker", () => {
     await waitFor(() => expect(saved().lights.map((l) => l.status)).toEqual(["lit", "lit"]));
   });
 
-  it("Hand to… moves a lit torch to a party-mate or a prop with its timer, one undo step", async () => {
-    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Bram" }), token("p", { name: "Dropped torch", layer: "PROP" })];
-    obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a")] } };
-    scene(["a", "b"]);
-    render(<App />);
-    await open();
-    vi.setSystemTime(T0 + 20 * MINUTE);
-    fireEvent.click(within(card("Torch · Aria")).getByRole("button", { name: "Hand to…" }));
-    const choices = within(card("Torch · Aria")).getAllByRole("option").map((o) => o.textContent);
-    expect(choices).toEqual(["Choose a token…", "Bram", "Dropped torch (prop)"]);
-    fireEvent.change(within(card("Torch · Aria")).getByRole("combobox"), { target: { value: "p" } });
-    await waitFor(() => expect(saved().lights[0]).toMatchObject({ tokenId: "p", carrier: "Dropped torch", status: "lit" }));
-    expect(left(0)).toBe(40 * MINUTE);
-    fireEvent.click(screen.getByRole("button", { name: "Undo: Hand torch to Dropped torch" }));
-    await waitFor(() => expect(saved().lights[0].tokenId).toBe("a"));
-  });
-
   it("Remove all lights asks first, then offers Undo", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a"), lit("l2", "b", "lightSpell")] } };
