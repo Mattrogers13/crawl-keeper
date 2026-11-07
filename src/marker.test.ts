@@ -15,9 +15,11 @@ import {
   syncSkulls,
   syncTurn,
   syncTurnFromScene,
+  watchPartyToken,
 } from "./marker";
 import { GM_ENTRY, parseTracker, setDead } from "./tracker";
-import { obr, token } from "./test/obrMock";
+import { obr, setItems, token } from "./test/obrMock";
+import { waitFor } from "@testing-library/react";
 
 const IMG = markerImage();
 const markers = () => obr.items.filter((i) => i.metadata[MARKER_KEY] !== undefined);
@@ -223,5 +225,33 @@ describe("syncTurn", () => {
     await syncTurnFromScene({ showMarker: false });
     expect(markers()).toEqual([]);
     expect(OBR.player.select).not.toHaveBeenCalled();
+  });
+});
+
+describe("watchPartyToken (the Party token deleted while together)", () => {
+  it("lets the players go (their own attachment back) and shows them; not while split, not for players", async () => {
+    obr.sceneMetadata = {
+      [TRACKER_KEY]: {
+        entries: [{ id: "a" }, { id: "b" }, { id: "p" }, { id: GM_ENTRY }].map((e) => ({ roll: null, note: "", dead: false, ...e })),
+        party: "p",
+        together: true,
+        prior: { b: { to: "horse", off: ["ROTATION"] } },
+      },
+    };
+    const off = ["ROTATION", "SCALE", "DELETE", "LOCKED", "COPY", "VISIBLE"] as never;
+    obr.items = [
+      token("p"),
+      token("a", { attachedTo: "p", disableAttachmentBehavior: off, visible: false }),
+      token("b", { attachedTo: "p", disableAttachmentBehavior: off, visible: false }),
+    ];
+    const stop = watchPartyToken();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(obr.items.find((i) => i.id === "a")!.attachedTo).toBe("p");
+    await setItems(obr.items.filter((i) => i.id !== "p"));
+    await waitFor(() => expect(obr.items.find((i) => i.id === "a")!.visible).toBe(true));
+    const [a, b] = ["a", "b"].map((id) => obr.items.find((i) => i.id === id)!);
+    expect([a.attachedTo, a.disableAttachmentBehavior]).toEqual([undefined, undefined]);
+    expect([b.attachedTo, b.disableAttachmentBehavior, b.visible]).toEqual(["horse", ["ROTATION"], true]);
+    stop();
   });
 });

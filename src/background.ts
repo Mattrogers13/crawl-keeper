@@ -12,7 +12,7 @@ import { watchEffectIcons } from "./effectIcons";
 import { watchDeathNotices } from "./deathNotices";
 import { watchEffectNotices } from "./effectNotices";
 import { watchLightNotices } from "./lightNotices";
-import { fixMarkerVisibility } from "./marker";
+import { fixMarkerVisibility, watchPartyToken } from "./marker";
 import { watchLightRequests } from "./playerLights";
 import { watchTokenLights } from "./tokenLights";
 import { clearHistory } from "./undo";
@@ -154,6 +154,7 @@ OBR.onReady(() => {
   watchCombat();
   watchMarkerVisibility();
   watchTokenLights();
+  watchPartyToken();
   watchEffectIcons();
   watchLightNotices();
   watchEffectNotices();

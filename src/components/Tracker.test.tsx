@@ -83,41 +83,82 @@ describe("Tracker (GM)", () => {
     // Setting it moves and hides nothing; Split is on, the party token sits out.
     expect(screen.getByRole("button", { name: "Split" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "Party" }));
-    await waitFor(() => expect(at("p").position).toEqual({ x: 200, y: 200 }));
     await waitFor(() => expect([at("a").visible, at("b").visible, at("p").visible]).toEqual([false, false, true]));
+    expect([at("a").attachedTo, at("b").attachedTo]).toEqual(["p", "p"]);
     fireEvent.click(screen.getByRole("button", { name: "Split" }));
     await waitFor(() => expect([at("a").visible, at("b").visible, at("p").visible]).toEqual([true, true, false]));
-    expect([at("a").position, at("b").position]).toEqual([{ x: 100, y: 100 }, { x: 300, y: 300 }]);
+    expect([at("a").attachedTo, at("b").attachedTo]).toEqual([undefined, undefined]);
     // Clearing the party token while together shows the players again.
     fireEvent.click(screen.getByRole("button", { name: "Party" }));
     await waitFor(() => expect(at("a").visible).toBe(false));
     await pick("Wagon", "Clear party token");
     await waitFor(() => expect(saved().party).toBeNull());
     await waitFor(() => expect([at("a").visible, at("b").visible]).toEqual([true, true]));
+    expect([at("a").attachedTo, at("b").attachedTo]).toEqual([undefined, undefined]);
   });
 
-  it("combine and expand: the Party token moves to the players' centre; split puts them back in that shape around it", async () => {
+  it("Party: players gather on their side of the Party token (the rally point), attach and hide; Split: they detach and show where they stand", async () => {
     obr.items = [
-      token("a", { name: "Aria", position: { x: 100, y: 100 } }),
-      token("b", { name: "Borin", position: { x: 300, y: 100 } }),
-      token("p", { name: "Wagon", position: { x: 0, y: 0 }, visible: false }),
+      token("a", { name: "Aria", position: { x: 75, y: 825 } }),
+      token("b", { name: "Borin", position: { x: 1575, y: 825 }, attachedTo: "horse", disableAttachmentBehavior: ["ROTATION"] }),
+      token("p", { name: "Wagon", position: { x: 825, y: 825 }, visible: false }),
     ];
     scene([{ id: "a" }, { id: "b" }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p" });
     render(<App />);
     await screen.findByText("Wagon");
-    const at = (id: string) => obr.items.find((i) => i.id === id)!.position;
+    const at = (id: string) => obr.items.find((i) => i.id === id)!;
     fireEvent.click(screen.getByRole("button", { name: "Party" }));
-    await waitFor(() => expect(saved().together).toBe(true));
-    await waitFor(() => expect(at("p")).toEqual({ x: 200, y: 100 }));
-    expect(saved().formation).toEqual({ a: { x: -100, y: 0 }, b: { x: 100, y: 0 } });
-    // The party travels.
-    await setItems(obr.items.map((i) => (i.id === "p" ? { ...i, position: { x: 1000, y: 700 } } : i)));
+    await waitFor(() => expect(at("a").attachedTo).toBe("p"));
+    expect(at("a").position).toEqual({ x: 675, y: 825 });
+    expect(at("b").position).toEqual({ x: 975, y: 825 });
+    expect(at("b").attachedTo).toBe("p");
+    expect(at("b").disableAttachmentBehavior).toEqual(["ROTATION", "SCALE", "DELETE", "LOCKED", "COPY", "VISIBLE"]);
+    expect([at("a").visible, at("b").visible, at("p").visible]).toEqual([false, false, true]);
+    expect(at("p").position).toEqual({ x: 825, y: 825 });
+    expect(saved().prior).toEqual({ a: { to: null, off: null }, b: { to: "horse", off: ["ROTATION"] } });
+    // The GM drags the party; Owlbear carries the attached players along.
+    await setItems(obr.items.map((i) => ({ ...i, position: { x: i.position.x + 3000, y: i.position.y } })));
     fireEvent.click(screen.getByRole("button", { name: "Split" }));
-    await waitFor(() => expect(saved().together).toBe(false));
-    await waitFor(() => expect(at("a")).toEqual({ x: 900, y: 700 }));
-    expect(at("b")).toEqual({ x: 1100, y: 700 });
-    expect(at("p")).toEqual({ x: 1000, y: 700 });
-    expect(obr.items.map((i) => [i.id, i.visible])).toEqual([["a", true], ["b", true], ["p", false]]);
+    await waitFor(() => expect(at("a").visible).toBe(true));
+    expect(at("a").attachedTo).toBeUndefined();
+    expect(at("a").disableAttachmentBehavior).toBeUndefined();
+    expect(at("b").attachedTo).toBe("horse");
+    expect(at("b").disableAttachmentBehavior).toEqual(["ROTATION"]);
+    expect([at("a").position, at("b").position]).toEqual([{ x: 3675, y: 825 }, { x: 3975, y: 825 }]);
+    expect(at("p").visible).toBe(false);
+  });
+
+  it("Dynamic Fog's walls: nobody is pulled through one, and a player the trip carried behind one is moved back on Split", async () => {
+    // A wall just east of the rally point, top to bottom (a local item, as Dynamic Fog builds them).
+    obr.localItems = [{ ...token("w1"), type: "WALL", layer: "FOG", position: { x: 0, y: 0 }, points: [{ x: 900, y: 0 }, { x: 900, y: 2000 }], blocking: true } as never];
+    obr.items = [
+      token("b", { name: "Borin", position: { x: 1575, y: 825 } }),
+      token("p", { name: "Wagon", position: { x: 825, y: 825 }, visible: false }),
+    ];
+    scene([{ id: "b" }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p" });
+    render(<App />);
+    await screen.findByText("Wagon");
+    const at = (id: string) => obr.items.find((i) => i.id === id)!;
+    fireEvent.click(screen.getByRole("button", { name: "Party" }));
+    await waitFor(() => expect(at("b").attachedTo).toBe("p"));
+    expect(at("b").position.x).toBeLessThan(900);
+    // The trip dragged Borin across the wall.
+    await setItems(obr.items.map((i) => (i.id === "b" ? { ...i, position: { x: 1125, y: 825 } } : i)));
+    fireEvent.click(screen.getByRole("button", { name: "Split" }));
+    await waitFor(() => expect(at("b").visible).toBe(true));
+    expect(at("b").position.x).toBeLessThan(900);
+  });
+
+  it("Combat with the party together splits it in the same step (one undo); with a light, it asks for the carrier first", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" }), token("p", { name: "Wagon" })];
+    scene([{ id: "a", roll: 12 }, { id: "b", roll: 5 }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p", together: true });
+    render(<App />);
+    await screen.findByText("Wagon");
+    fireEvent.click(screen.getByRole("button", { name: "Combat" }));
+    await waitFor(() => expect(saved()).toMatchObject({ phase: "combat", together: false }));
+    expect(await screen.findByRole("button", { name: "Undo: Combat" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Undo: Combat" }));
+    await waitFor(() => expect(saved()).toMatchObject({ phase: "crawl", together: true }));
   });
 
   it("Split with a light on the Party token asks who carries it, then moves it with its timer", async () => {

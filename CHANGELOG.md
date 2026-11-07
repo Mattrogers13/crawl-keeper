@@ -4,8 +4,9 @@ Versions follow semver; the same number is in `package.json` and `public/manifes
 
 ## Unreleased
 
-- Combine and expand: Party | Split now moves the tokens. Party: the party token goes to the middle of the players and the shape they stood in is remembered. Split: the players go back into that shape around the party token, wherever it has travelled. Undo does not move tokens back.
-- A row's menu has Set as party token / Clear party token, like the map's right-click. Clearing or replacing the party token while the party is together shows the players again.
+- Party travels attached: pressing Party pulls each player to a free spot on their side of the party token, clear of Dynamic Fog's walls (no line through a wall from the party token, half a cell clear; otherwise they stack on it), attaches them to the party token (position only) and hides them, so they go wherever you drag it. Split detaches and shows them where they stand; anyone the trip carried behind a wall moves back to a legal spot. A player's own attachment (a mount) comes back on Split. To regroup somewhere else, drag the faded party token there first: it's the rally point.
+- Combat splits a party that's together, in the same step (one undo); with a light on the party token it asks for the carrier first.
+- A row's menu has Set as party token / Clear party token. Clearing or replacing the party token while together, or deleting it, lets the players go and shows them.
 - If the switch fails, it now says so instead of doing nothing.
 
 ## v0.6.0 (2026-11-07)
