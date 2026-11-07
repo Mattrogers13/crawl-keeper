@@ -11,6 +11,7 @@ import { useRoomValue } from "../hooks/useRoomValue";
 import { syncTurnFromScene } from "../marker";
 import { checkDicePlus, setDicePlusEnabled } from "../diceRoller";
 import { resetAll } from "../resetAll";
+import { runRoomCheck, type CheckLine } from "../roomCheck";
 import { readLog } from "../sessionLog";
 import { record } from "../undo";
 import { errorMessage } from "../utils";
@@ -255,6 +256,13 @@ const Settings = (props: { openLog?: () => void }) => {
         <DicePlusStatus on={settings.value.dicePlus} />
       </Group>
 
+      {/* Dev builds only, temporary: the room check for combine and expand. */}
+      {import.meta.env.VITE_BUILD_LABEL && (
+        <Group title="Room check (Dev)">
+          <RoomCheck />
+        </Group>
+      )}
+
       <Group title="About">
         <DataSize />
       </Group>
@@ -447,3 +455,38 @@ const OpenIcon = () => (
 );
 
 export default Settings;
+
+// Dev only (roomCheck.ts): runs the attach and walls checks, shows each result.
+const RoomCheck = () => {
+  const [lines, setLines] = useState<CheckLine[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="flex flex-col gap-2 px-4 py-3 text-xs">
+      <p className="text-obr-text-secondary">Makes three hidden test images at the map's origin, checks attach and walls, then deletes them. Draw a Dynamic Fog wall first to test walls.</p>
+      <button
+        type="button"
+        disabled={busy}
+        className="h-8 self-start rounded-md bg-obr-primary px-3 font-medium text-obr-primary-contrast disabled:opacity-50"
+        onClick={() => {
+          setBusy(true);
+          setLines(null);
+          void runRoomCheck()
+            .then(setLines)
+            .finally(() => setBusy(false));
+        }}
+      >
+        {busy ? "Checking…" : "Run the room check"}
+      </button>
+      {lines && (
+        <ul className="flex flex-col gap-1">
+          {lines.map((l) => (
+            <li key={l.label}>
+              <span className="font-medium">{l.ok === true ? "✅" : l.ok === false ? "❌" : "➖"} {l.label}</span>
+              <span className="block text-obr-text-secondary">{l.detail}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
