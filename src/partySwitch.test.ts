@@ -21,7 +21,7 @@ describe("coming together", () => {
     const r = done(run(base(), [lit("b")], true));
     expect(r.lights.lights).toMatchObject([{ tokenId: "p", carrier: "P", status: "lit" }]);
     expect(remaining(r.lights.lights[0], NOW)).toBe(60 * MINUTE);
-    expect(r.tracker).toMatchObject({ together: true, carrier: "b", current: null });
+    expect(r.tracker).toMatchObject({ together: true, carrier: "b" });
   });
 
   it("no lights: just the switch; a light already on the Party token stays; a second lit light stays where it is", () => {

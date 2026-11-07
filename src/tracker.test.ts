@@ -546,17 +546,34 @@ describe("Party / Split", () => {
   it("no Party token: everyone takes turns; split: the Party token sits out; together: the players do", () => {
     expect(order(setParty(tracker({ a: 1, b: 2, [GM_ENTRY]: 3 }), null))).toEqual(["a", "b", GM_ENTRY]);
     expect(order(withParty(false))).toEqual(["a", "b", GM_ENTRY, "m1"]);
-    expect(order(withParty(true))).toEqual([GM_ENTRY, "m1", "p"]);
+    expect(order(withParty(true))).toEqual(["p", GM_ENTRY, "m1"]);
   });
 
-  it("switching ends the round, keeps the carrier, and is a no-op when it changes nothing", () => {
-    const t = { ...withParty(false), round: 2, current: "a" };
-    const joined = setTogether(t, true, "a");
-    expect(joined).toMatchObject({ together: true, carrier: "a", current: null, round: 2 });
+  it("together: the Party token takes the highest roll and that player's place; the carrier is kept; a switch that changes nothing is a no-op", () => {
+    const t = setParty(tracker({ a: 5, b: 17, c: 9, [GM_ENTRY]: 3 }), "p");
+    const joined = setTogether(t, true, "b");
+    expect(ids(joined.entries)).toEqual(["a", "p", "b", "c", GM_ENTRY]);
+    expect(joined.entries.find((e) => e.id === "p")?.roll).toBe(17);
+    expect(joined).toMatchObject({ together: true, carrier: "b" });
     expect(setTogether(joined, true)).toBe(joined);
     expect(setTogether(tracker({ a: 1, [GM_ENTRY]: 2 }), true)).toEqual(tracker({ a: 1, [GM_ENTRY]: 2 }));
     expect(setTogether(joined, false, "zzz").carrier).toBeNull();
     expect(setTogether(joined, false, "p").carrier).toBeNull();
+  });
+
+  it("no player has rolled: the Party token keeps its place and roll", () => {
+    const t = setParty(tracker({ a: null, [GM_ENTRY]: null }), "p");
+    expect(ids(setTogether(t, true).entries)).toEqual(ids(t.entries));
+  });
+
+  it("switching keeps the round: a player's turn becomes the Party token's, and back to the first player's", () => {
+    const t = { ...setParty(tracker({ a: 5, b: 17, [GM_ENTRY]: 3 }), "p"), round: 2, current: "a" };
+    const joined = setTogether(t, true, "b");
+    expect(joined).toMatchObject({ round: 2, current: "p" });
+    expect(setTogether(joined, false, "b")).toMatchObject({ round: 2, current: "b" });
+    const gm = setTogether({ ...t, current: GM_ENTRY }, true);
+    expect(gm.current).toBe(GM_ENTRY);
+    expect(setTogether({ ...t, current: null }, true).current).toBeNull();
   });
 
   it("clearing, replacing or losing the Party token splits the players and forgets the carrier", () => {
