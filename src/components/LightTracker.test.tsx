@@ -199,7 +199,7 @@ describe("the Light Tracker", () => {
     vi.setSystemTime(T0 + 20 * MINUTE);
     fireEvent.click(within(card("Torch · Aria")).getByRole("button", { name: "Hand to…" }));
     const choices = within(card("Torch · Aria")).getAllByRole("option").map((o) => o.textContent);
-    expect(choices).toEqual(["Choose a token…", "Bram", "Dropped torch"]);
+    expect(choices).toEqual(["Choose a token…", "Bram", "Dropped torch (prop)"]);
     fireEvent.change(within(card("Torch · Aria")).getByRole("combobox"), { target: { value: "p" } });
     await waitFor(() => expect(saved().lights[0]).toMatchObject({ tokenId: "p", carrier: "Dropped torch", status: "lit" }));
     expect(left(0)).toBe(40 * MINUTE);
