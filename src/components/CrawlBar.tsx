@@ -62,6 +62,24 @@ const CrawlBar = (props: {
   // This mode's last roll (not the other mode's, after a switch).
   const last = lastFor(crawl, mode);
 
+  // Manual rolls (Matt, 2026-11-07): the GM rolls at the table, so no danger
+  // level, dial or die; the darkness switch stays.
+  if (manual) {
+    return (
+      <section
+        aria-label="Encounter checks"
+        className="flex shrink-0 items-center justify-between gap-2.5 rounded-[14px] bg-obr-bg px-2.5 py-1.5 ring-1 ring-obr-text/10 ring-inset"
+      >
+        <span className="text-sm font-medium">Manual rolls</span>
+        <TorchToggle
+          dark={dark}
+          following={props.following}
+          onClick={() => change(crawl.dark ? "Torchlit" : "Darkness", (c) => setDark(c, !c.dark))}
+        />
+      </section>
+    );
+  }
+
   return (
     <section
       aria-label={clock ? "Crawling Clock" : "Encounter checks"}
