@@ -23,7 +23,7 @@ import TimeSheet from "./TimeSheet";
 import CrawlBar, { ClockDial, FOCUS, PlayerRoll } from "./CrawlBar";
 import { clockLeft, clockStart, crawlDie, cryptoRand, due, lastFor, replayRand, rollFor } from "../crawl";
 import { dicePlusActive, rollDice, rollExploding, setDicePlusEnabled, type RollTarget } from "../diceRoller";
-import { ChevronIcon, HourglassIcon, PlayIcon, SortIcon } from "./icons";
+import { ChevronIcon, HourglassIcon, PlayIcon } from "./icons";
 import Loading from "./Loading";
 import RowMenu from "./RowMenu";
 import Row, { INIT_SLOT, tokenInfo, type ButtonProps, type Token } from "./TrackerRow";
@@ -120,6 +120,8 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   // The token row whose empty note the GM opened from its menu.
   const [noting, setNoting] = useState<string | null>(null);
+  // The row whose token is being renamed (row menu → Rename…).
+  const [renaming, setRenaming] = useState<string | null>(null);
   // The GM's Add effect form, for these rows (none: free-standing).
   const [adding, setAdding] = useState<string[] | null>(null);
   // The Time passes sheet (the ⏳ beside the title).
@@ -353,7 +355,17 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
     const list = effectsOf.get(e.id);
     return list ? <RowEffects effects={list} tracker={tracker} change={effectChange} current={e.id === current} name={names.get(e.id)} /> : undefined;
   };
-  const rowProps = { gm, change: liveChange, show, focus, openMenu, lightChange: gm ? lights.change : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker), noting, setNoting };
+  // Renames the token itself, so the map label, the light cards and every
+  // other tool follow. Not an undo step (the scene's items aren't ours to
+  // restore); rename it back.
+  const renameToken = (id: string, name: string) => {
+    OBR.scene.items
+      .updateItems([id], (drafts) => {
+        for (const d of drafts) d.name = name;
+      })
+      .catch((err) => notify(`Couldn't rename the token: ${errorMessage(err)}`, "WARNING"));
+  };
+  const rowProps = { gm, change: liveChange, show, focus, openMenu, lightChange: gm ? lights.change : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker), noting, setNoting, renaming, setRenaming, renameToken };
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
   const round = tracker.round;
   const roundLabel =
@@ -499,7 +511,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
     n: goNext,
     b: () => change("Back", previous),
     r: () => {
-      if (!combat && mode !== "manual" && due(tracker.crawl, mode, dark)) rollEncounter("Encounter roll");
+      if (!combat && due(tracker.crawl, mode, dark)) rollEncounter("Encounter roll");
     },
   };
   const drop = ({ active, over }: DragEndEvent) => {
@@ -536,9 +548,6 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
               Combat
             </button>
           </div>
-          <RoundButton label="Sort by roll" onClick={() => change("Sort by roll", sortByRoll)}>
-            <SortIcon />
-          </RoundButton>
           <div className="ml-auto flex gap-1.5">
             <RoundButton label="Previous turn" hint="B" wide disabled={tracker.current === null} onClick={() => change("Back", previous)}>
               <PlayIcon back />
@@ -739,12 +748,26 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           {/* Two drag groups: players and the GM row; monsters inside the GM row. */}
           <div
             className="flex border-b border-obr-text/10 py-1 pr-1 text-[10px] font-semibold tracking-[0.1em] text-obr-text-disabled uppercase"
-            aria-hidden
+            aria-hidden={gm ? undefined : true}
           >
             {/* Lined up with the names: the GM's grip, checkbox and portrait (16 + 16 + 26 px and
                 three 8 px gaps), or a player's inset and portrait (4 + 26 + 8). */}
             <span className={`flex-1 ${gm ? "pl-[82px]" : "pl-[38px]"}`}>Name</span>
-            <span className={`${INIT_SLOT} pr-2 text-right`}>Init</span>
+            {/* Possible deletion (docs/design.md, Releases): rolls already sort the list as they are entered, so this may go unused. */}
+            {gm ? (
+              <span className={`${INIT_SLOT} pr-2 text-right`}>
+                <button
+                  type="button"
+                  title="Sort by roll, highest first"
+                  className="cursor-pointer uppercase underline decoration-dotted underline-offset-2 hover:text-obr-text focus-visible:text-obr-text focus-visible:outline-none"
+                  onClick={() => change("Sort by roll", sortByRoll)}
+                >
+                  Init
+                </button>
+              </span>
+            ) : (
+              <span className={`${INIT_SLOT} pr-2 text-right`}>Init</span>
+            )}
             {gm && <span className="w-7" />}
           </div>
           <SortableContext items={top.map((e) => e.id)} strategy={verticalListSortingStrategy}>
@@ -828,6 +851,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           effects={settle(effects, tracker)}
           addEffect={(ids) => openAdding(ids)}
           addNote={setNoting}
+          rename={setRenaming}
           startDying={openDying}
           checkFocus={(id) => setCheckNow((c) => (c.includes(id) ? c : [...c, id]))}
         />

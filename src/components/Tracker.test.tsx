@@ -104,7 +104,7 @@ describe("Tracker (GM)", () => {
     fireEvent.change(aria, { target: { value: "9" } });
     fireEvent.blur(aria);
     await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["a", "b", GM_ENTRY]));
-    fireEvent.click(screen.getByLabelText("Sort by roll"));
+    fireEvent.click(screen.getByRole("button", { name: "Init" }));
     await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["a", "b", GM_ENTRY]));
   });
 
@@ -268,6 +268,24 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(obr.selection).toEqual(["b"]));
   });
 
+  it("Rename… edits the token's own name in the row: Enter saves it, Escape or no change leaves it", async () => {
+    obr.items = [token("a", { name: "Goblin" })];
+    scene([{ id: "a" }, { id: GM_ENTRY }]);
+    render(<App />);
+    await pick("Goblin", "Rename…");
+    const field = await screen.findByLabelText("Rename Goblin");
+    expect(field).toHaveValue("Goblin");
+    fireEvent.keyDown(field, { key: "Escape" });
+    expect(screen.queryByLabelText("Rename Goblin")).not.toBeInTheDocument();
+    expect(obr.items[0].name).toBe("Goblin");
+    await pick("Goblin", "Rename…");
+    const again = await screen.findByLabelText("Rename Goblin");
+    fireEvent.change(again, { target: { value: "  Goblin 2 " } });
+    fireEvent.keyDown(again, { key: "Enter" });
+    await waitFor(() => expect(obr.items[0].name).toBe("Goblin 2"));
+    expect(await screen.findByText("Goblin 2")).toBeInTheDocument();
+  });
+
   it("the ⋯ button opens the same menu; Escape and clicking away close it; none for the GM row", async () => {
     obr.items = [token("a", { name: "Aria" })];
     scene([{ id: "a" }, { id: GM_ENTRY }]);
@@ -278,15 +296,18 @@ describe("Tracker (GM)", () => {
       "Mark as monster",
       "Mark dead",
       "Dying…",
-      "Turn marker off",
       "Show on map",
+      "Rename…",
       "Add note",
+      "Turn marker off",
       "Add effect…",
       "Give torch",
       "Give lantern",
       "Give Light spell",
       "Remove from initiative",
     ]);
+    // Five groups, a thin line between them: state, the row, effects, lights, leaving.
+    expect(within(menu).getAllByRole("group")).toHaveLength(5);
     expect(within(menu).getByRole("menuitem", { name: "Mark as monster" })).toHaveFocus();
     fireEvent.keyDown(menu, { key: "ArrowDown" });
     expect(within(menu).getByRole("menuitem", { name: "Mark dead" })).toHaveFocus();
@@ -478,7 +499,7 @@ describe("Tracker (GM)", () => {
     fireEvent.click(screen.getByText("GM / Monsters"));
     expect(selected()).toBe(0);
     fireEvent.click(screen.getByText("Aria"));
-    fireEvent.click(screen.getByLabelText("Sort by roll"));
+    fireEvent.click(screen.getByRole("button", { name: "Init" }));
     expect(selected()).toBe(0);
   });
 
@@ -849,7 +870,7 @@ describe("Tracker (GM)", () => {
       await waitFor(() => expect(saved().crawl.last?.before).toBe(33));
     });
 
-    it("manual: just the darkness switch on the bar (no danger level, dial or die); R rolls nothing; ▶ off the GM turn still counts a due check made", async () => {
+    it("manual: the bar keeps the darkness switch and a small die (no danger level or dial); the die and R roll a check; ▶ off the GM turn counts a due check made", async () => {
       obr.metadata = { [SETTINGS_KEY]: { encounterRolls: false, encounterMode: "clock", autoRoll: true } };
       obr.items = [token("a", { name: "Aria" })];
       scene([{ id: GM_ENTRY }, { id: "a" }], GM_ENTRY, 3, { crawl: { crawlRounds: 3 } });
@@ -857,12 +878,15 @@ describe("Tracker (GM)", () => {
       const card = await screen.findByRole("region", { name: "Encounter checks" });
       expect(card).toHaveTextContent("Manual rolls");
       expect(within(card).queryByLabelText("Danger level")).not.toBeInTheDocument();
-      expect(within(card).queryByRole("button", { name: /Encounter check|Roll d/ })).not.toBeInTheDocument();
-      expect(within(card).getByRole("button", { name: /Torchlit|Darkness|dark/i })).toBeInTheDocument();
-      fireEvent.keyDown(document.body, { key: "r" });
-      expect(saved().crawl.last).toBeNull();
+      expect(within(card).getByRole("button", { name: "Darkness" })).toBeInTheDocument();
       fireEvent.click(screen.getByLabelText("Next turn"));
       await waitFor(() => expect(saved()).toMatchObject({ current: "a", crawl: { lastCheck: 3, last: null } }));
+      // R rolls only when a check is due; the die any time.
+      fireEvent.keyDown(document.body, { key: "r" });
+      expect(saved().crawl.last).toBeNull();
+      fireEvent.click(within(card).getByRole("button", { name: "Encounter check (d6)" }));
+      await waitFor(() => expect(saved().crawl.last).toMatchObject({ kind: "check", sides: 6 }));
+      expect(await screen.findByRole("button", { name: "Undo: Encounter check" })).toBeInTheDocument();
     });
 
     it("Settings: one choice of four sets the method; Manual keeps the clock size and hides auto roll and rolls", async () => {
