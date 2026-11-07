@@ -219,6 +219,20 @@ export const afterTurnChange = async (before: Tracker, after: Tracker, settings:
   await syncTurn(token, { showMarker: settings.showMarker, selectOnTurn: select }).catch(report);
 };
 
+// The Party / Split switch shows the tokens that now take turns and hides
+// the ones that sit out (the living players and the Party token; undo flips
+// them back). Only when the switch itself changed: setting or clearing the
+// Party token moves nothing, and a token the GM hides by hand stays hidden
+// until the next switch.
+export const syncPartyVisibility = async (before: Tracker, after: Tracker) => {
+  if (after.party === null || before.party !== after.party || before.together === after.together) return;
+  const ids = after.entries.filter((e) => e.id !== GM_ENTRY && !e.monster && !e.dead).map((e) => e.id);
+  if (ids.length === 0) return;
+  await OBR.scene.items.updateItems(ids, (drafts) => {
+    for (const d of drafts) d.visible = (d.id === after.party) === after.together;
+  });
+};
+
 // Every GM write calls this (panel and right-click): the marker and
 // selection when the turn changed, the skulls when who's dead changed (marked,
 // revived, or removed from the tracker while dead).
@@ -227,6 +241,7 @@ export const afterChange = async (before: Tracker, after: Tracker, settings: Tur
   const deadChanged = dead.join() !== deadTokens(before).join();
   await Promise.all([
     afterTurnChange(before, after, settings),
+    syncPartyVisibility(before, after).catch((err) => notify(`Couldn't show or hide the party's tokens: ${errorMessage(err)}`, "WARNING")),
     deadChanged && syncSkulls(dead).catch((err) => notify(`Couldn't update the skulls: ${errorMessage(err)}`, "WARNING")),
   ]);
 };

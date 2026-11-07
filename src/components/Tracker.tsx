@@ -60,9 +60,11 @@ import { NO_SELECTION, clickRow, keepRows, menuTargets, type Selection } from ".
 import { effectiveMode, parseSettings } from "../settings";
 import { readLocal, writeLocal } from "../storage";
 import { errorMessage, notify } from "../utils";
+import { switchParty, type Choice } from "../partyMode";
 import {
   GM_ENTRY,
   gmEquation,
+  inTurns,
   moveTo,
   next,
   nextAfterManualCheck,
@@ -113,6 +115,8 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   // The GM's row selection (click, Shift-click, Cmd/Ctrl-click) and row menu
   // (right-click or ⋯), which acts on the selection.
   const [picked, setPicked] = useState<Selection>(NO_SELECTION);
+  // The Party / Split switch asking who carries the party's light.
+  const [carrierChoices, setCarrierChoices] = useState<Choice[] | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   // The token row whose empty note the GM opened from its menu.
   const [noting, setNoting] = useState<string | null>(null);
@@ -545,6 +549,17 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           </div>
         </div>
       )}
+      {gm && tracker.party !== null && (
+        <PartySwitch
+          together={tracker.together}
+          choices={carrierChoices}
+          go={(together, pick) => {
+            setCarrierChoices(null);
+            void switchParty(together, pick).then(setCarrierChoices);
+          }}
+          cancel={() => setCarrierChoices(null)}
+        />
+      )}
       {/* Under the turn bar, where they're easy to find (each asks first). */}
       {gm && (
         <div className="-mt-1 flex shrink-0 flex-wrap items-center gap-x-3">
@@ -744,6 +759,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
                   current={entry.id === current}
                   selected={selection.ids.includes(entry.id)}
                   party={entry.id === tracker.party}
+                  sitsOut={!inTurns(tracker, entry)}
                   {...rowProps}
                 >
                   {entry.id === GM_ENTRY && monsters.length > 0 && (
@@ -852,5 +868,57 @@ const RoundButton = (
     {props.children}
   </button>
 );
+
+// Party | Split under the turn bar (only with a Party token): together, the
+// Party token takes the turns and the players sit out; split, the reverse.
+// Splitting with a light on the Party token asks who carries it.
+const PartySwitch = (props: {
+  together: boolean;
+  choices: Choice[] | null;
+  go: (together: boolean, pick?: string) => void;
+  cancel: () => void;
+}) => {
+  const { together, choices } = props;
+  const seg = (on: boolean, label: string, hint: string, click: () => void) => (
+    <button
+      type="button"
+      aria-pressed={on}
+      title={hint}
+      className={`h-7 rounded-full px-3 ${on ? "bg-obr-primary text-obr-primary-contrast" : "hover:bg-obr-text/10"}`}
+      onClick={click}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div className="flex shrink-0 flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        <div role="group" aria-label="Party or split" className="flex rounded-full bg-obr-bg p-[3px] text-xs font-medium">
+          {seg(together, "Party", "The Party token takes the turns; the players sit out", () => !together && props.go(true))}
+          {seg(!together, "Split", "The players take the turns; the Party token sits out", () => together && props.go(false))}
+        </div>
+        <span className="text-xs text-obr-text-secondary">{together ? "Party token has the turns" : "Players have the turns"}</span>
+      </div>
+      {choices && (
+        <div role="group" aria-label="Who carries the light" className="flex flex-wrap items-center gap-1.5 rounded-xl bg-obr-bg px-3 py-2 text-xs ring-1 ring-obr-text/10 ring-inset">
+          <span className="font-medium">Who carries the light?</span>
+          {choices.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className="h-7 rounded-md px-2.5 font-medium ring-1 ring-obr-text/15 ring-inset hover:bg-obr-text/10"
+              onClick={() => props.go(false, c.id)}
+            >
+              {c.name}
+            </button>
+          ))}
+          <button type="button" className="h-7 rounded-md px-2.5 text-obr-text-secondary hover:bg-obr-text/10" onClick={props.cancel}>
+            Cancel
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default Tracker;

@@ -24,6 +24,7 @@ import {
   setMarker,
   setMonster,
   setParty,
+  setTogether,
   toggleParty,
   resetRounds,
   rollGmInitiative,
@@ -51,6 +52,8 @@ const tracker = (rolls: Record<string, number | null>, current: string | null = 
   gmMod: 0,
   gmDie: null,
   party: null,
+  together: false,
+  carrier: null,
 });
 const ids = (t: { id: string }[]) => t.map((e) => e.id);
 
@@ -529,6 +532,51 @@ describe("the Party token", () => {
     const t = setParty(base(), "a");
     expect(parseTracker(JSON.parse(JSON.stringify(t))).party).toBe("a");
     for (const bad of ["zzz", "m1", GM_ENTRY, 5, null]) expect(parseTracker({ ...JSON.parse(JSON.stringify(t)), party: bad }).party).toBeNull();
+  });
+});
+
+
+describe("Party / Split", () => {
+  const withParty = (together = false) => {
+    const t = setParty(tracker({ a: 1, b: 2, m1: null, [GM_ENTRY]: 3 }), "p");
+    return together ? setTogether(t, true, null) : t;
+  };
+  const order = (t: Tracker) => ids(turnOrder({ ...t, phase: "combat" }));
+
+  it("no Party token: everyone takes turns; split: the Party token sits out; together: the players do", () => {
+    expect(order(setParty(tracker({ a: 1, b: 2, [GM_ENTRY]: 3 }), null))).toEqual(["a", "b", GM_ENTRY]);
+    expect(order(withParty(false))).toEqual(["a", "b", GM_ENTRY, "m1"]);
+    expect(order(withParty(true))).toEqual([GM_ENTRY, "m1", "p"]);
+  });
+
+  it("switching ends the round, keeps the carrier, and is a no-op when it changes nothing", () => {
+    const t = { ...withParty(false), round: 2, current: "a" };
+    const joined = setTogether(t, true, "a");
+    expect(joined).toMatchObject({ together: true, carrier: "a", current: null, round: 2 });
+    expect(setTogether(joined, true)).toBe(joined);
+    expect(setTogether(tracker({ a: 1, [GM_ENTRY]: 2 }), true)).toEqual(tracker({ a: 1, [GM_ENTRY]: 2 }));
+    expect(setTogether(joined, false, "zzz").carrier).toBeNull();
+    expect(setTogether(joined, false, "p").carrier).toBeNull();
+  });
+
+  it("clearing, replacing or losing the Party token splits the players and forgets the carrier", () => {
+    const joined = setTogether(withParty(false), true, "a");
+    for (const t of [setParty(joined, null), setParty(joined, "a"), remove(joined, ["p"])]) expect(t).toMatchObject({ together: false, carrier: null });
+    expect(remove(joined, ["a"])).toMatchObject({ together: true, carrier: null });
+  });
+
+  it("saved and parsed: together and carrier need a Party token and a tracked player", () => {
+    const joined = setTogether(withParty(false), true, "a");
+    expect(parseTracker(JSON.parse(JSON.stringify(joined)))).toMatchObject({ party: "p", together: true, carrier: "a" });
+    const raw = JSON.parse(JSON.stringify(joined));
+    expect(parseTracker({ ...raw, party: null })).toMatchObject({ together: false, carrier: null });
+    expect(parseTracker({ ...raw, carrier: "m1" }).carrier).toBeNull();
+    expect(parseTracker({ ...raw, carrier: "p" }).carrier).toBeNull();
+  });
+
+  it("a saved turn on a token that now sits out moves on", () => {
+    const raw = JSON.parse(JSON.stringify({ ...setTogether(withParty(false), true, "a"), round: 1, current: "a" }));
+    expect(parseTracker(raw).current).not.toBe("a");
   });
 });
 

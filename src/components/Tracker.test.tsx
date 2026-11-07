@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import OBR from "@owlbear-rodeo/sdk";
 
 import App from "./App";
-import { MARKER_KEY, SETTINGS_KEY, SKULL_KEY, TRACKER_KEY } from "../constants";
+import { LIGHTS_KEY, MARKER_KEY, SETTINGS_KEY, SKULL_KEY, TRACKER_KEY } from "../constants";
 import { GM_ENTRY, parseTracker } from "../tracker";
 import { obr, setItems, setSceneReady, token, writeFromElsewhere, writeSceneFromElsewhere } from "../test/obrMock";
 
@@ -41,12 +41,45 @@ describe("Tracker (GM)", () => {
   });
 
   it("the Party token's row carries a PARTY chip", async () => {
-    obr.items = [token("a", { name: "Aria" }), token("p", { name: "Party" })];
+    obr.items = [token("a", { name: "Aria" }), token("p", { name: "Wagon" })];
     scene([{ id: "p" }, { id: "a" }, { id: GM_ENTRY }], null, 0, { party: "p" });
     render(<App />);
-    await screen.findByText("Party");
-    expect(within(rowOf("Party")).getByText("PARTY")).toBeInTheDocument();
+    await screen.findByText("Wagon");
+    expect(within(rowOf("Wagon")).getByText("PARTY")).toBeInTheDocument();
     expect(within(rowOf("Aria")).queryByText("PARTY")).toBeNull();
+  });
+
+  it("Party | Split: together hides the players and shows the Party token; the players take no turns; undo flips it back", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" }), token("p", { name: "Wagon", visible: false })];
+    scene([{ id: "a" }, { id: "b" }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p" });
+    render(<App />);
+    await screen.findByText("Wagon");
+    expect(screen.getByRole("button", { name: "Split" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Party" }));
+    await waitFor(() => expect(saved()).toMatchObject({ together: true, party: "p" }));
+    await waitFor(() => expect(obr.items.map((i) => [i.id, i.visible])).toEqual([["a", false], ["b", false], ["p", true]]));
+    expect(rowOf("Aria").firstElementChild!.className).toContain("opacity-45");
+    fireEvent.click(screen.getByLabelText("Next turn"));
+    await waitFor(() => expect(saved().current).toBe("p"));
+    fireEvent.click(screen.getByRole("button", { name: "Undo: Next turn" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo: Party together" }));
+    await waitFor(() => expect(saved().together).toBe(false));
+    await waitFor(() => expect(obr.items.map((i) => [i.id, i.visible])).toEqual([["a", true], ["b", true], ["p", false]]));
+  });
+
+  it("Split with a light on the Party token asks who carries it, then moves it with its timer", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" }), token("p", { name: "Wagon" })];
+    obr.metadata = { [LIGHTS_KEY]: { lights: [{ id: "l1", kind: "torch", tokenId: "p", carrier: "Wagon", note: "", status: "lit", remainingMs: 3_600_000, endsAt: Date.now() + 3_600_000, spentAt: null }] } };
+    scene([{ id: "a" }, { id: "b" }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p", together: true });
+    render(<App />);
+    await screen.findByText("Wagon");
+    fireEvent.click(screen.getByRole("button", { name: "Split" }));
+    const ask = await screen.findByRole("group", { name: "Who carries the light" });
+    expect(saved().together).toBe(true);
+    fireEvent.click(within(ask).getByRole("button", { name: "Borin" }));
+    await waitFor(() => expect(saved()).toMatchObject({ together: false, carrier: "b" }));
+    expect((obr.metadata[LIGHTS_KEY] as { lights: { tokenId: string }[] }).lights[0].tokenId).toBe("b");
+    expect(obr.items.map((i) => [i.id, i.visible])).toEqual([["a", true], ["b", true], ["p", false]]);
   });
 
   it("edits rolls and notes; a roll entered sorts the list (clearing one doesn't); Sort by roll still works", async () => {

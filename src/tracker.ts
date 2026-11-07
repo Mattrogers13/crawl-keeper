@@ -75,6 +75,13 @@ export type Tracker = {
   // The Party token: one tracked player entry standing for the whole party
   // while exploring. Null when the map has none.
   party: string | null;
+  // The party travels together: the Party token takes turns and the players'
+  // rows sit out. Off (split): the players take turns and the Party token
+  // sits out. Always off with no Party token.
+  together: boolean;
+  // The player who carried the party's light the last time it split, so the
+  // next split offers them first. A tracked player entry, else null.
+  carrier: string | null;
 };
 
 export type GmDie = { die: number; mod: number };
@@ -88,6 +95,8 @@ export const emptyTracker = (): Tracker => ({
   gmMod: 0,
   gmDie: null,
   party: null,
+  together: false,
+  carrier: null,
 });
 
 
@@ -128,12 +137,22 @@ export const parseTracker = (raw: unknown): Tracker => {
     crawl: parseCrawl(raw.crawl),
     gmMod: intIn(raw.gmMod, MOD_MIN, MOD_MAX) ?? 0,
     gmDie: parseGmDie(raw.gmDie),
-    party: typeof raw.party === "string" && entries.some((e) => e.id === raw.party && e.id !== GM_ENTRY && !e.monster) ? raw.party : null,
+    party: null,
+    together: false,
+    carrier: null,
   };
+  const party =
+    typeof raw.party === "string" && entries.some((e) => e.id === raw.party && e.id !== GM_ENTRY && !e.monster) ? raw.party : null;
+  const carrier =
+    party !== null && typeof raw.carrier === "string" && entries.some((e) => e.id === raw.carrier && e.id !== GM_ENTRY && e.id !== party && !e.monster)
+      ? raw.carrier
+      : null;
+  const together = party !== null && raw.together === true;
+  const parsed: Tracker = { ...t, party, together, carrier };
   // A turn only exists inside a round, and only for an entry that takes
-  // turns now (living; monsters only in combat).
-  const current = t.round > 0 && typeof raw.current === "string" ? turnFor(t, raw.current) : null;
-  return current ? { ...t, current } : t;
+  // turns now (living, in the party's mode; monsters only in combat).
+  const current = parsed.round > 0 && typeof raw.current === "string" ? turnFor(parsed, raw.current) : null;
+  return current ? { ...parsed, current } : parsed;
 };
 
 const parseGmDie = (raw: unknown): GmDie | null => {
@@ -187,10 +206,16 @@ export const prune = (t: Tracker, exists: (id: string) => boolean): Tracker => {
   return withEntries(t, entries);
 };
 
+// With a Party token the players split into two sets and one sits out: the
+// Party token while split, the players while together. Everyone else (the GM
+// row, monsters) always takes part; with no Party token, so does everyone.
+export const inTurns = (t: Tracker, e: Entry): boolean =>
+  t.party === null || e.monster || e.id === GM_ENTRY || (e.id === t.party) === t.together;
+
 // The order turns are taken in: living entries only (never empty, the GM row
 // can't die).
 export const turnOrder = (t: Tracker): Entry[] => {
-  const living = t.entries.filter((e) => !e.dead);
+  const living = t.entries.filter((e) => !e.dead && inTurns(t, e));
   const monsters = t.phase === "combat" ? living.filter((e) => e.monster) : [];
   return living.filter((e) => !e.monster).flatMap((e) => (e.id === GM_ENTRY ? [e, ...monsters] : [e]));
 };
@@ -311,7 +336,8 @@ export const remove = (t: Tracker, ids: string[]): Tracker => {
 // turns.
 const withEntries = (t: Tracker, entries: Entry[]): Tracker => {
   const party = t.party !== null && entries.some((e) => e.id === t.party && !e.monster) ? t.party : null;
-  const updated = { ...t, entries, party };
+  const carrier = t.carrier !== null && party !== null && entries.some((e) => e.id === t.carrier && !e.monster) ? t.carrier : null;
+  const updated = { ...t, entries, party, together: party !== null && t.together, carrier };
   const turns = new Set(turnOrder(updated).map((e) => e.id));
   if (t.current === null || turns.has(t.current)) return updated;
   const order = turnOrder(t);
@@ -421,15 +447,25 @@ export const toggle = (t: Tracker, ids: string[]): Tracker => {
 // The Party token (right-click "Set as party token"): a player entry that
 // stands for everyone. Setting it tracks the token if it isn't yet (no room,
 // a monster or the GM row: nothing changes); another token replaces it; null
-// clears it.
+// clears it. Either way the players are split afterwards and nothing is
+// hidden or moved by the change itself (the switch does that).
 export const setParty = (t: Tracker, id: string | null): Tracker => {
-  if (id === null) return t.party === null ? t : { ...t, party: null };
+  if (id === null) return t.party === null ? t : { ...t, party: null, together: false, carrier: null };
   if (id === GM_ENTRY || t.party === id) return t;
   const tracked = add(t, [id]);
   const entry = tracked.entries.find((e) => e.id === id);
   if (!entry || entry.monster) return t;
-  return { ...tracked, party: id };
+  return { ...tracked, party: id, together: false, carrier: null };
 };
 
 // The right-click row: the Party token again clears it.
 export const toggleParty = (t: Tracker, id: string): Tracker => setParty(t, t.party === id ? null : id);
+
+// The Party / Split switch. Ends the round, like a phase switch (the next ▶
+// starts a new one). `carrier`: who has the light now when splitting, kept
+// for next time; when the party comes together it's who the light came from.
+export const setTogether = (t: Tracker, together: boolean, carrier: string | null = t.carrier): Tracker => {
+  if (t.party === null || t.together === together) return t;
+  const keep = carrier !== null && carrier !== t.party && t.entries.some((e) => e.id === carrier && !e.monster && e.id !== GM_ENTRY) ? carrier : null;
+  return { ...t, together, carrier: keep, current: null };
+};

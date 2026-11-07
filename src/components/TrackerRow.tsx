@@ -56,6 +56,8 @@ const Row = (props: {
   dis?: boolean;
   // This is the Party token (right-click: Set as party token).
   party?: boolean;
+  // Not in the turn order now: the Party token while split, the players while together.
+  sitsOut?: boolean;
   openMenu: (id: string, x: number, y: number) => void;
   select: (id: string, mods: { shift: boolean; toggle: boolean }) => void;
   selected: boolean;
@@ -89,7 +91,7 @@ const Row = (props: {
     : props.selected
       ? "bg-obr-primary/10"
       : "";
-  const fade = `${token && !token.visible ? "opacity-60" : ""} ${entry.dead ? "opacity-55" : ""}`;
+  const fade = `${token && !token.visible ? "opacity-60" : ""} ${entry.dead ? "opacity-55" : ""} ${props.sitsOut ? "opacity-45" : ""}`;
   return (
     <li
       ref={sortable.setNodeRef}
