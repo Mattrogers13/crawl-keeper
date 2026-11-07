@@ -115,7 +115,7 @@ const Panel = ({ role }: { role: Role }) => {
           <Loading />
         ) : scene.ready ? (
           // A new key per opened scene: switching maps reads the new map fresh.
-          <Tracker key={scene.opened} role={role} toolSlot={toolSlot} titleSlot={titleSlot} />
+          <Tracker key={scene.opened} role={role} toolSlot={toolSlot} titleSlot={titleSlot} openLights={() => setView("lights")} />
         ) : (
           <p className="text-sm text-obr-text-secondary">Open a scene to use the tracker.</p>
         )}

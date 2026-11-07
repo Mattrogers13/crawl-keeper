@@ -10,7 +10,6 @@ import { dicePlusActive, rollDice } from "../diceRoller";
 import type { Change } from "./Tracker";
 import LightBadge from "./LightBadge";
 import { D20Icon, GmPortrait, GripIcon, MoreIcon, SkullIcon } from "./icons";
-import type { LightChange } from "../hooks/useLights";
 import type { Light } from "../lights";
 import {
   MOD_MAX,
@@ -51,7 +50,8 @@ const Row = (props: {
   focus: (id: string) => void;
   // The token's lights, and the GM's way to put one out or on (players: null).
   lights?: Light[];
-  lightChange: LightChange | null;
+  // The GM's way to the Light Tracker (a light badge opens it); players: null.
+  openLights: (() => void) | null;
   // Disadvantage: total darkness, on a living player's row (p. 84).
   dis?: boolean;
   // This is the Party token (right-click: Set as party token).
@@ -223,7 +223,7 @@ const Row = (props: {
             entry.note && <span className="text-xs whitespace-pre-wrap text-obr-text-secondary">{entry.note}</span>
           )}
         </div>
-        {props.lights && <LightBadge lights={props.lights} change={props.lightChange} />}
+        {props.lights && <LightBadge lights={props.lights} open={props.openLights} />}
         {props.party && (
           <span title="Party token: stands for the whole party" className="shrink-0 rounded bg-obr-primary/15 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-obr-text">
             PARTY
