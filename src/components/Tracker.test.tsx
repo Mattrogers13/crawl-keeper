@@ -67,6 +67,35 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(obr.items.map((i) => [i.id, i.visible])).toEqual([["a", true], ["b", true], ["p", false]]));
   });
 
+  it("Matt's flow: three tokens, Set as party token from the row, then Party, Split, Party", async () => {
+    obr.items = [
+      token("a", { name: "Aria", position: { x: 100, y: 100 } }),
+      token("b", { name: "Borin", position: { x: 300, y: 300 } }),
+      token("p", { name: "Wagon", position: { x: 800, y: 800 } }),
+    ];
+    scene([{ id: "a" }, { id: "b" }, { id: "p" }, { id: GM_ENTRY }]);
+    // A bounds query that never answers (the first build waited on one) can't stall the switch.
+    vi.mocked(OBR.scene.items.getItemBounds).mockImplementation(() => new Promise(() => {}));
+    render(<App />);
+    await pick("Wagon", "Set as party token");
+    await waitFor(() => expect(saved().party).toBe("p"));
+    const at = (id: string) => obr.items.find((i) => i.id === id)!;
+    // Setting it moves and hides nothing; Split is on, the party token sits out.
+    expect(screen.getByRole("button", { name: "Split" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Party" }));
+    await waitFor(() => expect(at("p").position).toEqual({ x: 200, y: 200 }));
+    await waitFor(() => expect([at("a").visible, at("b").visible, at("p").visible]).toEqual([false, false, true]));
+    fireEvent.click(screen.getByRole("button", { name: "Split" }));
+    await waitFor(() => expect([at("a").visible, at("b").visible, at("p").visible]).toEqual([true, true, false]));
+    expect([at("a").position, at("b").position]).toEqual([{ x: 100, y: 100 }, { x: 300, y: 300 }]);
+    // Clearing the party token while together shows the players again.
+    fireEvent.click(screen.getByRole("button", { name: "Party" }));
+    await waitFor(() => expect(at("a").visible).toBe(false));
+    await pick("Wagon", "Clear party token");
+    await waitFor(() => expect(saved().party).toBeNull());
+    await waitFor(() => expect([at("a").visible, at("b").visible]).toEqual([true, true]));
+  });
+
   it("combine and expand: the Party token moves to the players' centre; split puts them back in that shape around it", async () => {
     obr.items = [
       token("a", { name: "Aria", position: { x: 100, y: 100 } }),
@@ -322,6 +351,7 @@ describe("Tracker (GM)", () => {
       "Dying…",
       "Show on map",
       "Rename…",
+      "Set as party token",
       "Add note",
       "Turn marker off",
       "Add effect…",

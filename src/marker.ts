@@ -222,9 +222,20 @@ export const afterTurnChange = async (before: Tracker, after: Tracker, settings:
 // The Party / Split switch shows the tokens that now take turns and hides
 // the ones that sit out (the living players and the Party token; undo flips
 // them back). Only when the switch itself changed: setting or clearing the
-// Party token moves nothing, and a token the GM hides by hand stays hidden
+// Party token while split moves nothing (cleared or replaced while together,
+// the players are shown again), and a token the GM hides by hand stays hidden
 // until the next switch.
 export const syncPartyVisibility = async (before: Tracker, after: Tracker) => {
+  // The Party token cleared or replaced while together: the players come back
+  // (they take turns again).
+  if (before.party !== null && before.together && after.party !== before.party) {
+    const back = before.entries.filter((e) => e.id !== GM_ENTRY && !e.monster && !e.dead && e.id !== before.party).map((e) => e.id);
+    if (back.length > 0)
+      await OBR.scene.items.updateItems(back, (drafts) => {
+        for (const d of drafts) d.visible = true;
+      });
+    return;
+  }
   if (after.party === null || before.party !== after.party || before.together === after.together) return;
   const ids = after.entries.filter((e) => e.id !== GM_ENTRY && !e.monster && !e.dead).map((e) => e.id);
   if (ids.length === 0) return;

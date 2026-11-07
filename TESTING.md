@@ -221,4 +221,5 @@ Torchlight uninstalled. Dynamic Fog on for rows 72–74. Rows 66–76 sum up the
 | 125 | GM: players spread in a loose group, a party token placed far away; press Party | The party token jumps to the middle of the players, then the players hide; the next Split brings them back in the same shape | |
 | 126 | GM: Party, drag the party token across the map, Split; again with a new player token added in between | The players appear around the party token where they stood relative to the group; a player added since lands on a ring beside it; undo restores visibility and lights but not positions | |
 | 127 | GM: Party with one player's token deleted, then Split; a dead player in the group | A deleted token is skipped without an error; a dead player stays where they are and isn't pulled in | |
+| 128 | GM: a row's menu → Set as party token, Party, then the row's Clear party token | The row works like the map's right-click; clearing while together shows the players again | |
 
