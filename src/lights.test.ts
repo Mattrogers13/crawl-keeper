@@ -437,7 +437,7 @@ describe("manual fixes", () => {
     expect(t.left(0)).toBe(60 * MIN);
   });
 
-  it("setting the time corrects any light; a spent one comes back lit", () => {
+  it("setting the time corrects a burning light; a spent torch stays out, a spent lantern can come back", () => {
     const t = setup();
     t.add("torch");
     t.advance(20 * MIN);
@@ -445,12 +445,28 @@ describe("manual fixes", () => {
     expect(t.left(0)).toBe(55 * MIN);
     t.advance(5 * MIN);
     expect(t.left(0)).toBe(50 * MIN);
-    t.do((s, now) => L.timePasses(s, now, 50 * MIN));
-    t.do((s, now) => L.setRemaining(s, now, "light-1", 12 * MIN));
-    expect(t.light(0)).toMatchObject({ status: "lit", spentAt: null });
-    expect(t.left(0)).toBe(12 * MIN);
     expect(() => t.do((s, now) => L.setRemaining(s, now, "light-1", 61 * MIN))).toThrow(RangeError);
     expect(() => t.do((s, now) => L.setRemaining(s, now, "light-1", 0))).toThrow(RangeError);
+    t.do((s, now) => L.timePasses(s, now, 50 * MIN));
+    expect(() => t.do((s, now) => L.setRemaining(s, now, "light-1", 12 * MIN))).toThrow(/can't be relit/);
+    expect(t.light(0).status).toBe("spent");
+  });
+
+  it("once a torch, spell or campfire is out it's out; dropSpent clears them at the next turn and keeps a dry lantern", () => {
+    const t = setup("separate");
+    t.add("torch", "a");
+    t.add("lantern", "b");
+    t.add("campfire", "c");
+    t.add("lightSpell", "d");
+    t.advance(46 * MIN);
+    t.do((s, now) => L.putOut(s, now, "light-2"));
+    t.do((s, now) => L.putOut(s, now, "light-1"));
+    t.do((s, now) => L.putOut(s, now, "light-4"));
+    expect(t.statuses()).toEqual(["spent", "spent", "lit", "spent"]);
+    expect(() => t.do((s, now) => L.relight(s, now, "light-1"))).toThrow(/burns once/);
+    const dropped = L.dropSpent(t.s);
+    expect(dropped.lights.map((l) => [l.kind, l.status])).toEqual([["lantern", "spent"], ["campfire", "lit"]]);
+    expect(L.dropSpent(dropped)).toBe(dropped);
   });
 
   it("setting the time: a lantern that's out keeps it exactly; a spent light can't light beside a lit one", () => {

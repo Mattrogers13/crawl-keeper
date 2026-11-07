@@ -25,9 +25,9 @@ const SETTING_LABELS: Partial<Record<keyof SettingsDoc, string>> = {
   followLight: "Follow light",
   autoRoll: "roll automatically",
   showRolls: "show rolls",
-  hideRound: "hide rounds",
-  hideClock: "hide the clock",
-  showDanger: "show danger",
+  showRound: "show rounds",
+  showClock: "show the clock",
+  showDanger: "show the danger level",
   clearRollsOnCombat: "clear rolls on combat",
   showMarker: "turn marker",
   selectOnTurn: "select token",
@@ -147,7 +147,7 @@ const Settings = (props: { openLog?: () => void }) => {
       <Group title="Darkness (p. 84)">
         <Toggle
           label="Follow light"
-          hint="When the Light Tracker has no light lit, it's total darkness: a check every crawl round in Interval mode, a d8 crawling die in clock modes, and DIS on the party's rows. The danger level stays. With no lights tracked, or off: set darkness yourself."
+          hint="No light shining means darkness: DIS on the party's rows, a check every crawl round, a d8 crawling die. With no lights tracked, or off, set it yourself."
           checked={settings.value.followLight}
           onChange={(followLight) => set({ followLight })}
         />
@@ -161,12 +161,6 @@ const Settings = (props: { openLog?: () => void }) => {
 
       <Group title="Players' lights">
         <Toggle
-          label="Show lights to players"
-          hint="Players see whether the party has light, the badges on the rows and DIS in darkness. Off: only their own lights."
-          checked={settings.value.showLights}
-          onChange={(showLights) => set({ showLights })}
-        />
-        <Toggle
           label="Players light their own"
           hint="Players right-click a party token (a player on the list, or one they placed) → Crawl Keeper: a torch, lantern or Light spell, one lit at a time, or put it out; their panel shows their lights. Only while you're in the room: your Crawl Keeper checks and makes the change."
           checked={settings.value.playersLight}
@@ -176,41 +170,44 @@ const Settings = (props: { openLog?: () => void }) => {
 
       <Group title="What players see">
         <Toggle
+          label="Show lights to players"
+          hint="Whether the party has light, the badges on the rows and DIS in darkness. Off: only their own lights."
+          checked={settings.value.showLights}
+          onChange={(showLights) => set({ showLights })}
+        />
+        <Toggle
           label="Show the death timer to players"
           hint="The Dying line and icon, its notices and the death rolls (the book has them in the open, p. 89). Off: only you see them."
           checked={settings.value.showDeath}
           onChange={(showDeath) => set({ showDeath })}
         />
-        {/* Manual: the rolls are the GM's own, never shown. */}
-        {rolls && (
-          <Toggle
-            label="Show the rolls to players"
-            hint={
-              clock
-                ? "Players see the crawling die's last roll and what it did to the clock."
-                : "Players see the last encounter check and whether it was an encounter."
-            }
-            checked={settings.value.showRolls}
-            onChange={(showRolls) => set({ showRolls })}
-          />
-        )}
         <Toggle
-          label="Hide rounds from players"
-          hint="Players see Crawl or Combat but not the round number."
-          checked={settings.value.hideRound}
-          onChange={(hideRound) => set({ hideRound })}
+          label="Show rolls to players"
+          hint={
+            clock
+              ? "The crawling die's last roll and what it did to the clock. Off: only you see your rolls."
+              : "The last encounter check and whether it was an encounter, including the manual die. Off: only you see your rolls."
+          }
+          checked={settings.value.showRolls}
+          onChange={(showRolls) => set({ showRolls })}
+        />
+        <Toggle
+          label="Show rounds to players"
+          hint="The round number. Off: players see Crawl or Combat only."
+          checked={settings.value.showRound}
+          onChange={(showRound) => set({ showRound })}
         />
         {clock ? (
           <Toggle
-            label="Hide the clock from players"
-            hint="Players don't see the Crawling Clock, so they can't play around it."
-            checked={settings.value.hideClock}
-            onChange={(hideClock) => set({ hideClock })}
+            label="Show the clock to players"
+            hint="The Crawling Clock. Off: players can't play around it."
+            checked={settings.value.showClock}
+            onChange={(showClock) => set({ showClock })}
           />
         ) : (
           <Toggle
             label="Show the danger level to players"
-            hint="Players see Unsafe, Risky or Deadly while crawling. The book leaves it to the GM."
+            hint="Unsafe, Risky or Deadly while crawling. The book leaves it to the GM."
             checked={settings.value.showDanger}
             onChange={(showDanger) => set({ showDanger })}
           />

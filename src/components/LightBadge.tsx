@@ -34,12 +34,20 @@ const LightBadge = ({ lights, change }: { lights: Light[]; change: LightChange |
         {text}
       </span>
     );
+  // A spent torch, spell or campfire is just a record until the next turn.
+  if (spent && !lantern)
+    return (
+      <span role="img" aria-label={what} title={what} className={look}>
+        {icon}
+        {text}
+      </span>
+    );
   const lower = label.toLowerCase();
   const [action, run]: [string, Parameters<LightChange>[1]] = lit
     ? [`Put out ${lower}`, (s, t) => putOut(s, t, l.id)]
     : !spent
       ? [`Light ${lower}`, (s, t) => relight(s, t, l.id)]
-      : [lantern ? "Refill and light lantern" : `New ${lower}`, (s, t) => renew(s, t, newLightId, l.id)];
+      : ["Refill and light lantern", (s, t) => renew(s, t, newLightId, l.id)];
   return (
     <button
       type="button"

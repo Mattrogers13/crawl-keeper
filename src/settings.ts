@@ -11,8 +11,8 @@ export type Settings = {
   encounterMode: "standard" | "clock";
   // The Crawling Clock's size: 1d20, or 2d20 run down one die at a time.
   clockDice: ClockDice;
-  // Players don't see the Crawling Clock.
-  hideClock: boolean;
+  // Players see the Crawling Clock. (Older rooms saved hideClock; parseSettings reads it.)
+  showClock: boolean;
   // Players see the map's danger level (the book treats it as GM-only).
   showDanger: boolean;
   // ▶ onto the GM turn rolls a due check / crawling die by itself.
@@ -23,8 +23,8 @@ export type Settings = {
   // it's total darkness (isDark in lights.ts); off, or with no lights, the
   // map's own Darkness switch decides.
   followLight: boolean;
-  // Hide the round counts from players.
-  hideRound: boolean;
+  // Players see the round counts. (Older rooms saved hideRound.)
+  showRound: boolean;
   // Switching to combat clears the rolls for the combat roll.
   clearRollsOnCombat: boolean;
   // A ring on the current token on the map (follows the token's visibility).
@@ -52,12 +52,12 @@ export const DEFAULT_SETTINGS: Settings = {
   encounterRolls: true,
   encounterMode: "standard",
   clockDice: 1,
-  hideClock: false,
+  showClock: true,
   showDanger: false,
   autoRoll: false,
   showRolls: false,
   followLight: true,
-  hideRound: false,
+  showRound: true,
   clearRollsOnCombat: true,
   showMarker: true,
   selectOnTurn: true,
@@ -74,12 +74,12 @@ export const parseSettings = (raw: unknown): Settings => {
     encounterRolls: r.encounterRolls !== false,
     encounterMode: r.encounterMode === "clock" ? "clock" : "standard",
     clockDice: r.clockDice === 2 ? 2 : 1,
-    hideClock: r.hideClock === true,
+    showClock: r.showClock !== undefined ? r.showClock !== false : r.hideClock !== true,
     showDanger: r.showDanger === true,
     autoRoll: r.autoRoll === true,
     showRolls: r.showRolls === true,
     followLight: r.followLight !== false,
-    hideRound: r.hideRound === true,
+    showRound: r.showRound !== undefined ? r.showRound !== false : r.hideRound !== true,
     clearRollsOnCombat: r.clearRollsOnCombat !== false,
     showMarker: r.showMarker !== false,
     selectOnTurn: r.selectOnTurn !== false,

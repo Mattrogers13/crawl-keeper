@@ -250,7 +250,7 @@ const TorchToggle = (props: { dark: boolean; following: boolean; onClick: () => 
     title={
       props.following
         ? "Following the Light Tracker. Turn off Follow light in Settings to set this by hand."
-        : "Total darkness: a check every crawl round, a d8 crawling die"
+        : "Darkness (p. 84): DIS, a check every crawl round, a d8 crawling die"
     }
     className={`flex h-7 items-center gap-1.5 rounded-full pr-3 pl-2 text-xs font-medium ${FOCUS} ${
       props.dark ? "bg-obr-text/10 text-obr-text-secondary" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"

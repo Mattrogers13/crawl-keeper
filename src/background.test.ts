@@ -154,7 +154,7 @@ describe("background: the players' menu", () => {
     const created = () => vi.mocked(OBR.contextMenu.create).mock.calls.filter((c) => c[0].id === PLAYER_MENU_ID).length;
     expect(created()).toBe(0);
     await writeFromElsewhere({ [SETTINGS_KEY]: { playersLight: true } });
-    await writeFromElsewhere({ [SETTINGS_KEY]: { playersLight: true, hideRound: true } });
+    await writeFromElsewhere({ [SETTINGS_KEY]: { playersLight: true, showRound: false } });
     expect(created()).toBe(1);
     const item = vi.mocked(OBR.contextMenu.create).mock.calls[0][0];
     expect(item.icons[0].filter?.roles).toEqual(["PLAYER"]);

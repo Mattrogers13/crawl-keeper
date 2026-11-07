@@ -266,6 +266,14 @@ export const renew = (state: Lights, now: number, newId: () => string, id: strin
   return addLight(s, now, newId, light);
 };
 
+// The torches, Light spells and campfires that have gone out leave the list
+// at the next turn (the badge stays until then); a lantern that ran dry stays
+// to be refilled. Same object when none.
+export const dropSpent = (s: Lights): Lights => {
+  const lights = s.lights.filter((l) => l.status !== "spent" || l.kind === "lantern");
+  return lights.length === s.lights.length ? s : { ...s, lights };
+};
+
 export const putOut = (state: Lights, now: number, id: string): Lights => {
   const s = settle(state, now);
   if (find(s, id).status !== "lit") return s;
@@ -281,13 +289,15 @@ export const putAllOut = (state: Lights, now: number): Lights => {
 
 // A manual fix, exactly as typed: 1 s up to the light's full time. A lit
 // light burns on from it; a lantern that's out keeps it as oil; a spent
-// light comes back lit (the GM undoing a mistake).
+// lantern comes back lit (a spent torch, spell or campfire never does).
 export const setRemaining = (state: Lights, now: number, id: string, ms: number): Lights => {
   const s = settle(state, now);
   const light = find(s, id);
   const full = fullMs(light.kind);
   if (!Number.isInteger(ms) || ms < 1000 || ms > full) throw new RangeError(`Set between 0:01 and ${full / MINUTE} minutes`);
   if (light.status === "out") return mapLight(s, id, (l) => ({ ...l, remainingMs: ms }));
+  // Once a torch, Light spell or campfire is out, it's out (Matt, 2026-11-07).
+  if (light.status === "spent" && light.kind !== "lantern") throw new Error(`A spent ${LIGHT_KINDS[light.kind].label.toLowerCase()} can't be relit`);
   const held = litOn(s, light.tokenId, id);
   if (held) throw new AlreadyLitError(held);
   return mapLight(s, id, (l) => ({ ...burn(l, ms, now, s.paused), spentAt: null }));

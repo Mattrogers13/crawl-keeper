@@ -50,7 +50,7 @@ import { sayDeath } from "../deathNotices";
 import type { Change as HistoryChange } from "../history";
 import type { Role } from "../hooks/useRole";
 import { useLightStatus, useLights } from "../hooks/useLights";
-import { followingLights, type Light } from "../lights";
+import { dropSpent, followingLights, type Light } from "../lights";
 import { centerOn } from "../viewport";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
@@ -234,6 +234,17 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   // A called-for focus check lasts until the turn moves.
   useEffect(() => setCheckNow([]), [docValue.current, docValue.round]);
 
+  // A torch, spell or campfire that went out stays on its row until the turn
+  // moves on (its notice too); then it's let go. Not on first showing.
+  const turnSeen = useRef<string | null>(null);
+  const tidyLights = lights.quiet;
+  useEffect(() => {
+    const turn = `${docValue.round}:${docValue.current}`;
+    const before = turnSeen.current;
+    turnSeen.current = turn;
+    if (role === "GM" && before !== null && before !== turn) tidyLights(dropSpent);
+  }, [docValue.current, docValue.round, role]);
+
   // The GM's hotkeys while the panel has focus (Owlbear keeps keys typed on
   // the map): N next turn, B back, R the encounter roll when one is due (a
   // stray R can't replace a roll already made). Not while typing, dragging
@@ -369,7 +380,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
   const round = tracker.round;
   const roundLabel =
-    round === 0 ? (gm ? "Not started" : "") : gm || !settings.value.hideRound ? `Round ${round}` : "";
+    round === 0 ? (gm ? "Not started" : "") : gm || settings.value.showRound ? `Round ${round}` : "";
   const combat = tracker.phase === "combat";
   // A monster's combat turn opens the folded list while it lasts, so the
   // current row shows (folding is off until then).
@@ -381,14 +392,14 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   const mode = effectiveMode(settings.value);
   const start = clockStart(settings.value.clockDice);
   // Players see the Crawling Clock unless the GM hides it; the GM sees it on the card.
-  const showClock = !gm && mode === "clock" && !settings.value.hideClock;
+  const showClock = !gm && mode === "clock" && settings.value.showClock;
   const showDanger = !gm && !combat && mode !== "clock" && settings.value.showDanger;
   // Manual: the GM's rolls stay the GM's.
-  const playerRoll = !gm && mode !== "manual" && settings.value.showRolls ? lastFor(tracker.crawl, mode) : null;
+  const playerRoll = !gm && settings.value.showRolls ? lastFor(tracker.crawl, mode) : null;
   // The encounter roll (the card's die, R, the auto roll): here, or Dice+
   // when it answered (src/diceRoller.ts), shown to players as the setting
   // says. One at a time: a second click while Dice+ rolls does nothing.
-  const rollTarget: RollTarget = mode !== "manual" && settings.value.showRolls ? "everyone" : "gm_only";
+  const rollTarget: RollTarget = settings.value.showRolls ? "everyone" : "gm_only";
   const rollEncounter = (label: string) => {
     if (!dicePlusActive()) return change(label, (t) => updateCrawl(t, (c) => rollFor(mode, start, dark)(c, cryptoRand)));
     if (rollingRef.current) return;
@@ -656,9 +667,9 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           roll={rollEncounter}
           rolling={rolling}
           seen={{
-            clock: mode === "clock" && !settings.value.hideClock,
+            clock: mode === "clock" && settings.value.showClock,
             danger: mode !== "clock" && settings.value.showDanger,
-            rolls: mode !== "manual" && settings.value.showRolls,
+            rolls: settings.value.showRolls,
           }}
         />
       )}

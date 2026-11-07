@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 
 import Confirm from "./Confirm";
+import InfoPopup from "./InfoPopup";
 import { FOCUS } from "./CrawlBar";
 import Loading from "./Loading";
 import Segmented from "./Segmented";
@@ -67,6 +68,9 @@ const LightTracker = ({ names }: { names: Map<string, string> }) => {
         >
           {s.paused ? "▶ Resume" : "❚❚ Pause"}
         </button>
+        <InfoPopup label="How lights work" title="How lights work">
+          <LightRules />
+        </InfoPopup>
       </div>
 
       <TimePasses change={change} />
@@ -95,7 +99,7 @@ const LightTracker = ({ names }: { names: Map<string, string> }) => {
       )}
 
       <section className="flex flex-col gap-2 rounded-xl bg-obr-bg px-3 py-3 ring-1 ring-obr-text/10 ring-inset">
-        <h3 className="text-[11px] font-medium tracking-[0.06em] text-obr-text-secondary uppercase">Lighting a second light (p. 84)</h3>
+        <h3 className="text-[11px] font-medium tracking-[0.06em] text-obr-text-secondary uppercase">Second light</h3>
         <Segmented
           label="Lighting a second light"
           name="lighting-rule"
@@ -106,24 +110,31 @@ const LightTracker = ({ names }: { names: Map<string, string> }) => {
           ]}
           onChange={(rule) => change("Lighting rule", (x) => setLightingRule(x, rule))}
         />
-        <Rules
-          rows={[
-            ["Ride along", "A light lit while another is burning joins that timer and goes out with it (p. 84). Campfires keep their own 8 hours."],
-            ["Separate timers", "Every light keeps its own full timer."],
-          ]}
-        />
-        <h3 className="pt-1 text-[11px] font-medium tracking-[0.06em] text-obr-text-secondary uppercase">Putting a light out</h3>
-        <Rules
-          rows={[
-            ["Lantern", "Keeps its oil, rounded down to the quarter hour: 38:00 left becomes 30:00. Under 15:00, it's empty."],
-            ["The rest", "A torch, Light spell or campfire is used once lit; putting it out spends it."],
-          ]}
-        />
-        <p className="text-xs text-obr-text-secondary">Manual fixes: Undo, or click a light's time to set it; a spent light comes back lit.</p>
       </section>
     </div>
   );
 };
+
+// The fine print, behind the (i) in the Light Tracker's header.
+const LightRules = () => (
+  <div className="flex flex-col gap-3">
+    <Rules
+      rows={[
+        ["Ride along", "A light lit while another is burning joins that timer and goes out with it (p. 84). Campfires keep their own 8 hours."],
+        ["Separate timers", "Every light keeps its own full timer."],
+      ]}
+    />
+    <Rules
+      rows={[
+        ["Putting out", "A torch, Light spell or campfire is used once lit: putting it out spends it, and once it's out it's out. A lantern keeps its oil, rounded down to the quarter hour (38:00 left becomes 30:00); under 15:00 it's empty."],
+        ["Spent", "A spent light's badge stays until the next turn, then it's let go. A lantern that ran dry stays to be refilled."],
+        ["Darkness", "With no light shining it's darkness (p. 84): disadvantage on tasks that need sight, a check every crawl round, a d8 crawling die."],
+        ["Corrections", "Undo, or click a light's time to set it (a burning light or a lantern; a spent torch stays out)."],
+        ["Handing on", "Select two tokens on the map, one holding a light, and right-click → Crawl Keeper → Hand light to…: the timer goes with it."],
+      ]}
+    />
+  </div>
+);
 
 export const Banner = (props: { status: "none" | "lit" | "dark"; count: number; paused: boolean; followLight: boolean; player?: boolean }) => {
   const { status, count, paused } = props;
@@ -147,8 +158,13 @@ export const Banner = (props: { status: "none" | "lit" | "dark"; count: number; 
       </p>
     );
   return (
-    <p role="status" className="flex-1 rounded-[10px] bg-red-600/15 px-3 py-2 text-red-800 dark:text-red-200">
-      <span className="font-semibold">No light: total darkness</span> (p. 84). Disadvantage on tasks that need sight.{pausedNote}
+    <p
+      role="status"
+      title="No light: darkness (p. 84). Disadvantage on tasks that need sight, a check every crawl round, a d8 crawling die."
+      className="flex-1 rounded-[10px] bg-red-600/15 px-3 py-2 text-red-800 dark:text-red-200"
+    >
+      <span className="font-semibold">Darkness · DIS</span>
+      {pausedNote}
     </p>
   );
 };
@@ -230,6 +246,8 @@ const LightCard = (props: { light: Light; name: string; now: number; paused: boo
             close={() => setSettingTime(false)}
             save={(ms) => change(`Set ${label} time`, (s, t) => setRemaining(s, t, l.id, ms))}
           />
+        ) : out && !lantern ? (
+          <span className="px-1 text-2xl font-bold text-obr-text-secondary tabular-nums">{formatRemaining(0)}</span>
         ) : (
           <button
             type="button"
@@ -262,9 +280,10 @@ const LightCard = (props: { light: Light; name: string; now: number; paused: boo
               Light
             </Small>
           )}
-          {out && (
-            <Small primary onClick={on(lantern ? "Refill and light" : "New", (s, t) => renew(s, t, newLightId, l.id))}>
-              {lantern ? "Refill and light" : `New ${label}`}
+          {/* Once a torch, spell or campfire is out, it's out: only a lantern is refilled. */}
+          {out && lantern && (
+            <Small primary onClick={on("Refill and light", (s, t) => renew(s, t, newLightId, l.id))}>
+              Refill and light
             </Small>
           )}
           {lantern && !out && <Small onClick={on("Refill", (s, t) => refillOil(s, t, l.id))}>Refill oil</Small>}
