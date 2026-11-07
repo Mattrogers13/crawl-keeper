@@ -72,6 +72,17 @@ export const runRoomCheck = async (): Promise<CheckLine[]> => {
     const walls = all.filter((i) => i.type === "WALL") as (Item & { points?: unknown[]; blocking?: boolean })[];
     const fog = all.filter((i) => i.layer === "FOG");
     const kinds = [...new Set(fog.map((i) => i.type))].join(", ") || "none";
+    // A census, to find where Dynamic Fog keeps its walls if not as WALL items:
+    // every layer / type pair, and any item carrying Dynamic Fog's metadata.
+    const census = new Map<string, number>();
+    for (const i of all) census.set(`${i.layer}/${i.type}`, (census.get(`${i.layer}/${i.type}`) ?? 0) + 1);
+    say("Items on this map", null, [...census].map(([k, n]) => `${k} ×${n}`).join(", ") || "none");
+    const fogKeys = new Map<string, number>();
+    for (const i of all)
+      for (const k of Object.keys(i.metadata)) if (k.toLowerCase().includes("fog") || k.toLowerCase().includes("wall")) fogKeys.set(`${i.layer}/${i.type} ${k}`, (fogKeys.get(`${i.layer}/${i.type} ${k}`) ?? 0) + 1);
+    say("Fog or wall data on items", fogKeys.size > 0 ? true : null, [...fogKeys].map(([k, n]) => `${k} ×${n}`).join("; ") || "none");
+    const sceneKeys = Object.keys(await OBR.scene.getMetadata()).filter((k) => /fog|wall/i.test(k));
+    say("Fog or wall data on the scene", sceneKeys.length > 0 ? true : null, sceneKeys.join(", ") || "none");
     say(
       "Walls readable",
       walls.length > 0 ? true : null,
