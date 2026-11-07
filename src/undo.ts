@@ -9,7 +9,7 @@ import { EFFECTS_KEY, HISTORY_KEY, LIGHTS_KEY, SCENE_ID_KEY, SETTINGS_KEY, TRACK
 import { parseEffects, restoreEffects } from "./effects";
 import { EMPTY, afterUndo, afterRedo, parseHistory, pushStep, trim, type Change, type History, type Step } from "./history";
 import { parseLights, restoreLights } from "./lights";
-import { afterChange, syncTurnFromScene } from "./marker";
+import { afterChange, syncParty, syncTurnFromScene } from "./marker";
 import { parseSettings } from "./settings";
 import { readSession, writeSession } from "./storage";
 import { parseTracker } from "./tracker";
@@ -101,6 +101,12 @@ const apply = async (step: Step, side: "before" | "after"): Promise<"ok" | "othe
       // Effects drop by themselves (a deleted token's): only the effects
       // this step changed go back.
       updates.scene[EFFECTS_KEY] = restoreEffects(parseEffects(scene[EFFECTS_KEY]), parseEffects(c[other]), parseEffects(c[side]));
+  // The party's tokens first, then the lights (partyMode.ts: Dynamic Fog
+  // misses a token shown just after its light is set).
+  if (scene && TRACKER_KEY in updates.scene)
+    await syncParty(parseTracker(scene[TRACKER_KEY]), parseTracker(updates.scene[TRACKER_KEY])).catch((err) =>
+      notify(`Couldn't move the party's tokens together or apart: ${errorMessage(err)}`, "WARNING"),
+    );
   await write("room", updates.room);
   await write("scene", updates.scene);
   // Put the map in line with what's restored: the ring, the skulls, and the
