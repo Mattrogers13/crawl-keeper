@@ -5,7 +5,9 @@
 // deletes what's left. Remove before the release that ships option 2.
 import OBR, { buildImage, type Item } from "@owlbear-rodeo/sdk";
 
-import { ID } from "./constants";
+import { ID, LIGHTS_KEY, TRACKER_KEY } from "./constants";
+import { parseLights } from "./lights";
+import { GM_ENTRY, parseTracker } from "./tracker";
 import { errorMessage } from "./utils";
 
 const TAG = `${ID}/room-check`;
@@ -65,6 +67,23 @@ export const runRoomCheck = async (): Promise<CheckLine[]> => {
   } finally {
     const left = (await OBR.scene.items.getItems((i) => i.metadata[TAG] === true).catch(() => [])).map((i) => i.id);
     if (left.length > 0) await OBR.scene.items.deleteItems(left).catch(() => undefined);
+  }
+  // 0. This map's party, as Crawl Keeper and the map see it (for a stuck switch).
+  try {
+    const [scene, room, items] = await Promise.all([OBR.scene.getMetadata(), OBR.room.getMetadata(), OBR.scene.items.getItems()]);
+    const t = parseTracker(scene[TRACKER_KEY]);
+    const lights = parseLights(room[LIGHTS_KEY]);
+    const byId = new Map(items.map((i) => [i.id, i]));
+    const desc = (id: string) => {
+      const i = byId.get(id);
+      if (!i) return `${id.slice(0, 8)}: not on the map`;
+      const l = lights.lights.filter((x) => x.tokenId === id).map((x) => `${x.kind} ${x.status}`).join("/");
+      return `${i.name}: ${i.visible ? "shown" : "hidden"}, attached to ${i.attachedTo ? (byId.get(i.attachedTo)?.name ?? i.attachedTo.slice(0, 8)) : "nothing"}${l ? `, ${l}` : ""}`;
+    };
+    say("Party (tracker)", null, t.party === null ? "no party token" : `party ${desc(t.party)}; ${t.together ? "together" : "split"}; ${t.phase}; carrier ${t.carrier ? (byId.get(t.carrier)?.name ?? "gone") : "none"}`);
+    for (const e of t.entries.filter((e) => e.id !== GM_ENTRY && !e.monster && e.id !== t.party)) say("Player", null, `${desc(e.id)}${e.dead ? " (dead)" : ""}`);
+  } catch (err) {
+    say("Party (tracker)", false, errorMessage(err));
   }
   // 4. Walls: are Dynamic Fog's walls items we can read?
   try {

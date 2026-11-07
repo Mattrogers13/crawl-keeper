@@ -18,8 +18,9 @@ import { parseLights } from "./lights";
 import { afterChange, readSettings } from "./marker";
 import { carriers, planSwitch } from "./partySwitch";
 import { around, gather, strays, type Placed, type Wall } from "./placement";
-import { parseTracker, setPrior, toCombat, type Point, type PriorAttach } from "./tracker";
+import { MAX_ENTRIES, parseTracker, setParty, setPrior, toCombat, type Point, type PriorAttach } from "./tracker";
 import { record } from "./undo";
+import { debug } from "./debugLog";
 import { errorMessage, notify } from "./utils";
 
 export type Choice = { id: string; name: string };
@@ -49,19 +50,32 @@ const snapAll = (spots: Point[]) =>
 // button's (the phase changes in the same step; clearRolls per Settings).
 // Returns who to ask when a light needs a carrier, else null (done, or a
 // failure was told).
+// Dev builds: each switch's steps in the console (Crawl Keeper's frame), to
+// find out where a switch stops in a real room.
+const trace = (message: string, data?: unknown) => debug("switch", message, data);
+
 export const switchParty = async (together: boolean, pick?: string, combat?: { clearRolls: boolean }): Promise<Choice[] | null> => {
+  trace(together ? "Party pressed" : combat ? "Combat pressed" : "Split pressed", { pick });
   const [scene, room, settings] = await Promise.all([OBR.scene.getMetadata(), OBR.room.getMetadata(), readSettings()]);
   const tracker = parseTracker(scene[TRACKER_KEY]);
   const lights = parseLights(room[LIGHTS_KEY]);
-  if (tracker.party === null) return null;
+  trace("read", { party: tracker.party, together: tracker.together, carrier: tracker.carrier, phase: tracker.phase });
+  if (tracker.party === null) {
+    notify("No party token on this map: right-click a token → Crawl Keeper → Set as party token.", "WARNING");
+    return null;
+  }
   const monsters = tracker.entries.filter((e) => e.monster).map((e) => e.id);
   const items = await OBR.scene.items.getItems([tracker.party, ...carriers(tracker), ...monsters]);
   const byId = new Map(items.map((i) => [i.id, i]));
   const nameOf = (id: string) => byId.get(id)?.name?.trim() || "Unnamed";
   const plan = planSwitch(tracker, lights, Date.now(), together, nameOf, pick);
+  trace("plan", plan.done ? { stayed: plan.stayed, items: items.map((i) => ({ id: i.id, attachedTo: i.attachedTo, visible: i.visible })) } : { ask: plan.choices });
   if (!plan.done) return plan.choices.map((id) => ({ id, name: nameOf(id) }));
   let next = combat ? toCombat(plan.tracker, combat.clearRolls) : plan.tracker;
-  if (next === tracker && plan.lights === lights) return null;
+  if (next === tracker && plan.lights === lights) {
+    notify(together ? "The party is already together." : "The party is already split.", "INFO");
+    return null;
+  }
 
   // A token's position is its centre (Owlbear anchors an image at its grid
   // offset, the middle by default; the turn ring relies on it too).
@@ -94,11 +108,13 @@ export const switchParty = async (together: boolean, pick?: string, combat?: { c
     next = setPrior(next, prior);
   }
 
+  trace("spots", spots);
   const lightsChanged = plan.lights !== lights;
   try {
     if (lightsChanged) await OBR.room.setMetadata({ [LIGHTS_KEY]: plan.lights });
     try {
       await OBR.scene.setMetadata({ [TRACKER_KEY]: next });
+      trace("saved", { together: next.together, phase: next.phase });
     } catch (err) {
       if (lightsChanged) await OBR.room.setMetadata({ [LIGHTS_KEY]: lights }).catch(() => undefined);
       throw err;
@@ -121,6 +137,57 @@ export const switchParty = async (together: boolean, pick?: string, combat?: { c
       .catch((err) => notify(`Couldn't move the players: ${errorMessage(err)}`, "WARNING"));
   }
   await afterChange(tracker, next, settings);
+  trace("done");
   if (plan.stayed > 0) notify(`${plan.stayed} light${plan.stayed === 1 ? "" : "s"} stayed put: that token already burns one.`, "WARNING");
   return null;
+};
+
+// Set, replace or clear the Party token (map right-click and row menu): one
+// undo step. If the party is together, it splits first the way Split does:
+// the Party token's light goes back to the remembered carrier (none
+// remembered: it stays put, and the GM is told), and the players are let go
+// and shown (marker.ts syncParty). `id` null, or the Party token again: clear.
+export const changePartyToken = async (id: string | null) => {
+  debug("party token", id === null ? "clear" : `set or toggle ${id.slice(0, 8)}`);
+  const [scene, room, settings] = await Promise.all([OBR.scene.getMetadata(), OBR.room.getMetadata(), readSettings()]);
+  const tracker = parseTracker(scene[TRACKER_KEY]);
+  const lights = parseLights(room[LIGHTS_KEY]);
+  const target = id === tracker.party ? null : id;
+  let base = tracker;
+  let newLights = lights;
+  let stayed = 0;
+  if (tracker.party !== null && tracker.together) {
+    const items = await OBR.scene.items.getItems([tracker.party, ...carriers(tracker)]);
+    const nameOf = (x: string) => items.find((i) => i.id === x)?.name?.trim() || "Unnamed";
+    const plan = planSwitch(tracker, lights, Date.now(), false, nameOf, tracker.carrier ?? undefined);
+    if (plan.done) {
+      base = plan.tracker;
+      newLights = plan.lights;
+      stayed = plan.stayed;
+    } else {
+      notify("The party token keeps its light: no one has carried it yet. Hand it on with right-click → Hand light to….", "WARNING");
+    }
+  }
+  const next = setParty(base, target);
+  if (target !== null && next.party !== target) return notify(`Initiative is full (${MAX_ENTRIES} rows): the party token wasn't set.`, "WARNING");
+  if (next === tracker && newLights === lights) return;
+  const lightsChanged = newLights !== lights;
+  try {
+    if (lightsChanged) await OBR.room.setMetadata({ [LIGHTS_KEY]: newLights });
+    try {
+      await OBR.scene.setMetadata({ [TRACKER_KEY]: next });
+    } catch (err) {
+      if (lightsChanged) await OBR.room.setMetadata({ [LIGHTS_KEY]: lights }).catch(() => undefined);
+      throw err;
+    }
+  } catch (err) {
+    return notify(`Couldn't ${target === null ? "clear" : "set"} the party token: ${errorMessage(err)}`, "WARNING");
+  }
+  await record(target === null ? "Clear party token" : "Set party token", [
+    ...(lightsChanged ? [{ store: "room" as const, key: LIGHTS_KEY, before: lights, after: newLights }] : []),
+    { store: "scene" as const, key: TRACKER_KEY, before: scene[TRACKER_KEY], after: next },
+  ]);
+  await afterChange(tracker, next, settings);
+  debug("party token", "done", { party: next.party, together: next.together });
+  if (stayed > 0) notify(`${stayed} light${stayed === 1 ? "" : "s"} stayed put: that token already burns one.`, "WARNING");
 };

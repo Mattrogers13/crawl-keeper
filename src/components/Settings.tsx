@@ -12,6 +12,7 @@ import { syncTurnFromScene } from "../marker";
 import { checkDicePlus, setDicePlusEnabled } from "../diceRoller";
 import { resetAll } from "../resetAll";
 import { runRoomCheck, type CheckLine } from "../roomCheck";
+import { clearDebug, readDebug } from "../debugLog";
 import { readLog } from "../sessionLog";
 import { record } from "../undo";
 import { errorMessage } from "../utils";
@@ -477,16 +478,67 @@ const RoomCheck = () => {
       >
         {busy ? "Checking…" : "Run the room check"}
       </button>
+      <DebugLog />
       {lines && (
         <ul className="flex flex-col gap-1">
-          {lines.map((l) => (
-            <li key={l.label}>
+          {lines.map((l, i) => (
+            <li key={i}>
               <span className="font-medium">{l.ok === true ? "✅" : l.ok === false ? "❌" : "➖"} {l.label}</span>
               <span className="block text-obr-text-secondary">{l.detail}</span>
             </li>
           ))}
         </ul>
       )}
+    </div>
+  );
+};
+
+// Dev only (debugLog.ts): the last switch steps, notices and map changes, to
+// copy into a bug report.
+const DebugLog = () => {
+  const [log, setLog] = useState(readDebug);
+  const [copied, setCopied] = useState(false);
+  const small = "h-7 rounded-md px-2.5 font-medium ring-1 ring-obr-text/15 ring-inset hover:bg-obr-text/10";
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-1.5">
+        <span className="font-medium">Debug log ({log.length})</span>
+        <button type="button" className={small} onClick={() => setLog(readDebug())}>
+          Refresh
+        </button>
+        <button
+          type="button"
+          className={small}
+          onClick={() => {
+            const text = readDebug().join("\n");
+            void navigator.clipboard
+              .writeText(text)
+              .then(() => setCopied(true))
+              .catch(() => setCopied(false));
+          }}
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+        <button
+          type="button"
+          className={small}
+          onClick={() => {
+            clearDebug();
+            setLog([]);
+            setCopied(false);
+          }}
+        >
+          Clear
+        </button>
+      </div>
+      <textarea
+        aria-label="Debug log"
+        readOnly
+        value={log.join("\n")}
+        rows={8}
+        onFocus={(e) => e.currentTarget.select()}
+        className="w-full resize-y rounded-md bg-obr-paper p-2 font-mono text-[10px] ring-1 ring-obr-text/15 ring-inset"
+      />
     </div>
   );
 };

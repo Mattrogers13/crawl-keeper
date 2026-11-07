@@ -7,6 +7,7 @@ import OBR, { buildImage, type AttachmentBehavior, type Image, type Item } from 
 import { BADGE_KEY, EFFECT_ICON_KEY, MARKER_KEY, SETTINGS_KEY, SKULL_KEY, TRACKER_KEY } from "./constants";
 import { parseSettings, type Settings } from "./settings";
 import { GM_ENTRY, parseTracker, type PriorAttach, type Tracker } from "./tracker";
+import { debug } from "./debugLog";
 import { errorMessage, notify } from "./utils";
 
 type TurnSettings = Pick<Settings, "showMarker" | "selectOnTurn">;
@@ -240,6 +241,7 @@ const letGo = (d: Item, party: string, prior: PriorAttach | undefined) => {
 const partyPlayers = (t: Tracker, party: string) => t.entries.filter((e) => e.id !== GM_ENTRY && !e.monster && !e.dead && e.id !== party).map((e) => e.id);
 
 export const syncParty = async (before: Tracker, after: Tracker) => {
+  debug("map", "sync", { before: { party: before.party, together: before.together }, after: { party: after.party, together: after.together } });
   if (before.party !== null && before.together && after.party !== before.party) {
     const party = before.party;
     const back = partyPlayers(before, party);
@@ -255,6 +257,7 @@ export const syncParty = async (before: Tracker, after: Tracker) => {
   if (after.party === null || before.party !== after.party || before.together === after.together) return;
   const party = after.party;
   const ids = [party, ...partyPlayers(after, party)];
+  debug("map", after.together ? "attach and hide players" : "detach and show players", { ids });
   await OBR.scene.items.updateItems(ids, (drafts) => {
     for (const d of drafts) {
       if (d.id === party) d.visible = after.together;
@@ -317,6 +320,7 @@ export const watchPartyToken = () => {
       if (items.some((i) => i.id === party)) return;
       const left = items.filter((i) => i.attachedTo === party).map((i) => i.id);
       if (left.length === 0) return;
+      debug("background", "party token deleted while together: letting players go", { left });
       await OBR.scene.items.updateItems(left, (drafts) => {
         for (const d of drafts) {
           letGo(d, party, t.prior[d.id]);
