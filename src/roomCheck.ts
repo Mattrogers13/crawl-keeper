@@ -82,6 +82,21 @@ export const runRoomCheck = async (): Promise<CheckLine[]> => {
     };
     say("Party (tracker)", null, t.party === null ? "no party token" : `party ${desc(t.party)}; ${t.together ? "together" : "split"}; ${t.phase}; carrier ${t.carrier ? (byId.get(t.carrier)?.name ?? "gone") : "none"}`);
     for (const e of t.entries.filter((e) => e.id !== GM_ENTRY && !e.monster && e.id !== t.party)) say("Player", null, `${desc(e.id)}${e.dead ? " (dead)" : ""}`);
+    // The lights as Dynamic Fog sees them: the light data on each party token
+    // (ours or the token's own), and the lights Dynamic Fog built in this browser.
+    const DF = "rodeo.owlbear.dynamic-fog/light";
+    for (const id of [...(t.party ? [t.party] : []), ...t.entries.filter((e) => e.id !== GM_ENTRY && !e.monster && e.id !== t.party).map((e) => e.id)]) {
+      const i = byId.get(id);
+      if (!i) continue;
+      const ours = Object.fromEntries(Object.entries(i.metadata).filter(([k]) => k.startsWith(ID)));
+      if (i.metadata[DF] !== undefined || Object.keys(ours).length > 0)
+        say("Light data", null, `${i.name}: Dynamic Fog ${JSON.stringify(i.metadata[DF] ?? null)}; Crawl Keeper ${JSON.stringify(ours)}; layer ${i.layer}, ${i.visible ? "shown" : "hidden"}, scale ${i.scale.x}`);
+    }
+    const localLights = await OBR.scene.local.getItems((i) => i.type === "LIGHT").catch(() => []);
+    for (const l of localLights) {
+      const { attenuationRadius, sourceRadius, falloff, lightType } = l as Item & Record<string, unknown>;
+      say("Local light", null, `on ${l.attachedTo ? (byId.get(l.attachedTo)?.name ?? l.attachedTo.slice(0, 8)) : "nothing"} at (${Math.round(l.position.x)}, ${Math.round(l.position.y)}), radius ${String(attenuationRadius)}, source ${String(sourceRadius)}, falloff ${String(falloff)}, ${String(lightType)}, ${l.visible ? "shown" : "hidden"}`);
+    }
   } catch (err) {
     say("Party (tracker)", false, errorMessage(err));
   }

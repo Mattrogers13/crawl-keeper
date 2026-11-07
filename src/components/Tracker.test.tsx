@@ -188,8 +188,12 @@ describe("Tracker (GM)", () => {
     render(<App />);
     await screen.findByText("Wagon");
     fireEvent.click(screen.getByRole("button", { name: "Split" }));
-    const ask = await screen.findByRole("group", { name: "Who carries the light" });
+    const ask = await screen.findByRole("dialog", { name: "Who carries the light" });
     expect(saved().together).toBe(true);
+    // Pressing Split again doesn't redraw the question (the "flicker").
+    fireEvent.click(screen.getByRole("button", { name: "Split" }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByRole("dialog", { name: "Who carries the light" })).toBe(ask);
     fireEvent.click(within(ask).getByRole("button", { name: "Borin" }));
     await waitFor(() => expect(saved()).toMatchObject({ together: false, carrier: "b" }));
     expect((obr.metadata[LIGHTS_KEY] as { lights: { tokenId: string }[] }).lights[0].tokenId).toBe("b");
