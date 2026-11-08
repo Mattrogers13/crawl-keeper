@@ -148,7 +148,7 @@ const Homepage = () => {
         <Steps>
           <li>
             Add effects from a row's menu (⋯ or right-click), from a token on the map (right-click → Crawl Keeper → Add
-            effect…), or with <b>Add effect</b> under the turn bar for one on no token. With several rows selected, each
+            effect…), or with <b>+</b> beside ⏳ in the header for one on no token. With several rows selected, each
             gets each.
           </li>
           <li>
@@ -202,7 +202,7 @@ const Homepage = () => {
           <li>Enter the new rolls and roll for the GM / Monsters row (the list sorts itself), then ▶.</li>
           <li>Each living monster takes its own turn right after the GM / Monsters row, in list order.</li>
           <li>
-            Press <b>Crawl</b> when the fight ends. Below the list, <b>Remove monsters</b> clears them out (and the DEX
+            Press <b>Crawl</b> when the fight ends. <b>Remove all</b> on the Monsters header clears them out (and the DEX
             box).
           </li>
         </Steps>

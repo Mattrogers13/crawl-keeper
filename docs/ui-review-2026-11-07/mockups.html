@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crawl Keeper UI review: the nine questions, mocked up</title>
+<style>
+  :root {
+    --bg: #1e2231; --paper: #222639; --deep: #1a1d2b; --text: #fff; --text2: #bbb; --text3: #8a8a8a;
+    --primary: #bb99ff; --line: #3a3f57; --red: #c40000; --redsoft: #3d1f2b; --redtext: #ff8a9a;
+    --amber: #ffcc33; --ambersoft: #463a26; --green: #5fd3a0;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #14161f; color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1060px; margin: 0 auto; padding: 28px 18px 80px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  .lede { color: var(--text2); margin: 0 0 8px; max-width: 760px; }
+  nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 0 8px; }
+  nav a { color: var(--text); text-decoration: none; background: var(--paper); border: 1px solid var(--line); border-radius: 99px; padding: 4px 12px; font-size: 13px; }
+  nav a:hover { border-color: var(--primary); }
+  section { border-top: 1px solid var(--line); padding: 30px 0 10px; scroll-margin-top: 10px; }
+  h2 { font-size: 20px; margin: 0 0 4px; }
+  h2 small { color: var(--primary); font-weight: 600; margin-right: 8px; }
+  .q { color: var(--text2); margin: 0 0 6px; max-width: 780px; }
+  .lean { background: #262a3f; border-left: 3px solid var(--primary); padding: 8px 12px; border-radius: 6px; margin: 14px 0 0; max-width: 780px; font-size: 14px; }
+  .lean b { color: var(--primary); }
+  .opts { display: flex; flex-wrap: wrap; gap: 22px; margin-top: 16px; align-items: flex-start; }
+  .opt { flex: 1 1 300px; max-width: 340px; }
+  .opt h3 { font-size: 14px; margin: 0 0 8px; display: flex; gap: 8px; align-items: baseline; }
+  .tag { background: var(--primary); color: #000; border-radius: 5px; padding: 0 7px; font-size: 12px; font-weight: 700; }
+  .tag.now { background: #555a72; color: #fff; }
+  .notes { font-size: 13px; color: var(--text2); margin: 10px 2px 0; }
+  .notes div { margin-top: 3px; }
+  .notes .plus::before { content: "+ "; color: var(--green); font-weight: 700; }
+  .notes .minus::before { content: "− "; color: var(--redtext); font-weight: 700; }
+
+  /* the mini panel */
+  .panel { width: 100%; max-width: 320px; background: var(--paper); border-radius: 12px; padding: 10px 12px 12px; font-size: 13px; box-shadow: 0 6px 24px #0008; position: relative; overflow: hidden; }
+  .hdr { display: flex; align-items: center; gap: 7px; padding-bottom: 8px; border-bottom: 1px solid var(--line); margin-bottom: 9px; }
+  .key { font-size: 16px; }
+  .pill { background: #34385a; border-radius: 99px; padding: 3px 10px; font-weight: 600; font-size: 12px; white-space: nowrap; }
+  .pill.combat { background: var(--redsoft); color: var(--redtext); }
+  .hdr .sp { flex: 1; }
+  .ic { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 99px; font-size: 13px; color: var(--text2); }
+  .ic.amber { background: var(--ambersoft); color: var(--amber); }
+  .ic.on { background: #34385a; color: var(--text); }
+  .turn { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .seg { display: inline-flex; background: var(--deep); border-radius: 99px; padding: 3px; }
+  .seg span { padding: 3px 11px; border-radius: 99px; font-weight: 600; font-size: 12px; }
+  .seg .sel { background: var(--primary); color: #000; }
+  .seg .selred { background: var(--red); color: #fff; }
+  .arrows { margin-left: auto; display: flex; gap: 5px; }
+  .arrows span { background: var(--deep); border-radius: 99px; padding: 3px 12px; font-size: 11px; }
+  .arrows span:last-child { background: var(--primary); color: #000; padding: 3px 16px; }
+  .card { background: var(--deep); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
+  .card.due { border-color: var(--primary); box-shadow: 0 0 0 2px #bb99ff33; }
+  .row { display: flex; align-items: center; gap: 8px; padding: 7px 4px; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: 0; }
+  .row.cur { background: #3d3768; border-left: 3px solid var(--primary); }
+  .row.selrow { background: #2e3550; outline: 1px solid #6a74a8; }
+  .av { width: 24px; height: 24px; border-radius: 99px; display: grid; place-items: center; font-size: 11px; font-weight: 700; flex: none; }
+  .nm { flex: 1; min-width: 0; }
+  .nm b { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nm i { font-style: normal; color: var(--text2); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .init { font-weight: 700; font-size: 15px; width: 28px; text-align: right; }
+  .gut { width: 54px; flex: none; display: flex; gap: 6px; align-items: center; color: var(--text3); font-size: 11px; }
+  .cb { width: 12px; height: 12px; border: 1.5px solid var(--text3); border-radius: 3px; display: inline-block; }
+  .cb.x { background: var(--primary); border-color: var(--primary); }
+  .badge { background: var(--ambersoft); color: var(--amber); border-radius: 99px; padding: 1px 7px; font-size: 11px; font-family: ui-monospace, monospace; }
+  .chip { display: inline-block; background: #34385a; border-radius: 99px; padding: 3px 10px; font-size: 12px; font-weight: 600; margin: 2px 2px 2px 0; }
+  .chip.red { background: var(--red); color: #fff; }
+  .chip.ghost { background: transparent; border: 1px solid var(--line); }
+  .btn { display: inline-block; border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 600; }
+  .btn.pri { background: var(--primary); color: #000; border-color: var(--primary); }
+  .btn.red { background: #b23a2b; border-color: #b23a2b; }
+  .dim { opacity: .45; }
+  .muted { color: var(--text2); }
+  .small { font-size: 11px; }
+  .banner { margin: -10px -12px 9px; padding: 6px 12px; font-weight: 700; font-size: 13px; text-align: center; }
+  .banner.red { background: var(--red); }
+  .banner.amber { background: var(--ambersoft); color: var(--amber); font-weight: 600; font-size: 12px; text-align: left; display: flex; justify-content: space-between; }
+  .banner.amber u { text-decoration: none; font-weight: 700; }
+  .undo { display: flex; gap: 6px; margin-top: 8px; }
+  .undo span { border: 1px solid var(--line); border-radius: 99px; padding: 4px 10px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .undo .off { color: var(--text3); }
+  .toast { background: #f1eefa; color: #111; border-radius: 8px; padding: 7px 10px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+  .toast b { color: #6a3fd9; }
+  .dialog { position: absolute; inset: 0; background: #000a; display: grid; place-items: center; }
+  .dialog > div { background: #2b3049; border-radius: 10px; padding: 12px; width: 82%; font-size: 12px; }
+  .dying { background: var(--redsoft); border-radius: 8px; padding: 7px 8px; margin-bottom: 6px; }
+  .dying p { margin: 0 0 4px; color: var(--redtext); font-size: 12px; }
+  .menu { background: #2b3049; border: 1px solid var(--line); border-radius: 8px; padding: 4px 0; width: 150px; font-size: 12px; box-shadow: 0 6px 18px #0009; position: absolute; }
+  .menu div { padding: 5px 10px; }
+  .menu hr { border: 0; border-top: 1px solid var(--line); margin: 3px 0; }
+  .lbl { font-size: 10px; letter-spacing: .06em; color: var(--text2); text-transform: uppercase; margin: 8px 0 4px; font-weight: 600; }
+  .pick { display: flex; gap: 4px; }
+  .pick span { flex: 1; text-align: center; background: var(--deep); border-radius: 7px; padding: 5px 0; font-weight: 600; font-size: 12px; }
+  .pick .sel { background: var(--primary); color: #000; }
+  .field { border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; color: var(--text2); font-size: 12px; margin: 6px 0; }
+  .prev { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; border-bottom: 1px solid var(--line); }
+  .prev .t { font-family: ui-monospace, monospace; color: var(--redtext); }
+  .prev .t.y { color: var(--amber); }
+  .light { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; margin-top: 6px; display: flex; gap: 8px; align-items: center; }
+  .light .tm { margin-left: auto; font-weight: 700; font-size: 16px; }
+  .die { width: 44px; height: 44px; background: #f1eefa; color: #555; border-radius: 9px; display: grid; place-items: center; font-weight: 800; font-size: 10px; flex: none; }
+  .map { background: #3b4a3a; border-radius: 12px; height: 210px; position: relative; overflow: hidden;
+         background-image: linear-gradient(#0002 1px, transparent 1px), linear-gradient(90deg, #0002 1px, transparent 1px); background-size: 50px 50px; }
+  .tok { position: absolute; width: 50px; height: 50px; border-radius: 99px; background: #c95b4c; border: 2px solid #fff; display: grid; place-items: center; font-weight: 800; }
+  .ring { position: absolute; border: 3px solid var(--primary); border-radius: 99px; }
+  .fx { position: absolute; width: 14px; height: 14px; border-radius: 99px; background: #fff; color: #222; font-size: 9px; display: grid; place-items: center; font-weight: 800; border: 1px solid #222; }
+  .frame { border: 2px dashed #555a72; border-radius: 12px; padding: 6px; }
+  .cap { font-size: 12px; color: var(--text2); text-align: center; margin-top: 4px; }
+  .scale { transform-origin: top left; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 #bb99ff00; border-color: var(--line); } 50% { box-shadow: 0 0 0 4px #bb99ff55; border-color: var(--primary); } }
+  .pulse { animation: pulse 2.2s ease-in-out infinite; }
+  .decided { background: #1f3a2e; border: 1px solid #2f6b4f; border-radius: 10px; padding: 10px 14px; margin: 16px 0 0; font-size: 14px; }
+  .decided li { margin: 2px 0; }
+  .round2 { border-top: 2px solid var(--primary); }
+  .tl { display: flex; gap: 4px; margin-top: 8px; font-size: 11px; }
+  .tl div { flex: 1; text-align: center; background: var(--deep); border-radius: 6px; padding: 4px 0; color: var(--text2); }
+  .tl .p { outline: 2px solid var(--primary); color: var(--text); }
+  .bigbtn { display: block; text-align: center; background: var(--primary); color: #000; border-radius: 10px; padding: 9px 0; font-weight: 700; font-size: 14px; margin: 8px 0 6px; }
+  .bigbtn.red { background: #b23a2b; color: #fff; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+  .grid2 span { text-align: center; background: #34385a; border-radius: 8px; padding: 6px 0; font-weight: 600; font-size: 12px; }
+  .grid2 small { display: block; font-weight: 400; color: var(--text2); font-size: 10px; }
+  .foot { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); padding-top: 8px; margin-top: 4px; font-size: 12px; }
+  .grip { height: 14px; display: grid; place-items: center; cursor: ns-resize; margin: 6px -12px -12px; background: #2b3049; }
+  .grip i { width: 36px; height: 4px; border-radius: 4px; background: var(--text3); }
+  @media (max-width: 700px) { .opt { max-width: none; } .panel { max-width: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>The nine open questions, mocked up</h1>
+  <p class="lede">From the UI review of v0.6.0 (<code>docs/ui-review-2026-11-07/REPORT.md</code>, section 4). Each question shows today and the choices side by side, with what each gains and costs, and my lean. These are sketches, not renders: sizes and colors are close to the real panel, not exact.</p>
+  <nav>
+    <a href="#q1">1 Pause</a><a href="#q2">2 Confirms</a><a href="#q3">3 Undo bar</a><a href="#q4">4 Time passes</a><a href="#q5">5 Manual mode</a><a href="#q6">6 Dying line</a><a href="#q7">7 Checkboxes</a><a href="#q8">8 Effect icons</a><a href="#q9">9 Panel height</a>
+  </nav>
+  <nav><a href="#r5" style="border-color:var(--primary)">Round 2: Q5 pulse</a><a href="#r6" style="border-color:var(--primary)">Round 2: Q6 death prompt</a><a href="#r9" style="border-color:var(--primary)">Round 2: Q9 long monster lists</a></nav>
+
+  <div class="decided">
+    <b>Decided (Matt, 2026-11-08)</b>
+    <ul style="margin:6px 0 0;padding-left:20px">
+      <li><b>Q1</b> B: ❚❚ while running, slim banner while paused. Trial in amber; may switch to red after playing with it.</li>
+      <li><b>Q2</b> A: drop the confirms on Reset rounds, Remove monsters, Reset clock and Remove all lights; Undo covers them.</li>
+      <li><b>Q3</b> Try A (Undo named, Redo icon) first; leaning B.</li>
+      <li><b>Q4</b> A: the Light Tracker opens the same Time passes sheet.</li>
+      <li><b>Q5</b> B (no due logic, copy fixed), plus a reminder pulse every N crawl rounds on the GM turn: default 3 (Unsafe's cadence, p. 112), the GM can change it in Settings.</li>
+      <li><b>Q6</b> Redesign by how often each outcome happens, with a way to move on: see Round 2 below. "Failed · Tamsin dies" marks them dead at once; Undo brings them back. Also: the dying counter ran a round early last session; test after the design stage.</li>
+      <li><b>Q7</b> A: no checkboxes on a mouse; Cmd/Shift-click.</li>
+      <li><b>Q8</b> Keep today's (three, then "+").</li>
+      <li><b>Q9</b> Build A + C (reclaim space, stack identical monsters) plus auto-scroll to the current turn. B (the resize grip) already exists at the bottom of the panel.</li>
+    </ul>
+  </div>
+
+  <!-- Round 2: Q5 -->
+  <section id="r5" class="round2">
+    <h2><small>Q5 · Round 2</small>Manual mode with a reminder pulse</h2>
+    <p class="q">No due count and no danger level. On the GM / Monsters turn in a crawl round the card's outline pulses softly as a "did you roll?" nudge. It stops as soon as you roll the die or move the turn on, and comes back on the GM turn of the following rounds. Never in combat.</p>
+    <div class="opts">
+      <div class="opt">
+        <h3><span class="tag">GM turn</span>Pulsing (live animation)</h3>
+        <div class="panel">
+          <div class="card pulse" style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b>Manual rolls</b> <span class="chip ghost">🕯 Torchlit</span><div class="small muted">Your turn: roll for an encounter if it's time</div></div><div class="die">ROLL</div></div>
+          <div class="row cur"><span class="av" style="background:#5a4a8a">☗</span><span class="nm"><b>GM / Monsters</b></span><span class="init">14</span></div>
+        </div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag now">Players' turns</span>Quiet</h3>
+        <div class="panel">
+          <div class="card" style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b>Manual rolls</b> <span class="chip ghost">🕯 Torchlit</span></div><div class="die">ROLL</div></div>
+          <div class="row cur"><span class="av" style="background:#c95b4c">A</span><span class="nm"><b>Aria</b></span><span class="init">17</span></div>
+        </div>
+      </div>
+      <div class="opt" style="max-width:none;flex-basis:100%">
+        <h3>When it pulses</h3>
+        <div class="tl"><div>R1 Aria</div><div class="p">R1 GM ✦</div><div>R2 Aria</div><div class="p">R2 GM ✦</div><div>R3 Aria</div><div class="p">R3 GM ✦</div><div>Combat</div></div>
+        <div class="notes"><div class="plus">A gentle nudge, never a blocker; nothing is counted or written.</div><div class="minus">Every GM turn means it pulses most of the time you're on your own turn. The alternative is every N rounds (a "remind every" picker in Settings), which brings back a small piece of the cadence.</div></div>
+      </div>
+    </div>
+    <p class="lean"><b>Question:</b> every GM turn, or every N rounds? (Respects prefers-reduced-motion either way: a steady outline instead of the pulse.)</p>
+  </section>
+
+  <!-- Round 2: Q6 -->
+  <section id="r6" class="round2">
+    <h2><small>Q6 · Round 2</small>Death prompt, ordered by how often it happens</h2>
+    <p class="q">Rules (p. 89): each turn the dying character rolls a d20; a natural 20 rises with 1 HP, so 19 in 20 rolls fail. An ally's DC 15 INT check stabilizes; healing ends it. So: Failed is the big button, Stabilized and Healed next, Nat 20 after, Dead tucked away. Today ▶ keeps reopening the prompt until something is picked, which is the freeze. <b>Skip for now</b> moves the turn on with no decision.</p>
+    <div class="opts">
+      <div class="opt">
+        <h3><span class="tag">▶ prompt</span>A normal dying turn</h3>
+        <div class="panel">
+          <div style="display:flex;justify-content:space-between"><b>💔 Tamsin is dying</b><span class="muted">✕</span></div>
+          <div class="small muted">2 rounds left · roll a d20 at the table, or here</div>
+          <span class="bigbtn">Failed · still dying</span>
+          <div class="grid2"><span>Stabilized<small>ally's INT check</small></span><span>Healed<small>back on their feet</small></span></div>
+          <div class="grid2"><span>Nat 20<small>rises with 1 HP</small></span><span>🎲 Roll d20<small>roll it for me</small></span></div>
+          <div class="foot"><span class="muted">Skip for now →</span><span style="color:var(--redtext)">Mark dead</span></div>
+        </div>
+        <div class="notes"><div class="plus">The usual answer is one big click.</div><div class="plus">Skip for now: the turn moves on, the timer keeps running, they're still dying next turn.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">▶ prompt</span>The timer's last turn</h3>
+        <div class="panel">
+          <div style="display:flex;justify-content:space-between"><b>💔 Tamsin: last chance</b><span class="muted">✕</span></div>
+          <div class="small muted">The timer is out. Anything but a 20 and they die.</div>
+          <span class="bigbtn red">Failed · Tamsin dies</span>
+          <div class="grid2"><span>Stabilized<small>ally's INT check</small></span><span>Healed<small>back on their feet</small></span></div>
+          <div class="grid2"><span>Nat 20<small>rises with 1 HP</small></span><span>🎲 Roll d20<small>roll it for me</small></span></div>
+          <div class="foot"><span class="muted">Skip for now →</span><span></span></div>
+        </div>
+        <div class="notes"><div class="plus">Skip works here too, so a lost roll never freezes the game; they stay on "last chance" until you decide.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">Notices</span>The line on their turn</h3>
+        <div class="panel">
+          <div class="dying" style="display:flex;align-items:center;gap:6px"><p style="margin:0;flex:1">💔 <b>Tamsin</b> dying · 2 left</p><span class="chip">Failed</span><span class="chip ghost">Decide…</span></div>
+          <div class="row cur"><span class="av" style="background:#7a6a3a">T</span><span class="nm"><b>Tamsin</b><i>Dying · 2 rnd</i></span><span class="init">9</span></div>
+        </div>
+        <div class="notes"><div class="plus">One line, not two: Decide… opens the same prompt.</div></div>
+      </div>
+    </div>
+    <p class="lean"><b>If something's clicked by accident:</b> ✕ changes nothing; the notices line stays and ▶ or Decide… brings the prompt back. Skip for now is the Next-turn undo step, so Undo returns to their turn with the prompt. Failed, Stabilized, Healed, Nat 20 and Dead are already undo steps. <b>Open:</b> the counter running a round early, which we'll test after the design stage.</p>
+  </section>
+
+  <!-- Round 2: Q9 -->
+  <section id="r9" class="round2">
+    <h2><small>Q9 · Round 2</small>Long monster lists: four options</h2>
+    <p class="q">Found while checking: the SDK lets the extension resize its own panel (<code>OBR.action.setHeight</code>, <code>ActionApi.ts:29</code>), so a resize control is possible even though Owlbear's popover has no resize handle. Foundry's answer to big fights is grouping: modules like Combat Tracker Groups and Group Initiative put identical creatures under one toggle and one roll. Owlbear's own Initiative Tracker and Pretty Sordid just scroll.</p>
+    <div class="opts">
+      <div class="opt">
+        <h3><span class="tag">A</span>Stay at 600, reclaim space</h3>
+        <div class="panel">
+          <div class="row cur"><span class="av" style="background:#5a4a8a">☗</span><span class="nm"><b>GM / Monsters</b></span><span class="init">14</span></div>
+          <div class="lbl">⌄ Monsters · 7</div>
+          <div class="row"><span class="av" style="background:#6a7a3a">G</span><span class="nm"><b>Goblin</b></span></div>
+          <div class="row"><span class="av" style="background:#6a7a3a">G</span><span class="nm"><b>Goblin 2</b></span></div>
+          <div class="row dim"><span class="nm"><i>…5 more, scroll</i></span></div>
+        </div>
+        <div class="notes"><div class="plus">The top-5 layout fixes give about two to three more rows.</div><div class="minus">Seven-plus monsters still scroll.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">B</span>Resize handle on the panel</h3>
+        <div class="panel">
+          <div class="row cur"><span class="av" style="background:#5a4a8a">☗</span><span class="nm"><b>GM / Monsters</b></span><span class="init">14</span></div>
+          <div class="lbl">⌄ Monsters · 7</div>
+          <div class="row"><span class="av" style="background:#6a7a3a">G</span><span class="nm"><b>Goblin</b></span></div>
+          <div class="row"><span class="av" style="background:#6a7a3a">G</span><span class="nm"><b>Goblin 2</b></span></div>
+          <div class="row"><span class="av" style="background:#6a7a3a">G</span><span class="nm"><b>Goblin 3</b></span></div>
+          <div class="grip" title="Drag to resize"><i></i></div>
+        </div>
+        <div class="notes"><div class="plus">Your call how tall, remembered per browser.</div><div class="plus"><b>Correction (2026-11-08): this already exists.</b> The grip at the bottom of the panel (<code>ResizeGrip.tsx</code>, since v0.1) drags the height and remembers it per browser; room-tested in TESTING row 36. Neither the review nor I spotted it.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">C</span>Stack identical monsters</h3>
+        <div class="panel">
+          <div class="row cur"><span class="av" style="background:#5a4a8a">☗</span><span class="nm"><b>GM / Monsters</b></span><span class="init">14</span></div>
+          <div class="lbl">⌄ Monsters · 7</div>
+          <div class="row"><span class="av" style="background:#6a7a3a">G</span><span class="nm"><b>Goblin ×4</b><i>1 dead · 1 paralyzed</i></span><span class="muted">›</span></div>
+          <div class="row"><span class="av" style="background:#555">W</span><span class="nm"><b>Wolf ×2</b></span><span class="muted">›</span></div>
+          <div class="row"><span class="av" style="background:#8a3a3a">O</span><span class="nm"><b>Ogre</b></span></div>
+        </div>
+        <div class="notes"><div class="plus">Seven monsters in three rows; › opens a stack to act on one goblin.</div><div class="minus">Needs a rule for "identical" (same name stem? same image?). An effect or Dead on one goblin has to show on the stack's line.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">D</span>Fold the monsters off-turn</h3>
+        <div class="panel">
+          <div class="row"><span class="av" style="background:#c95b4c">A</span><span class="nm"><b>Aria</b></span><span class="init">17</span></div>
+          <div class="row"><span class="av" style="background:#5a4a8a">☗</span><span class="nm"><b>GM / Monsters</b></span><span class="init">14</span></div>
+          <div class="lbl">› Monsters · 7 · Goblin paralyzed</div>
+          <div class="row cur"><span class="av" style="background:#4c7ac9">B</span><span class="nm"><b>Borin</b></span><span class="init">12</span></div>
+        </div>
+        <div class="notes"><div class="plus">Builds on today's fold, which you close by hand (remembered) and which opens only on a monster's combat turn. D makes it automatic: closed off-turn with a summary of what's going on, open on the GM's turn.</div><div class="minus">Doesn't help on the GM's turn, when the list is longest.</div></div>
+      </div>
+    </div>
+    <p class="lean"><b>My lean: A + C</b>, with B only if a room test shows the drag works. C is what other VTTs settled on for big fights, and it fixes the GM turn, where D doesn't. These can combine; also cheap and worth doing under any option: auto-scroll the current turn into view.</p>
+  </section>
+
+  <!-- Q1 -->
+  <section id="q1">
+    <h2><small>Q1</small>Main-page Pause</h2>
+    <p class="q">Pause shows three times today: the header ❚❚ (amber ▶ when paused), the full-width red bar, and the Light Tracker's own Pause. The header crowding is what cuts off the round number.</p>
+    <div class="opts">
+      <div class="opt">
+        <h3><span class="tag now">Today</span>Paused</h3>
+        <div class="panel">
+          <div class="banner red">Paused <span style="font-weight:400;opacity:.85">click to resume</span></div>
+          <div class="hdr"><span class="key">⚷</span><b>Crawl Keeper</b><span class="pill">Crawl · Roun</span><span class="sp"></span><span class="ic">⏳</span><span class="ic amber">▶</span><span class="ic">🔥</span><span class="ic">⚙</span></div>
+          <div class="turn"><span class="seg"><span class="sel">Crawl</span><span>Combat</span></span><div class="arrows"><span>◀</span><span>▶</span></div></div>
+        </div>
+        <div class="notes"><div class="minus">Two controls for one state, and red reads as danger.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">A</span>Header button only</h3>
+        <div class="panel">
+          <div class="hdr"><span class="key">⚷</span><span class="pill">Crawl · Round 3</span><span class="sp"></span><span class="ic">⏳</span><span class="ic amber">▶</span><span class="ic">🔥</span><span class="ic">⚙</span></div>
+          <div class="turn"><span class="seg"><span class="sel">Crawl</span><span>Combat</span></span><div class="arrows"><span>◀</span><span>▶</span></div></div>
+        </div>
+        <div class="notes"><div class="plus">Smallest; nothing extra on screen.</div><div class="minus">Paused is only a small amber ▶: easy to forget the clock is stopped for an hour of play.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">B</span>❚❚ while running, slim banner while paused</h3>
+        <div class="panel">
+          <div class="banner amber"><span>❚❚ Lights paused</span><u>Resume</u></div>
+          <div class="hdr"><span class="key">⚷</span><span class="pill">Crawl · Round 3</span><span class="sp"></span><span class="ic">⏳</span><span class="ic">🔥</span><span class="ic">⚙</span></div>
+          <div class="turn"><span class="seg"><span class="sel">Crawl</span><span>Combat</span></span><div class="arrows"><span>◀</span><span>▶</span></div></div>
+        </div>
+        <div class="notes"><div class="plus">One control on screen at a time; a paused clock is hard to miss.</div><div class="plus">Amber, not red: red stays for danger.</div><div class="minus">The banner costs about 26 px while paused.</div></div>
+      </div>
+    </div>
+    <p class="lean"><b>My lean: B.</b> The report offered "❚❚ only or banner only", but banner only would take Pause off the main page, which you asked for in v0.6. B keeps it there. In both, the Light Tracker's own Pause stays.</p>
+  </section>
+
+  <!-- Q2 -->
+  <section id="q2">
+    <h2><small>Q2</small>Confirms vs Undo</h2>
+    <p class="q">Reset rounds, Remove monsters, Reset clock and Remove all lights each ask "Are you sure?" and then also give an 8 s Undo toast. The confirms date from 2026-10-16, before global undo existed (2026-10-30). This reverses that decision.</p>
+    <div class="opts">
+      <div class="opt">
+        <h3><span class="tag now">Today</span>Ask, then Undo anyway</h3>
+        <div class="panel" style="height:200px">
+          <div class="hdr"><span class="key">⚷</span><span class="pill">Crawl · Round 7</span></div>
+          <div class="muted small" style="text-decoration:underline">Reset rounds</div>
+          <div class="dialog"><div><b>Reset rounds to 1?</b><p class="muted" style="margin:4px 0 10px">The round count and the crawl clock start over.</p><span class="btn">Cancel</span> <span class="btn red">Reset</span></div></div>
+        </div>
+        <div class="notes"><div class="minus">Two clicks for an action Undo already covers. Confirms that always appear get clicked through on reflex.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">A</span>Do it, offer Undo</h3>
+        <div class="panel" style="height:200px">
+          <div class="hdr"><span class="key">⚷</span><span class="pill">Crawl · Round 1</span></div>
+          <div class="muted small" style="text-decoration:underline">Reset rounds</div>
+          <div style="position:absolute;left:12px;right:12px;bottom:12px"><div class="toast"><span>Rounds reset</span><b>Undo</b></div></div>
+        </div>
+        <div class="notes"><div class="plus">One click. Still recoverable from the toast, and from the Undo bar after the toast goes.</div><div class="minus">A stray click is visible only as a toast.</div></div>
+      </div>
+    </div>
+    <p class="lean"><b>My lean: A</b> for those four. Reset all and Clear log keep their confirm (the log can't come back). The list-space change also moves Reset rounds and Remove monsters off the always-visible links row, which is where the stray clicks happened.</p>
+  </section>
+
+  <!-- Q3 -->
+  <section id="q3">
+    <h2><small>Q3</small>Undo bar</h2>
+    <p class="q">Today Undo and Redo are two full pills on their own row, and Redo is usually greyed out.</p>
+    <div class="opts">
+      <div class="opt">
+        <h3><span class="tag now">Today</span></h3>
+        <div class="panel"><div class="undo"><span>↶ Undo: Next turn</span><span class="off">↷ Redo</span></div><div class="muted small" style="margin-top:6px">v0.6.0</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">A</span>Undo named, Redo an icon</h3>
+        <div class="panel"><div class="undo"><span>↶ Undo: Next turn</span><span class="off" title="Redo: Reset clock">↷</span></div></div>
+        <div class="notes"><div class="plus">Narrowest; fits beside other things in one bottom row.</div><div class="minus">You hover ↷ to see what it redoes.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">B</span>Both named</h3>
+        <div class="panel"><div class="undo"><span>↶ Undo: Next turn</span><span>↷ Redo: Reset clock</span></div></div>
+        <div class="notes"><div class="plus">Both steps readable at a glance.</div><div class="minus">Long step names wrap or truncate at 400 px.</div></div>
+      </div>
+    </div>
+    <p class="lean"><b>My lean: A.</b> Redo is rare (only right after an Undo), and when it's live its tooltip names the step. Either way the version label moves to Settings and the bar shares one row.</p>
+  </section>
+
+  <!-- Q4 -->
+  <section id="q4">
+    <h2><small>Q4</small>Time passes: one sheet or two</h2>
+    <p class="q">⏳ opens a sheet with quick picks and a preview. The Light Tracker has its own bare text field. design.md records the bare field as deliberate (2026-10-30: "a text field only, as in the toolkit; Torchlight's preset buttons go"). The ⏳ sheet with presets came later, on 2026-11-06.</p>
+    <div class="opts">
+      <div class="opt">
+        <h3><span class="tag">A</span>Light Tracker opens the same sheet</h3>
+        <div class="panel">
+          <div class="hdr"><span>←</span><b>Light Tracker</b></div>
+          <div style="display:flex;justify-content:space-between;align-items:center"><b>Time passes</b><span class="muted">✕</span></div>
+          <div class="pick" style="margin-top:6px"><span>10m</span><span>30m</span><span class="sel">1h</span><span>8h rest</span></div>
+          <div class="field">1h</div>
+          <div class="lbl">What happens</div>
+          <div class="prev"><span>🔥 Torch · Aria</span><span class="t">42:00 → out</span></div>
+          <div class="prev"><span>🏮 Lantern · Borin</span><span class="t">8:00 → out</span></div>
+          <div style="text-align:right;margin-top:8px"><span class="btn">Cancel</span> <span class="btn pri">Pass 1h</span></div>
+        </div>
+        <div class="notes"><div class="plus">One way to do it; the preview shows what burns out before you commit.</div><div class="minus">One more tap for an odd amount (open sheet, type).</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">B</span>Keep the bare field</h3>
+        <div class="panel">
+          <div class="hdr"><span>←</span><b>Light Tracker</b></div>
+          <div style="display:flex;gap:6px"><div class="field" style="flex:1;margin:0">10m, 1h, 1:30</div><span class="btn pri">Time passes</span></div>
+          <div class="light"><span>🔥</span><span><b>Torch</b> <span class="muted">· Aria</span></span><span class="tm">42:00</span></div>
+          <div class="light"><span>🏮</span><span><b>Lantern</b> <span class="muted">· Borin</span></span><span class="tm" style="color:var(--redtext)">8:00</span></div>
+        </div>
+        <div class="notes"><div class="plus">Fastest for a typed amount.</div><div class="minus">No preview here; two UIs for the same action.</div></div>
+      </div>
+    </div>
+    <p class="lean"><b>My lean: A.</b> The 10-30 decision was made before the sheet existed, so it doesn't settle this. If you want the typed speed kept, the sheet already has the field; focus could start in it.</p>
+  </section>
+
+  <!-- Q5 -->
+  <section id="q5">
+    <h2><small>Q5</small>Manual mode: light up when a check is due?</h2>
+    <p class="q">The Settings hint says the Manual card "shows the danger level and lights up on your turn when a check is due". Your 2026-11-07 change took the danger level and dial off the Manual card, so the hint is stale. Under the hood the app still counts a due check from the hidden danger level and marks it made when you move on.</p>
+    <div class="opts">
+      <div class="opt">
+        <h3><span class="tag">A</span>Card lights up when due</h3>
+        <div class="panel">
+          <div class="card due" style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b>Manual rolls</b> <span class="chip ghost">🕯 Torchlit</span><div class="small" style="color:var(--primary);font-weight:600">Check due: roll the d6, here or at the table</div></div><div class="die" style="outline:3px solid #bb99ff88;outline-offset:2px">ROLL</div></div>
+        </div>
+        <div class="notes"><div class="plus">A nudge on your turn.</div><div class="minus">"Due" follows a danger level you can't see on this card, so it's a nudge from nowhere. Bringing back the danger dropdown undoes yesterday's trim.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">B</span>Never lights up; only the copy changes</h3>
+        <div class="panel">
+          <div class="card" style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b>Manual rolls</b> <span class="chip ghost">🕯 Torchlit</span></div><div class="die">ROLL</div></div>
+          <div class="small muted" style="border-top:1px solid var(--line);padding-top:6px">Settings hint: <i>"No clock and no auto roll. Roll at the table, or tap the die for a d6 (d8 in darkness)."</i></div>
+        </div>
+        <div class="notes"><div class="plus">Matches what you said Manual is for: you roll at the table.</div><div class="minus">No reminder. The hidden due logic should go too, so nothing counts behind your back.</div></div>
+      </div>
+    </div>
+    <p class="lean"><b>My lean: B</b>, plus removing the hidden due count for Manual so the mode really is manual. That's a small code change beyond the copy; I'd confirm before touching it.</p>
+  </section>
+
+  <!-- Q6 -->
+  <section id="q6">
+    <h2><small>Q6</small>The dying line</h2>
+    <p class="q">Six buttons wrap to two lines. Stabilized and Healed are also on the Dying effect's menu, and Dead is the row menu's Mark dead.</p>
+    <div class="opts">
+      <div class="opt">
+        <h3><span class="tag now">Today</span>Six flat buttons</h3>
+        <div class="panel"><div class="dying"><p>💔 <b>Tamsin</b> is dying · 2 rounds left</p><span class="chip">Roll d20</span><span class="chip">Nat 20</span><span class="chip">Not a 20</span><span class="chip">Stabilized</span><span class="chip">Healed</span><span class="chip red">Dead</span></div></div>
+        <div class="notes"><div class="plus">Everything one click away.</div><div class="minus">Two lines tall; Dead sits right beside the everyday buttons.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">B</span>This turn's three, plus More</h3>
+        <div class="panel" style="height:180px"><div class="dying"><p>💔 <b>Tamsin</b> is dying · 2 rounds left</p><span class="chip">Roll d20</span><span class="chip">Nat 20</span><span class="chip">Not a 20</span><span class="chip ghost">More ▾</span></div>
+          <div class="menu" style="right:18px;top:78px"><div>Stabilized</div><div>Healed</div><hr><div style="color:var(--redtext)">Dead</div></div></div>
+        <div class="notes"><div class="plus">One line; the turn's decision only.</div><div class="plus">Dead one step away, so harder to hit by accident.</div><div class="minus">Stabilized and Healed take two clicks.</div></div>
+      </div>
+    </div>
+    <p class="lean"><b>My lean: B.</b> But you've run dying at the table and I haven't: if Stabilized or Healed come up most turns, keep them out and fold only Dead.</p>
+  </section>
+
+  <!-- Q7 -->
+  <section id="q7">
+    <h2><small>Q7</small>Multi-select on a mouse</h2>
+    <p class="q">Every GM row reserves about 60 px on the left for a checkbox and a drag grip that only show on hover. Names truncate early. Cmd-click and Shift-click already select. Your habit decides this one, so there's no lean.</p>
+    <div class="opts">
+      <div class="opt">
+        <h3><span class="tag now">Today</span>Hover a row</h3>
+        <div class="panel">
+          <div class="row"><span class="gut"><span>⋮⋮</span><span class="cb x"></span></span><span class="av" style="background:#c95b4c">A</span><span class="nm"><b>Aria Thornwood</b><i>Holding the rope near the…</i></span><span class="init">17</span></div>
+          <div class="row selrow"><span class="gut"><span>⋮⋮</span><span class="cb x"></span></span><span class="av" style="background:#4c7ac9">B</span><span class="nm"><b>Borin Ironfoot</b><i>Watching the door</i></span><span class="init">12</span></div>
+          <div class="row"><span class="gut"></span><span class="av" style="background:#7a6a3a">T</span><span class="nm"><b>Tamsin the Quick</b></span><span class="init">9</span></div>
+        </div>
+        <div class="notes"><div class="minus">The gutter is spent on every row, whether you use it or not.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">A</span>No checkboxes on a mouse</h3>
+        <div class="panel">
+          <div class="row" style="position:relative"><span class="small muted" style="position:absolute;left:-2px">⋮⋮</span><span class="av" style="background:#c95b4c;margin-left:10px">A</span><span class="nm"><b>Aria Thornwood</b><i>Holding the rope near the well</i></span><span class="init">17</span></div>
+          <div class="row selrow"><span class="av" style="background:#4c7ac9;margin-left:10px">B</span><span class="nm"><b>Borin Ironfoot</b><i>Watching the door</i></span><span class="init">12</span></div>
+          <div class="row"><span class="av" style="background:#7a6a3a;margin-left:10px">T</span><span class="nm"><b>Tamsin the Quick</b></span><span class="init">9</span></div>
+          <div class="small muted" style="margin-top:6px">Cmd-click or Shift-click to select several. Touch screens keep the checkboxes.</div>
+        </div>
+        <div class="notes"><div class="plus">About 45 px more for names and notes.</div><div class="minus">If you select with the checkboxes today, you'd have to switch to Cmd/Shift-click.</div></div>
+      </div>
+    </div>
+    <p class="lean"><b>Your call:</b> do you click the checkboxes, or Cmd/Shift-click the rows?</p>
+  </section>
+
+  <!-- Q8 -->
+  <section id="q8">
+    <h2><small>Q8</small>Effect icons on 1-cell tokens</h2>
+    <p class="q">Up to three icons sit along a token's bottom edge; with four or more, the third becomes "+" (<code>effectIcons.ts</code>, <code>MAX_ICONS = 3</code>). On a 1-cell token three icons fill the whole edge. Today's drawing is a sketch; I can't screenshot the map outside Owlbear.</p>
+    <div class="opts">
+      <div class="opt">
+        <h3><span class="tag now">Today</span>Three, then "+"</h3>
+        <div class="map">
+          <div class="ring" style="left:62px;top:62px;width:76px;height:76px"></div>
+          <div class="tok" style="left:75px;top:75px">A</div>
+          <div class="fx" style="left:79px;top:116px">◎</div><div class="fx" style="left:93px;top:118px">✱</div><div class="fx" style="left:107px;top:116px">+</div>
+          <div class="ring" style="left:182px;top:62px;width:76px;height:76px;border-color:transparent"></div>
+          <div class="tok" style="left:195px;top:75px;background:#4c7ac9">B</div>
+          <div class="fx" style="left:206px;top:117px">◎</div><div class="fx" style="left:222px;top:117px">✱</div>
+        </div>
+        <div class="cap">Aria: focus, asterisk, + (4 effects). Borin: two.</div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">B</span>On 1-cell tokens: two, then "+"</h3>
+        <div class="map">
+          <div class="ring" style="left:62px;top:62px;width:76px;height:76px"></div>
+          <div class="tok" style="left:75px;top:75px">A</div>
+          <div class="fx" style="left:86px;top:117px">◎</div><div class="fx" style="left:102px;top:117px">+</div>
+          <div class="tok" style="left:195px;top:75px;background:#4c7ac9">B</div>
+          <div class="fx" style="left:206px;top:117px">◎</div><div class="fx" style="left:222px;top:117px">✱</div>
+        </div>
+        <div class="cap">Same tokens: Aria shows focus and +. Larger tokens keep three.</div>
+        <div class="notes"><div class="plus">Less covering of small tokens.</div><div class="minus">One fewer icon you can read off the map; a second rule to remember.</div></div>
+      </div>
+    </div>
+    <p class="lean"><b>My lean: keep today's</b> unless you've seen it look crowded in the room. TESTING row 88 passed with no collisions, and the effects are all named in the panel anyway.</p>
+  </section>
+
+  <!-- Q9 -->
+  <section id="q9">
+    <h2><small>Q9</small>Default panel height</h2>
+    <p class="q">The manifest asks Owlbear for a 400 x 600 popover. At 600 the list gets about 160 to 210 px. A taller default gives more rows without any redesign, but several findings shrink rather than vanish.</p>
+    <div class="opts">
+      <div class="opt">
+        <h3><span class="tag">A</span>Stay at 600, fix the layout</h3>
+        <div class="frame" style="height:300px;width:200px;position:relative">
+          <div style="background:#34385a;height:28px;border-radius:6px"></div>
+          <div style="background:#2b3049;height:24px;border-radius:6px;margin-top:6px"></div>
+          <div style="background:#2b3049;height:34px;border-radius:6px;margin-top:6px"></div>
+          <div class="small muted" style="margin-top:6px">list today ≈ 2.5 rows</div>
+          <div style="border:2px solid var(--primary);border-radius:6px;height:150px;margin-top:4px;display:grid;place-items:center" class="small">after the top-5 fixes ≈ 5 rows</div>
+        </div>
+        <div class="notes"><div class="plus">Works on every screen, including small laptops.</div><div class="minus">Needs the layout work (top-5 item 1) to get the rows.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">B</span>Raise the default to 800</h3>
+        <div class="frame" style="height:400px;width:200px;position:relative">
+          <div style="background:#34385a;height:28px;border-radius:6px"></div>
+          <div style="background:#2b3049;height:24px;border-radius:6px;margin-top:6px"></div>
+          <div style="background:#2b3049;height:34px;border-radius:6px;margin-top:6px"></div>
+          <div style="border:2px solid var(--primary);border-radius:6px;height:250px;margin-top:20px;display:grid;place-items:center" class="small">≈ 7 rows with today's layout</div>
+        </div>
+        <div class="notes"><div class="plus">A one-line change (<code>public/manifest.json</code>).</div><div class="minus">Unverified: whether Owlbear shrinks the popover to fit a short browser window, or cuts it off. Check in the room on a laptop before shipping.</div></div>
+      </div>
+    </div>
+    <p class="lean"><b>My lean: A first</b>, then try 700 if it still feels tight. It's cheap to test: a Dev build with 700 or 800, opened on your smallest screen.</p>
+  </section>
+</main>
+</body>
+</html>

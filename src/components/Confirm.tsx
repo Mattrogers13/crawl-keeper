@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-// A text link, like the turn bar's (Reset rounds, Add effect).
+// A small text link (Reset clock, Remove all lights).
 export const LINK = "py-1.5 text-xs text-obr-text-secondary underline hover:text-obr-text";
 
 // A link that asks before doing something Undo can't bring back (Clear log,

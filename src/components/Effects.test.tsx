@@ -209,7 +209,8 @@ describe("Effects (GM)", () => {
   it("Reset rounds keeps each effect's rounds left", async () => {
     setup([bless], "b", 2);
     expect(await screen.findByRole("button", { name: /^Bless · 1 of 2 rounds left/ })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Reset rounds" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Round menu/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Reset rounds/ }));
     await waitFor(() => expect(tracker().round).toBe(0));
     expect(effects()[0].end).toEqual({ round: 1, at: "a" });
     expect(screen.getByRole("button", { name: /^Bless · 1 of 2 rounds left/ })).toBeInTheDocument();

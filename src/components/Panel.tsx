@@ -124,7 +124,7 @@ const Panel = ({ role }: { role: Role }) => {
         )}
       </main>
       {role === "GM" && <UndoBar />}
-      <Footer />
+      <Footer gm={role === "GM"} />
       <ResizeGrip />
     </div>
   );
@@ -249,11 +249,17 @@ const GearIcon = () => (
   </svg>
 );
 
-const Footer = () => (
-  <footer className="shrink-0 text-xs text-obr-text-secondary">
-    v{VERSION}
-    {import.meta.env.VITE_BUILD_LABEL && <div>{import.meta.env.VITE_BUILD_LABEL}</div>}
-  </footer>
-);
+// The version: players here; the GM's is in Settings → About (UI review,
+// 2026-11-08: one bottom row). Dev builds keep their label for everyone.
+const Footer = ({ gm }: { gm: boolean }) => {
+  const dev = import.meta.env.VITE_BUILD_LABEL;
+  if (gm && !dev) return null;
+  return (
+    <footer className="shrink-0 text-xs text-obr-text-secondary">
+      {!gm && <div>v{VERSION}</div>}
+      {dev && <div>{dev}</div>}
+    </footer>
+  );
+};
 
 export default Panel;
