@@ -13,7 +13,6 @@ import {
 import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 
-import { LINK } from "./Confirm";
 import { onAddEffect, takeHandoff } from "../addEffectHandoff";
 import { AddEffect, RowEffects, type EffectsChange } from "./Effects";
 import { DeathPrompt, deathKey, owesDeathRoll, type DeathActions, type DeathDecision } from "./Dying";
@@ -23,10 +22,10 @@ import TimeSheet from "./TimeSheet";
 import CrawlBar, { ClockDial, FOCUS, PlayerRoll } from "./CrawlBar";
 import { clockLeft, clockStart, crawlDie, cryptoRand, due, lastFor, replayRand, rollFor } from "../crawl";
 import { dicePlusActive, rollDice, rollExploding, setDicePlusEnabled, type RollTarget } from "../diceRoller";
-import { ChevronIcon, HourglassIcon, PlayIcon } from "./icons";
+import { ChevronIcon, HourglassIcon, PlayIcon, PlusIcon } from "./icons";
 import Loading from "./Loading";
 import RowMenu from "./RowMenu";
-import Row, { INIT_SLOT, tokenInfo, type ButtonProps, type Token } from "./TrackerRow";
+import Row, { GUTTER, INIT_SLOT, tokenInfo, type ButtonProps, type Token } from "./TrackerRow";
 import { EFFECTS_KEY, MONSTERS_FOLDED_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import {
   endFocusOf,
@@ -245,6 +244,13 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
     turnSeen.current = turn;
     if (role === "GM" && before !== null && before !== turn) tidyLights(dropSpent);
   }, [docValue.current, docValue.round, role]);
+
+  // The turn's row scrolls into view in a long list (UI review, 2026-11-08),
+  // for everyone; only as far as needed.
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    listRef.current?.querySelector("[aria-current=step]")?.scrollIntoView?.({ block: "nearest" });
+  }, [docValue.current, docValue.round]);
 
   // The GM's hotkeys while the panel has focus (Owlbear keeps keys typed on
   // the map): N next turn, B back, R the encounter roll when one is due (a
@@ -581,6 +587,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
             <button
               type="button"
               aria-pressed={combat}
+              title="Combat: encounter checks pause"
               className={`h-8 rounded-full px-4 ${combat ? "bg-red-700 text-white" : "hover:bg-obr-text/10"}`}
               // Combat splits a party that's together (Matt, 2026-11-07), in the same step.
               onClick={() => (tracker.party !== null && tracker.together ? runSwitch(false, undefined, true) : change("Combat", (t) => toCombat(t, settings.value.clearRollsOnCombat)))}
@@ -609,43 +616,16 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           }}
         />
       )}
-      {/* Under the turn bar, where they're easy to find. No confirms: each
-          is an undo step the Undo bar names. */}
-      {gm && (
-        <div className="-mt-1 flex shrink-0 flex-wrap items-center gap-x-3">
-          <button type="button" className={LINK} onClick={() => change("Reset rounds", resetRounds, { effects: resetEffectRounds })}>
-            Reset rounds
-          </button>
-          {/* A free-standing effect (a row's own: its menu). */}
-          <button type="button" className={LINK} onClick={() => openAdding([])}>
-            Add effect
-          </button>
-          {/* After a fight: clear the monsters out (kept until then, so a fight can resume). */}
-          {!combat && tracker.entries.some((e) => e.monster) && (
-            <button type="button" className={LINK} onClick={() => change("Remove monsters", removeMonsters)}>
-              Remove monsters
-            </button>
-          )}
-        </div>
-      )}
 
-      {/* The phase and round, beside the title. */}
+      {/* The phase and round, beside the title. The GM's opens a menu:
+          Reset rounds (it was a link under the turn bar until 2026-11-08). */}
       {titleSlot &&
         createPortal(
-          <span
-            className={`flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium ${
-              combat ? "bg-red-600/15 text-red-700 dark:text-red-300" : "bg-obr-primary/15 text-obr-text"
-            }`}
-          >
-            <span className={`h-1.5 w-1.5 rounded-full ${combat ? "bg-red-600 dark:bg-red-400" : "bg-obr-primary"}`} aria-hidden />
-            <span>{combat ? "Combat" : "Crawl"}</span>
-            {roundLabel && (
-              <>
-                <span aria-hidden>·</span>
-                <span className="text-obr-text">{roundLabel}</span>
-              </>
-            )}
-          </span>,
+          <PhasePill
+            combat={combat}
+            round={roundLabel}
+            resetRounds={gm ? () => change("Reset rounds", resetRounds, { effects: resetEffectRounds }) : undefined}
+          />,
           titleSlot,
         )}
 
@@ -698,11 +678,6 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           }}
         />
       )}
-      {gm && combat && (
-        <p className="shrink-0 rounded-xl bg-red-600/10 px-3 py-1.5 text-xs text-red-800 ring-1 ring-red-600/30 ring-inset dark:text-red-200">
-          <span className="font-semibold text-obr-text">Combat</span> · encounter checks paused
-        </p>
-      )}
       <Notices
         dark={gm && dark}
         checks={[...dueChecks, ...calledChecks]}
@@ -718,10 +693,22 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
         deathDone={deathDone}
         deathActions={gm ? deathActions : null}
       />
-      {/* The GM's ⏳ beside the title: the Time passes sheet. */}
+      {/* The GM's + and ⏳ beside the title: a free-standing effect (a row's
+          own: its menu), and the Time passes sheet. */}
       {gm &&
         toolSlot &&
         createPortal(
+          <>
+          <button
+            type="button"
+            aria-label="Add effect"
+            aria-expanded={adding !== null && adding.length === 0}
+            title="Add an effect (a row's own: its ⋯ menu)"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-obr-text-secondary hover:bg-obr-bg hover:text-obr-text"
+            onClick={() => openAdding([])}
+          >
+            <PlusIcon />
+          </button>
           <button
             type="button"
             aria-label="Time passes"
@@ -735,7 +722,8 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
             }}
           >
             <HourglassIcon />
-          </button>,
+          </button>
+          </>,
           toolSlot,
         )}
 
@@ -769,7 +757,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           )}
         </div>
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto px-1 pt-px" inert={gm && (adding || timing || dyingFor || deathPrompt) ? true : undefined}>
+      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-1 pt-px" inert={gm && (adding || timing || dyingFor || deathPrompt) ? true : undefined}>
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -786,9 +774,9 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
             className="flex border-b border-obr-text/10 py-1 pr-1 text-[10px] font-semibold tracking-[0.1em] text-obr-text-disabled uppercase"
             aria-hidden={gm ? undefined : true}
           >
-            {/* Lined up with the names: the GM's grip, checkbox and portrait (16 + 16 + 26 px and
-                three 8 px gaps), or a player's inset and portrait (4 + 26 + 8). */}
-            <span className={`flex-1 ${gm ? "pl-[82px]" : "pl-[38px]"}`}>Name</span>
+            {/* Lined up with the names: the GM's grip, checkbox (touch only) and portrait
+                (16 + 16 + 26 px and 8 px gaps), or a player's inset and portrait (4 + 26 + 8). */}
+            <span className={`flex-1 ${gm ? GUTTER.header : "pl-[38px]"}`}>Name</span>
             {/* Possible deletion (docs/design.md, Releases): rolls already sort the list as they are entered, so this may go unused. */}
             {gm ? (
               <span className={`${INIT_SLOT} pr-2 text-right`}>
@@ -823,27 +811,42 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
                 >
                   {entry.id === GM_ENTRY && monsters.length > 0 && (
                     <SortableContext items={monsters.map((e) => e.id)} strategy={verticalListSortingStrategy}>
-                      <button
-                        type="button"
-                        aria-expanded={showMonsters}
-                        aria-label={showMonsters ? "Fold the monsters" : `Show ${monsters.length} monsters`}
-                        disabled={monsterTurn}
-                        title={monsterTurn ? "Shown while a monster has the turn" : undefined}
-                        className={`flex h-7 w-full items-center gap-1.5 border-b border-obr-text/10 text-[11px] font-medium tracking-[0.04em] text-obr-text-secondary enabled:hover:text-obr-text ${
-                          gm ? "pl-[48px]" : "pl-2.5"
-                        }`}
-                        onClick={() => fold(showMonsters)}
-                      >
-                        <ChevronIcon open={showMonsters} />
-                        {showMonsters ? (
-                          <span className="uppercase">Monsters · {monsters.length}</span>
-                        ) : (
-                          <>
-                            {monsters.length === 1 ? "1 monster" : `${monsters.length} monsters`}
-                            <Stack tokens={monsters.map(tokenFor)} />
-                          </>
+                      <div className="flex h-7 items-center border-b border-obr-text/10 pr-2">
+                        <button
+                          type="button"
+                          aria-expanded={showMonsters}
+                          aria-label={showMonsters ? "Fold the monsters" : `Show ${monsters.length} monsters`}
+                          disabled={monsterTurn}
+                          title={monsterTurn ? "Shown while a monster has the turn" : undefined}
+                          className={`flex h-full min-w-0 flex-1 items-center gap-1.5 text-[11px] font-medium tracking-[0.04em] text-obr-text-secondary enabled:hover:text-obr-text ${
+                            gm ? GUTTER.fold : "pl-2.5"
+                          }`}
+                          onClick={() => fold(showMonsters)}
+                        >
+                          <ChevronIcon open={showMonsters} />
+                          {showMonsters ? (
+                            <span className="uppercase">Monsters · {monsters.length}</span>
+                          ) : (
+                            <>
+                              {monsters.length === 1 ? "1 monster" : `${monsters.length} monsters`}
+                              <Stack tokens={monsters.map(tokenFor)} />
+                            </>
+                          )}
+                        </button>
+                        {/* After a fight: clear the monsters out (kept until then, so a
+                            fight can resume). Was a link under the turn bar until 2026-11-08. */}
+                        {gm && !combat && (
+                          <button
+                            type="button"
+                            aria-label="Remove monsters"
+                            title="Remove every monster from the tracker"
+                            className="text-[11px] text-obr-text-secondary underline hover:text-obr-text"
+                            onClick={() => change("Remove monsters", removeMonsters)}
+                          >
+                            Remove all
+                          </button>
                         )}
-                      </button>
+                      </div>
                       {showMonsters && (
                         <ol aria-label="Monsters" className="flex flex-col">
                           {monsters.map((m) => (
@@ -861,18 +864,11 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
         {gm && tracker.entries.length === 1 && (
           <p className="text-sm text-obr-text-secondary">
             Right-click a token on the map: Crawl Keeper → Add to initiative. Right-click a row here (or hover it for ⋯) to mark
-            monsters; drag its grip to move it. Click a roll to edit it.
+            monsters; drag its grip to move it. Click a roll to edit it. Keys (click in the panel first): N next · B back · R roll.
           </p>
         )}
       </div>
       </div>
-      {gm && (
-        <div className="flex shrink-0 justify-end">
-          <span className="text-xs text-obr-text-secondary" title="Click in the panel first: Owlbear keeps keys typed on the map.">
-            Keys: N next · B back · R roll
-          </span>
-        </div>
-      )}
       {menu && targets.length > 0 && (
         <RowMenu
           entries={targets}
@@ -913,6 +909,86 @@ const Stack = ({ tokens }: { tokens: (Token | null)[] }) => (
 
 // Icon buttons in the turn bar: round (36 px), or a wider pill for ◀ ▶.
 // `hint`: its hotkey, shown in the tooltip.
+// The phase and round beside the key. The GM's is a button with a small menu
+// (Reset rounds; UI review, 2026-11-08: the links row under the turn bar went).
+// The menu is fixed to the page: the header's slot clips what overflows it.
+const PhasePill = (props: { combat: boolean; round: string; resetRounds?: () => void }) => {
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    if (!at) return;
+    const close = (e: Event) => {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      if (e.type === "pointerdown" && e.target instanceof Element && e.target.closest("[data-phase-menu]")) return;
+      setAt(null);
+    };
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", close);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", close);
+    };
+  }, [at]);
+  const look = `flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium ${
+    props.combat ? "bg-red-600/15 text-red-700 dark:text-red-300" : "bg-obr-primary/15 text-obr-text"
+  }`;
+  const inside = (
+    <>
+      <span className={`h-1.5 w-1.5 rounded-full ${props.combat ? "bg-red-600 dark:bg-red-400" : "bg-obr-primary"}`} aria-hidden />
+      <span>{props.combat ? "Combat" : "Crawl"}</span>
+      {props.round && (
+        <>
+          <span aria-hidden>·</span>
+          <span className="text-obr-text">{props.round}</span>
+        </>
+      )}
+    </>
+  );
+  if (!props.resetRounds) return <span className={look}>{inside}</span>;
+  const reset = props.resetRounds;
+  return (
+    <>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={at !== null}
+        aria-label={`Round menu: ${props.combat ? "Combat" : "Crawl"}${props.round ? `, ${props.round}` : ""}`}
+        title="Round menu: Reset rounds"
+        className={`${look} hover:brightness-125 ${FOCUS}`}
+        onClick={(e) => {
+          const box = e.currentTarget.getBoundingClientRect();
+          setAt(at ? null : { x: box.left, y: box.bottom + 4 });
+        }}
+      >
+        {inside}
+      </button>
+      {at &&
+        createPortal(
+          <div
+            role="menu"
+            aria-label="Round"
+            data-phase-menu
+            style={{ left: at.x, top: at.y }}
+            className="fixed z-50 min-w-[160px] rounded-lg bg-obr-paper py-1 text-sm shadow-lg ring-1 ring-obr-text/15"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="block w-full px-3 py-1.5 text-left hover:bg-obr-text/10"
+              onClick={() => {
+                setAt(null);
+                reset();
+              }}
+            >
+              Reset rounds
+              <span className="block text-[11px] text-obr-text-secondary">Back to 0; encounter checks start over</span>
+            </button>
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+};
+
 const RoundButton = (
   props: Omit<ButtonProps, "pressed"> & { primary?: boolean; wide?: boolean; disabled?: boolean; hint?: string },
 ) => (

@@ -153,7 +153,7 @@ const Row = (props: {
           </button>
         )}
         {gm && (
-          <span className="flex w-4 shrink-0 justify-center">
+          <span className={`flex w-4 shrink-0 justify-center ${NO_CHECKBOX}`}>
             {token && (
               // The same selection as Cmd/Ctrl-click: one more or one less.
               <input
@@ -279,11 +279,11 @@ const Row = (props: {
         )}
       </div>
       {effects && (
-        // Lined up with the name: the GM's grip, checkbox and portrait (16 + 16 + 26 px and
-        // three 8 px gaps; a monster's └ and smaller portrait), or a player's inset and portrait.
+        // Lined up with the name: the GM's gutter (GUTTER; a monster's └ and
+        // smaller portrait), or a player's inset and portrait.
         <div
           className={`border-b border-obr-text/10 ${gm ? "pr-9" : "pr-2"} ${
-            gm ? (props.small ? "pl-[90px]" : "pl-[76px]") : props.small ? "pl-[46px]" : "pl-[32px]"
+            gm ? (props.small ? GUTTER.effectsSmall : GUTTER.effects) : props.small ? "pl-[46px]" : "pl-[32px]"
           } ${tint} ${fade}`}
         >
           {effects}
@@ -512,6 +512,18 @@ const RenameInput = (props: { name: string; small?: boolean; save: (name: string
 };
 
 export type ButtonProps = { label: string; pressed?: boolean; onClick: (e: MouseEvent<HTMLButtonElement>) => void; children: ReactNode };
+// The GM's left gutter, lined up with the names: grip, checkbox and portrait
+// (16 + 16 + 26 px and 8 px gaps). On a mouse there's no checkbox column
+// (Cmd/Shift-click select; Matt, 2026-11-08), so 24 px less; touch keeps it,
+// the only way to pick several there.
+const NO_CHECKBOX = "[@media(hover:hover)]:hidden";
+export const GUTTER = {
+  header: "pl-[82px] [@media(hover:hover)]:pl-[58px]",
+  fold: "pl-[48px] [@media(hover:hover)]:pl-[24px]",
+  effects: "pl-[76px] [@media(hover:hover)]:pl-[52px]",
+  effectsSmall: "pl-[90px] [@media(hover:hover)]:pl-[66px]",
+};
+
 // The grip, checkbox and ⋯ show on hovering the row, or focusing them; on
 // touch screens (no hover) they always show.
 const HOVER_ONLY = "[@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-visible:opacity-100";

@@ -68,9 +68,9 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
-| 29 | GM: Combat (player's panel closed) | "Roll for combat initiative" pops up for GM and player; rolls clear; the crawl card becomes "Combat · encounter checks paused"; the log says "Combat: roll for initiative." | 2026-11-06 |
+| 29 | GM: Combat (player's panel closed) | "Roll for combat initiative" pops up for GM and player; rolls clear; the crawl card goes (no combat line since 2026-11-08; the Combat button's tooltip says checks pause); the log says "Combat: roll for initiative." | 2026-11-08 |
 | 30 | GM: rolls (the list sorts itself), the GM row's d20, ▶ through a round | GM / Monsters, then each living monster, then the next player; combat rounds don't count toward checks | 2026-11-06 |
-| 31 | GM: Crawl; Remove monsters → Remove | Order and rolls stay; monsters and the DEX box clear; Remove monsters isn't offered in Combat | 2026-11-06 |
+| 31 | GM: Crawl; "Remove all" on the Monsters header | Order and rolls stay; monsters and the DEX box clear at once; "Remove all" isn't offered in Combat | 2026-11-08 |
 | 32 | Player: reload during combat | No alert on reload | 2026-11-06 |
 
 ### Settings and panel
@@ -79,7 +79,7 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 |---|---|---|---|
 | 33 | GM: gear | The how-to card (opens the guide in a new tab) and the Session log card, then Encounters (segmented pill), Darkness, Players' lights, What players see (with Show the death timer to players), Turns and combat (with Show effect icons on the map), Dice (Roll with Dice+, and whether it was found), About, and Session (Reset all) last; switches on the right. The guide has Effects and Session log and Reset all sections | 2026-11-06 |
 | 34 | GM: each switch (show lights, the death timer, rolls, rounds and the clock / danger level to players, clear rolls, turn marker, select token, roll automatically, roll with Dice+) | Each does what its line says; the turn marker switch adds or removes the ring at once; the green eyes on the crawl card follow the What players see switches |  |
-| 35 | GM: Reset rounds → Cancel; → Reset | Cancel changes nothing; Reset says checks start over and zeroes both counts | 2026-11-06 |
+| 35 | GM: click the round pill → Reset rounds; open it again and press Escape, then click outside | The menu says checks start over; Reset zeroes both counts at once; Escape and an outside click close it | 2026-11-08 |
 | 36 | Overflow the list; drag the bottom grip; close and reopen | Header and controls stay put, only the list scrolls; the height is kept | 2026-11-06 |
 | 37 | Install link → Copy | "Copied" (or the text is selected with a Cmd+C hint); the URL is this build's manifest | Retired (v0.4: the install link left Settings; the guide has it) |
 
@@ -98,12 +98,12 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 | 41 | GM: Crawl, standard, Unsafe; ▶ through 3 crawl rounds; click the d6; Undo | The d20 counts 3 → 2 → 1 → "!", ring segments fill; the card lights on the GM turn; the d6 shows the pips, "No encounter" / red "Encounter!" beside it; Undo clears it | 2026-11-06 |
 | 42 | GM: danger dropdown to Deadly; switch to Crawling Clock, Darkness, roll; switch back | Deadly: one segment (every round); the Torchlit / Darkness switch is on the card in every mode (v0.3); clock mode: the d20 shows the clock (no label under it), Darkness makes it "Roll d8", the d6 shows its total and "Clock 20 → N"; back in standard the d6 doesn't show the clock roll | 2026-11-06 |
 | 43 | GM: the GM row's d20 → − / + / type a DEX → Roll d20+N | The row opens under the GM row; Roll fills the roll (the list sorts itself) and shows `d20 X + N` under the name; typing a roll by hand drops it | 2026-11-06 |
-| 44 | GM: tick checkboxes on two rows; right-click one | Both tinted and in the menu; checkboxes stay visible while any is ticked | 2026-11-06 |
+| 44 | GM on a mouse: Cmd-click two rows, Shift-click a range; right-click one. On a touch screen (iPad): tick checkboxes on two rows | Mouse: no checkbox column (names start further left), the rows tint and are in the menu. Touch: checkboxes as before | 2026-11-08 |
 | 45 | GM and player: fold the monsters; reload; Combat, ▶ to a monster | Folded ("N monsters" + portraits), still folded after reload; opens on a monster's turn, folds again after | 2026-11-06 |
 | 46 | GM: Mark dead on a token, hide it, show it, Mark alive; mark another dead and Remove from initiative | A skull badge over the token's centre, hidden with it for the player; gone when alive or removed | 2026-11-06 |
 | 47 | Player: their own token's turn (a token they placed), then someone else's | "Your turn, <name>" strip, then none | 2026-11-06 |
 | 49 | GM: Settings → Show rolls to players, and the eye by the die (click it both ways); roll in each mode, manual too | The player's card shows the die and its result (with the clock hidden too); off: no roll |  |
-| 50 | GM: Reset rounds / Remove monsters | Under the turn bar, above the list; each runs at once (no confirm since 2026-11-08); "Undo: Reset rounds" in the bar brings it back | |
+| 50 | GM: the area under the turn bar | No links row (2026-11-08): Reset rounds is in the round pill's menu, Remove monsters is "Remove all" on the Monsters header, Add effect is + beside ⏳; each runs at once and "Undo: …" in the bar brings it back | 2026-11-08 |
 | 48 | Any view, both themes | No broken styles or missing portraits (the new CSP); browser console has no CSP errors | 2026-11-06 |
 
 ### New: Follow Torchlight (Torchlight installed too)
@@ -125,7 +125,7 @@ Rows 51–55 retired (Matt, 2026-10-31): the Torchlight merge (v0.3) replaces Fo
 |---|---|---|---|
 | 57 | GM: ▶, then "Undo: Next turn", Redo; Cmd+Z, Shift+Cmd+Z (not while typing in a note) | The bar names the step; the turn and ring go back and forward | 2026-11-06 |
 | 58 | GM: close the panel, right-click a token → Add / Remove Initiative, reopen | "Undo: Add to initiative" in the bar; Undo takes it out | 2026-11-06 |
-| 59 | GM: Remove monsters (or Reset rounds, Reset clock, Reset all) | No "Done: …" pop-up (removed 2026-11-08); the bar's "Undo: Remove monsters" brings them back | |
+| 59 | GM: Remove monsters (or Reset rounds, Reset clock, Reset all) | No "Done: …" pop-up (removed 2026-11-08); the bar's "Undo: Remove monsters" brings them back | 2026-11-08 |
 | 60 | GM: a step on map A, open map B, Undo | "… on another map. Skipped."; map B unchanged | 2026-11-06 |
 | 61 | Player: the panel | No Undo bar | 2026-11-06 |
 | 62 | GM: Settings → Manual; ▶ to the GM turn when a check is due; roll the small d6 (then in Darkness, a d8); ▶ past it once without rolling | The bar shows only Manual rolls, the darkness switch and the die (no danger level or dial); the d6 rolls a check; ▶ counts a due check made. Player (Show the danger level on): "Crawling · <danger>"; the roll only with Show rolls to players on |  |
@@ -156,7 +156,7 @@ Torchlight uninstalled. Dynamic Fog on for rows 72–74. Rows 66–76 sum up the
 | # | Steps | Expect | Last pass |
 |---|---|---|---|
 | 77 | GM: ▶ to a player's turn; right-click their row → Add effect… → "Bless", Rounds 2, Add; ▶ through two rounds | A Bless line under the row, "2 rnd"; 1 (amber) after their next turn starts; "ended" and "Bless on … ends now" in the notices on the turn it ends; gone on the next ▶; ◀ brings it back | 2026-11-06 |
-| 78 | GM: Add effect (the link under the turn bar) → "Cloudkill", Roll 1d6; a token not in initiative → Add effect from its row before removing it, or keep one on a removed row | Both in the notices card (folded with a count when there are two), the token's with its name, Cloudkill "· no token" | 2026-11-06 |
+| 78 | GM: + in the header (Add effect) → "Cloudkill", Roll 1d6; a token not in initiative → Add effect from its row before removing it, or keep one on a removed row | Both in the notices card (folded with a count when there are two), the token's with its name, Cloudkill "· no token" | 2026-11-08 |
 | 79 | GM: select two rows → right-click → Add effect to 2… → DIS, Ongoing | A DIS line under each row; the name filled itself | 2026-11-06 |
 | 80 | GM: on a caster's row: Add effect… → "Hold Person", Duration Focus. On a monster: "Paralyzed", Duration "While <caster>'s Hold Person lasts". Then Add effect… → "Web", Focus on the caster | ◎ Hold Person line; asks "End Hold Person, focus on Web?"; End and focus: Hold Person and Paralyzed go | 2026-11-06 |
 | 81 | GM: ▶ to the caster's turn with a focus: Lost; again with Nat 1; then a focusing monster while crawling; then row menu → Focus check now off their turn → Kept | The focus check in the notices on their turn (a monster's on the GM turn); Lost ends it and what ends with it; Nat 1 adds the critical-failure notice (p. 45); Kept dismisses | 2026-11-06 |
@@ -216,7 +216,7 @@ Torchlight uninstalled. Dynamic Fog on for rows 72–74. Rows 66–76 sum up the
 | 120 | GM: Settings → What players see; compare with the player window; Players' lights card | Every switch reads Show … to players, on = shown (lights, death timer, rolls, rounds, clock or danger level); Players' lights holds only Players light their own | |
 | 121 | GM: let a torch burn out (Time passes) or Put out; then ▶; try the card, and click the row's badge (it opens the Light Tracker and puts nothing out). A lantern that ran dry. Remove on a lit light | The torch shows spent with no relight or New torch and its time can't be set back; the badge and notice stay until the next ▶, then go; the dry lantern stays and refills; Remove works on a lit light | |
 | 122 | GM: Light Tracker: the i; the header row; Settings → darkness text | Rules sit in the popup (Escape closes), the i is centred with the Pause button; darkness reads "Darkness · DIS" with detail on hover | |
-| 123 | GM: ❚❚ in the panel header; the bar; click it; Light Tracker's Pause | While paused: no ❚❚, a slim amber "Lights paused · Resume" bar across the top (every view); clicking it resumes, the bar goes and ❚❚ is back; times freeze while paused | |
+| 123 | GM: ❚❚ in the panel header; the bar; click it; Light Tracker's Pause | While paused: no ❚❚, a slim amber "Lights paused · Resume" bar across the top (every view); clicking it resumes, the bar goes and ❚❚ is back; times freeze while paused | 2026-11-08 |
 | 124 | Player (private window): Party / Split and a dropped torch | The player sees only visible tokens and the tracker rows for them; their Light view follows a handoff; they can light only visible party tokens | |
 | 125 | GM: players spread around, the party token (hidden) dragged to a gathering spot; press Party | Each player lands on a free spot on their side of the party token, then hides; they're attached to it (drag it: everyone goes along, unseen by players) | 2026-11-07 |
 | 126 | GM: with Dynamic Fog walls (fog tool shapes), put the party token next to a wall with a player on the far side; Party. Then drag the party through a narrow spot and Split | Nobody is pulled through the wall (they stack on the party token if there's no room); on Split anyone left behind a wall moves to the party token's side | 2026-11-07 |
@@ -225,8 +225,10 @@ Torchlight uninstalled. Dynamic Fog on for rows 72–74. Rows 66–76 sum up the
 | 129 | GM: a door on a fog shape, open, then closed; Party with a player beyond it | Note whether an open door lets the player be pulled through (Dynamic Fog's local walls may already leave the gap) | 2026-11-07 |
 | 130 | GM: right-click a prop (a sconce, a rune) → Crawl Keeper → Light torch, then Cast Light on another; the Light Tracker. Player: right-click the same prop | Each prop glows (torch 30 ft) with its badge; no row is added; the time shows in the Light Tracker only; the player's menu is off there (Party tokens only) | 2026-11-07 |
 | 131 | GM and player: open the right-click Crawl Keeper menu | Thin lines between the groups (GM: initiative and effects, the four lights, Put out and Hand light to…, the party token; player: above Put out); nothing cut off at the bottom | |
-| 132 | GM: a long round count (Round 12) with lights tracked, in Crawl and Combat; open Settings and the Light Tracker | The header shows the key and the whole "Crawl · Round 12" (no "Crawl Keeper" text); Settings and the Light Tracker keep their titles | |
-| 133 | GM: Reset clock (link and right-click the clock), Remove all lights | Each runs at once, no confirm; the bar's Undo brings it back | |
-| 134 | GM: ▶, Undo; hover the round Redo | Undo names the step; Redo is an icon, its tooltip "Redo: Next turn (⇧⌘Z)"; it redoes | |
-| 135 | GM: Settings → Manual → Remind me every 2; ▶ through four crawl rounds, rolling once and skipping once; then Darkness | The card pulses (soft purple outline, "Time for an encounter roll?") on the GM turn every 2nd crawl round, never on a player's turn or in combat; a roll or ▶ stops it; in Darkness every round. Reduced motion (macOS setting): a steady outline | |
-| 136 | GM: Light Tracker with three or more lights, Settings, Session log (long enough to scroll) | A clear gap between the cards and the scrollbar; nothing under it | |
+| 132 | GM: a long round count (Round 12) with lights tracked, in Crawl and Combat; open Settings and the Light Tracker | The header shows the key and the whole "Crawl · Round 12" (no "Crawl Keeper" text); Settings and the Light Tracker keep their titles | 2026-11-08 |
+| 133 | GM: Reset clock (link and right-click the clock), Remove all lights | Each runs at once, no confirm; the bar's Undo brings it back | 2026-11-08 |
+| 134 | GM: ▶, Undo; hover the round Redo | Undo names the step; Redo is an icon, its tooltip "Redo: Next turn (⇧⌘Z)"; it redoes | 2026-11-08 |
+| 135 | GM: Settings → Manual → Remind me every 2; ▶ through four crawl rounds, rolling once and skipping once; then Darkness | The card pulses (soft purple outline, "Time for an encounter roll?") on the GM turn every 2nd crawl round, never on a player's turn or in combat; a roll or ▶ stops it; in Darkness every round. Reduced motion (macOS setting): a steady outline | 2026-11-08 |
+| 136 | GM: Light Tracker with three or more lights, Settings, Session log (long enough to scroll) | A clear gap between the cards and the scrollbar; nothing under it | 2026-11-08 |
+| 137 | GM: eight rows with monsters unfolded, at 600 px; ▶ down to the last row, then wrap | The turn's row scrolls into view each time (only as far as needed). Player window too | 2026-11-08 |
+| 138 | GM: the bottom of the panel; Settings → About. Player: the panel | GM: only the Undo row (no "Keys" line, no version); the keys show in the ◀ ▶ tooltips and the empty list; About says "Crawl Keeper v…". Player: the version stays at the bottom. Dev builds: the DEV label stays for both | 2026-11-08 |
