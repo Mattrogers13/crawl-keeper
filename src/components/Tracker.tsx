@@ -50,7 +50,7 @@ import { sayDeath } from "../deathNotices";
 import type { Change as HistoryChange } from "../history";
 import type { Role } from "../hooks/useRole";
 import { useLightStatus, useLights } from "../hooks/useLights";
-import { dropSpent, followingLights, type Light } from "../lights";
+import { dropSpent, followingLights, renameCarrier, type Light } from "../lights";
 import { centerOn } from "../viewport";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
@@ -259,7 +259,8 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || e.repeat || dragging.current) return;
       const target = e.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, [role=alertdialog]") || document.querySelector("[role=menu]")) return;
+      // Not while a menu or a dialog (Who carries the light?, an (i) popup) is open.
+      if (target?.closest("input, textarea, select, [role=alertdialog]") || document.querySelector("[role=menu], [role=dialog]")) return;
       const run = hotkeys.current[e.key.toLowerCase()];
       if (!run) return;
       e.preventDefault();
@@ -393,11 +394,13 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   // Renames the token itself, so the map label, the light cards and every
   // other tool follow. Not an undo step (the scene's items aren't ours to
   // restore); rename it back.
+  // The token's own name; its lights' carrier name follows (notices use it).
   const renameToken = (id: string, name: string) => {
     OBR.scene.items
       .updateItems([id], (drafts) => {
         for (const d of drafts) d.name = name;
       })
+      .then(() => tidyLights((s) => renameCarrier(s, id, name)))
       .catch((err) => notify(`Couldn't rename the token: ${errorMessage(err)}`, "WARNING"));
   };
   const rowProps = { gm, change: liveChange, show, focus, openMenu, openLights: gm ? (props.openLights ?? null) : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker), noting, setNoting, renaming, setRenaming, renameToken };

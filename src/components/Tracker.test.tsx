@@ -199,6 +199,36 @@ describe("Tracker (GM)", () => {
     expect(shownAt.every((x) => x < 900)).toBe(true);
   });
 
+  it("Split lets go a player marked dead (or a monster, or taken off the list) while together", async () => {
+    const off = ["ROTATION", "SCALE", "DELETE", "LOCKED", "COPY", "VISIBLE"] as never;
+    obr.items = [
+      token("a", { name: "Aria", attachedTo: "p", disableAttachmentBehavior: off, visible: false }),
+      token("b", { name: "Borin", attachedTo: "p", disableAttachmentBehavior: off, visible: false }),
+      token("c", { name: "Cleo", attachedTo: "p", disableAttachmentBehavior: off, visible: false }),
+      token("l", { name: "Label", attachedTo: "p", visible: false }),
+      token("p", { name: "Wagon" }),
+    ];
+    scene([{ id: "a" }, { id: "b", dead: true }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p", together: true });
+    render(<App />);
+    await screen.findByText("Wagon");
+    fireEvent.click(screen.getByRole("button", { name: "Split" }));
+    await waitFor(() => expect(saved().together).toBe(false));
+    const at = (id: string) => obr.items.find((i) => i.id === id)!;
+    await waitFor(() => expect(["a", "b", "c"].map((id) => [at(id).attachedTo, at(id).visible])).toEqual([[undefined, true], [undefined, true], [undefined, true]]));
+    // Something the GM attached by hand stays as it was.
+    expect([at("l").attachedTo, at("l").visible]).toEqual(["p", false]);
+  });
+
+  it("clearing the party token while split shows it again (the switch had hidden it)", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("p", { name: "Wagon", visible: false })];
+    scene([{ id: "a" }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p", together: false });
+    render(<App />);
+    await screen.findByText("Wagon");
+    await pick("Wagon", "Clear party token");
+    await waitFor(() => expect(saved().party).toBeNull());
+    await waitFor(() => expect(obr.items.find((i) => i.id === "p")!.visible).toBe(true));
+  });
+
   it("Combat with the party together splits it in the same step (one undo); with a light, it asks for the carrier first", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" }), token("p", { name: "Wagon" })];
     scene([{ id: "a", roll: 12 }, { id: "b", roll: 5 }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p", together: true });
@@ -220,6 +250,10 @@ describe("Tracker (GM)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Split" }));
     const ask = await screen.findByRole("dialog", { name: "Who carries the light" });
     expect(saved().together).toBe(true);
+    // N / B / R don't act behind the question.
+    fireEvent.keyDown(within(ask).getAllByRole("button")[0], { key: "n" });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(saved().current).toBeNull();
     // Pressing Split again doesn't redraw the question (the "flicker").
     fireEvent.click(screen.getByRole("button", { name: "Split" }));
     await new Promise((r) => setTimeout(r, 20));
@@ -418,6 +452,7 @@ describe("Tracker (GM)", () => {
 
   it("Rename… edits the token's own name in the row: Enter saves it, Escape or no change leaves it", async () => {
     obr.items = [token("a", { name: "Goblin" })];
+    obr.metadata = { [LIGHTS_KEY]: { lights: [{ id: "l1", kind: "torch", tokenId: "a", carrier: "Goblin", note: "", status: "lit", remainingMs: 3_600_000, endsAt: Date.now() + 3_600_000, spentAt: null }] } };
     scene([{ id: "a" }, { id: GM_ENTRY }]);
     render(<App />);
     await pick("Goblin", "Rename…");
@@ -432,6 +467,8 @@ describe("Tracker (GM)", () => {
     fireEvent.keyDown(again, { key: "Enter" });
     await waitFor(() => expect(obr.items[0].name).toBe("Goblin 2"));
     expect(await screen.findByText("Goblin 2")).toBeInTheDocument();
+    // Its light's carrier name follows (the notices use it).
+    await waitFor(() => expect((obr.metadata[LIGHTS_KEY] as { lights: { carrier: string }[] }).lights[0].carrier).toBe("Goblin 2"));
   });
 
   it("the ⋯ button opens the same menu; Escape and clicking away close it; none for the GM row", async () => {

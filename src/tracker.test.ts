@@ -26,7 +26,7 @@ import {
   setPrior,
   setParty,
   setTogether,
-  toggleParty,
+  partyMembers,
   resetRounds,
   rollGmInitiative,
   gmEquation,
@@ -514,12 +514,20 @@ describe("the Party token", () => {
     expect(setParty(full, "new")).toBe(full);
   });
 
-  it("toggle: the party token again clears it; clearing nothing changes nothing", () => {
-    const t = toggleParty(base(), "a");
+  it("clearing: null clears it; clearing nothing changes nothing", () => {
+    const t = setParty(base(), "a");
     expect(t.party).toBe("a");
-    expect(toggleParty(t, "a").party).toBeNull();
+    expect(setParty(t, null).party).toBeNull();
     const none = base();
     expect(setParty(none, null)).toBe(none);
+  });
+
+  it("its members: living players only; the prior attachments go when it splits", () => {
+    const t = setParty(base(), "a");
+    expect(partyMembers(t)).not.toContain("a");
+    const together = setPrior(setTogether(t, true), { b: { to: "horse", off: null } });
+    expect(together.prior).toEqual({ b: { to: "horse", off: null } });
+    expect(setTogether(together, false).prior).toEqual({});
   });
 
   it("goes when its entry is removed, pruned, or made a monster", () => {

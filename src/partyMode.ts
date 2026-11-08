@@ -15,11 +15,11 @@
 import OBR, { type Item } from "@owlbear-rodeo/sdk";
 
 import { LIGHTS_KEY, TRACKER_KEY } from "./constants";
-import { parseLights } from "./lights";
+import { parseLights, type Lights } from "./lights";
 import { afterChange, readSettings, syncParty } from "./marker";
-import { carriers, planSwitch } from "./partySwitch";
+import { planSwitch } from "./partySwitch";
 import { around, gather, strays, type Placed, type Wall } from "./placement";
-import { MAX_ENTRIES, parseTracker, setParty, setPrior, toCombat, type Point, type PriorAttach } from "./tracker";
+import { MAX_ENTRIES, parseTracker, partyMembers, setParty, setPrior, toCombat, type Point, type PriorAttach, type Tracker } from "./tracker";
 import { record } from "./undo";
 import { errorMessage, notify } from "./utils";
 
@@ -46,22 +46,72 @@ const snapAll = (spots: Point[]) =>
     });
   });
 
+// Both actions start from a fresh read of the room and the map: the tracker,
+// the lights, and the party's tokens (plus `also`) by id.
+const readParty = async (also: (t: Tracker) => string[] = () => []) => {
+  const [scene, room, settings] = await Promise.all([OBR.scene.getMetadata(), OBR.room.getMetadata(), readSettings()]);
+  const tracker = parseTracker(scene[TRACKER_KEY]);
+  const lights = parseLights(room[LIGHTS_KEY]);
+  const ids = tracker.party === null ? [] : [tracker.party, ...partyMembers(tracker), ...also(tracker)];
+  const byId = new Map((ids.length > 0 ? await OBR.scene.items.getItems(ids) : []).map((i) => [i.id, i]));
+  const nameOf = (id: string) => byId.get(id)?.name?.trim() || "Unnamed";
+  return { scene, settings, tracker, lights, byId, nameOf };
+};
+
+// Saves a party change as one undo step. Tokens first, lights after: Dynamic
+// Fog draws a token's light hidden if the light is set while the token is
+// hidden and misses the token being shown a moment later (Matt's room,
+// 2026-11-07: a shown party token whose drawn light stayed hidden; hiding and
+// showing it again fixed it). The players' moves go in the same update
+// (marker.ts syncParty); `was` puts them back if a save fails, the lights too.
+type Commit = {
+  scene: Record<string, unknown>;
+  settings: Awaited<ReturnType<typeof readSettings>>;
+  tracker: Tracker;
+  next: Tracker;
+  lights: Lights;
+  newLights: Lights;
+  stayed: number;
+  label: string;
+  failed: string;
+  spots?: Record<string, Point>;
+  was?: Record<string, Point>;
+};
+const commit = async (c: Commit) => {
+  await syncParty(c.tracker, c.next, c.spots).catch((err) => notify(`Couldn't move the party's tokens together or apart: ${errorMessage(err)}`, "WARNING"));
+  const lightsChanged = c.newLights !== c.lights;
+  try {
+    if (lightsChanged) await OBR.room.setMetadata({ [LIGHTS_KEY]: c.newLights });
+    try {
+      await OBR.scene.setMetadata({ [TRACKER_KEY]: c.next });
+    } catch (err) {
+      if (lightsChanged) await OBR.room.setMetadata({ [LIGHTS_KEY]: c.lights }).catch(() => undefined);
+      throw err;
+    }
+  } catch (err) {
+    await syncParty(c.next, c.tracker, c.was).catch(() => undefined);
+    return notify(`Couldn't ${c.failed}: ${errorMessage(err)}`, "WARNING");
+  }
+  await record(c.label, [
+    ...(lightsChanged ? [{ store: "room" as const, key: LIGHTS_KEY, before: c.lights, after: c.newLights }] : []),
+    { store: "scene" as const, key: TRACKER_KEY, before: c.scene[TRACKER_KEY], after: c.next },
+  ]);
+  // The turn ring (the party's tokens: already in place).
+  await afterChange(c.tracker, c.next, c.settings, true);
+  if (c.stayed > 0) notify(`${c.stayed} light${c.stayed === 1 ? "" : "s"} stayed put: that token already burns one.`, "WARNING");
+};
+
 // `pick`: the carrier chosen for a split. `combat`: this split is the Combat
 // button's (the phase changes in the same step; clearRolls per Settings).
 // Returns who to ask when a light needs a carrier, else null (done, or a
 // failure was told).
 export const switchParty = async (together: boolean, pick?: string, combat?: { clearRolls: boolean }): Promise<Choice[] | null> => {
-  const [scene, room, settings] = await Promise.all([OBR.scene.getMetadata(), OBR.room.getMetadata(), readSettings()]);
-  const tracker = parseTracker(scene[TRACKER_KEY]);
-  const lights = parseLights(room[LIGHTS_KEY]);
+  const monstersOf = (t: Tracker) => t.entries.filter((e) => e.monster).map((e) => e.id);
+  const { scene, settings, tracker, lights, byId, nameOf } = await readParty(monstersOf);
   if (tracker.party === null) {
     notify("No party token on this map: right-click a token → Crawl Keeper → Set as party token.", "WARNING");
     return null;
   }
-  const monsters = tracker.entries.filter((e) => e.monster).map((e) => e.id);
-  const items = await OBR.scene.items.getItems([tracker.party, ...carriers(tracker), ...monsters]);
-  const byId = new Map(items.map((i) => [i.id, i]));
-  const nameOf = (id: string) => byId.get(id)?.name?.trim() || "Unnamed";
   const plan = planSwitch(tracker, lights, Date.now(), together, nameOf, pick);
   if (!plan.done) return plan.choices.map((id) => ({ id, name: nameOf(id) }));
   let next = combat ? toCombat(plan.tracker, combat.clearRolls) : plan.tracker;
@@ -74,12 +124,12 @@ export const switchParty = async (together: boolean, pick?: string, combat?: { c
   // offset, the middle by default; the turn ring relies on it too).
   const here = (ids: string[]): Placed[] => ids.flatMap((id) => (byId.has(id) ? [{ id, center: { ...byId.get(id)!.position } }] : []));
   const party = here([tracker.party])[0];
-  const players = here(carriers(tracker));
+  const players = here(partyMembers(tracker));
   let spots: Record<string, Point> = {};
   if (party && players.length > 0 && tracker.together !== together) {
     try {
       const [walls, cell] = await Promise.all([readWalls(), OBR.scene.grid.getDpi().catch(() => 150)]);
-      const taken = here(monsters).map((m) => m.center);
+      const taken = here(monstersOf(tracker)).map((m) => m.center);
       if (together) {
         spots = gather(party.center, players, await snapAll(around(party.center, cell)), walls, cell, taken);
       } else {
@@ -100,35 +150,19 @@ export const switchParty = async (together: boolean, pick?: string, combat?: { c
     }
     next = setPrior(next, prior);
   }
-
-  // Tokens first, lights after: Dynamic Fog draws a token's light hidden if
-  // the light is set while the token is hidden and misses the token being
-  // shown a moment later (Matt's room, 2026-11-07: a shown party token whose
-  // drawn light stayed hidden; hiding and showing it again fixed it).
-  // The players' moves go in the same update (marker.ts syncParty).
-  const was = Object.fromEntries(players.filter((p) => spots[p.id]).map((p) => [p.id, p.center]));
-  await syncParty(tracker, next, spots).catch((err) => notify(`Couldn't move the party's tokens together or apart: ${errorMessage(err)}`, "WARNING"));
-  const lightsChanged = plan.lights !== lights;
-  try {
-    if (lightsChanged) await OBR.room.setMetadata({ [LIGHTS_KEY]: plan.lights });
-    try {
-      await OBR.scene.setMetadata({ [TRACKER_KEY]: next });
-    } catch (err) {
-      if (lightsChanged) await OBR.room.setMetadata({ [LIGHTS_KEY]: lights }).catch(() => undefined);
-      throw err;
-    }
-  } catch (err) {
-    await syncParty(next, tracker, was).catch(() => undefined);
-    notify(`Couldn't ${together ? "bring the party together" : "split the party"}: ${errorMessage(err)}`, "WARNING");
-    return null;
-  }
-  await record(combat ? "Combat" : together ? "Party together" : "Split the party", [
-    ...(lightsChanged ? [{ store: "room" as const, key: LIGHTS_KEY, before: lights, after: plan.lights }] : []),
-    { store: "scene" as const, key: TRACKER_KEY, before: scene[TRACKER_KEY], after: next },
-  ]);
-  // The turn ring (the party's tokens again: already in place).
-  await afterChange(tracker, next, settings);
-  if (plan.stayed > 0) notify(`${plan.stayed} light${plan.stayed === 1 ? "" : "s"} stayed put: that token already burns one.`, "WARNING");
+  await commit({
+    scene,
+    settings,
+    tracker,
+    next,
+    lights,
+    newLights: plan.lights,
+    stayed: plan.stayed,
+    label: combat ? "Combat" : together ? "Party together" : "Split the party",
+    failed: together ? "bring the party together" : "split the party",
+    spots,
+    was: Object.fromEntries(players.filter((p) => spots[p.id]).map((p) => [p.id, p.center])),
+  });
   return null;
 };
 
@@ -138,16 +172,12 @@ export const switchParty = async (together: boolean, pick?: string, combat?: { c
 // remembered: it stays put, and the GM is told), and the players are let go
 // and shown (marker.ts syncParty). `id` null, or the Party token again: clear.
 export const changePartyToken = async (id: string | null) => {
-  const [scene, room, settings] = await Promise.all([OBR.scene.getMetadata(), OBR.room.getMetadata(), readSettings()]);
-  const tracker = parseTracker(scene[TRACKER_KEY]);
-  const lights = parseLights(room[LIGHTS_KEY]);
+  const { scene, settings, tracker, lights, nameOf } = await readParty();
   const target = id === tracker.party ? null : id;
   let base = tracker;
   let newLights = lights;
   let stayed = 0;
   if (tracker.party !== null && tracker.together) {
-    const items = await OBR.scene.items.getItems([tracker.party, ...carriers(tracker)]);
-    const nameOf = (x: string) => items.find((i) => i.id === x)?.name?.trim() || "Unnamed";
     const plan = planSwitch(tracker, lights, Date.now(), false, nameOf, tracker.carrier ?? undefined);
     if (plan.done) {
       base = plan.tracker;
@@ -158,27 +188,21 @@ export const changePartyToken = async (id: string | null) => {
     }
   }
   const next = setParty(base, target);
-  if (target !== null && next.party !== target) return notify(`Initiative is full (${MAX_ENTRIES} rows): the party token wasn't set.`, "WARNING");
+  if (target !== null && next.party !== target)
+    return notify(
+      tracker.entries.some((e) => e.id === target && e.monster) ? "A monster can't be the party token: mark it as a player first." : `Initiative is full (${MAX_ENTRIES} rows): the party token wasn't set.`,
+      "WARNING",
+    );
   if (next === tracker && newLights === lights) return;
-  // Tokens first, lights after (see switchParty).
-  await syncParty(tracker, next).catch((err) => notify(`Couldn't let the party's tokens go: ${errorMessage(err)}`, "WARNING"));
-  const lightsChanged = newLights !== lights;
-  try {
-    if (lightsChanged) await OBR.room.setMetadata({ [LIGHTS_KEY]: newLights });
-    try {
-      await OBR.scene.setMetadata({ [TRACKER_KEY]: next });
-    } catch (err) {
-      if (lightsChanged) await OBR.room.setMetadata({ [LIGHTS_KEY]: lights }).catch(() => undefined);
-      throw err;
-    }
-  } catch (err) {
-    await syncParty(next, tracker).catch(() => undefined);
-    return notify(`Couldn't ${target === null ? "clear" : "set"} the party token: ${errorMessage(err)}`, "WARNING");
-  }
-  await record(target === null ? "Clear party token" : "Set party token", [
-    ...(lightsChanged ? [{ store: "room" as const, key: LIGHTS_KEY, before: lights, after: newLights }] : []),
-    { store: "scene" as const, key: TRACKER_KEY, before: scene[TRACKER_KEY], after: next },
-  ]);
-  await afterChange(tracker, next, settings);
-  if (stayed > 0) notify(`${stayed} light${stayed === 1 ? "" : "s"} stayed put: that token already burns one.`, "WARNING");
+  await commit({
+    scene,
+    settings,
+    tracker,
+    next,
+    lights,
+    newLights,
+    stayed,
+    label: target === null ? "Clear party token" : "Set party token",
+    failed: target === null ? "clear the party token" : "set the party token",
+  });
 };

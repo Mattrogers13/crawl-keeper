@@ -486,8 +486,10 @@ export const setParty = (t: Tracker, id: string | null): Tracker => {
   return { ...tracked, party: id, together: false, carrier: null, prior: {} };
 };
 
-// The right-click row: the Party token again clears it.
-export const toggleParty = (t: Tracker, id: string): Tracker => setParty(t, t.party === id ? null : id);
+// Who the Party token stands for: the living players (not monsters, not the
+// GM row, not the Party token). The turns, the lights and the map all use it.
+export const inParty = (t: Pick<Tracker, "party">, e: Entry) => !e.monster && e.id !== GM_ENTRY && e.id !== t.party && !e.dead;
+export const partyMembers = (t: Tracker): string[] => t.entries.filter((e) => inParty(t, e)).map((e) => e.id);
 
 // The Party / Split switch. It doesn't end the round (Matt, 2026-11-07).
 // Coming together, the Party token takes the initiative of the party's
@@ -500,7 +502,7 @@ export const setTogether = (t: Tracker, together: boolean, carrier: string | nul
   if (t.party === null || t.together === together) return t;
   const party = t.party;
   const keep = carrier !== null && carrier !== party && t.entries.some((e) => e.id === carrier && !e.monster && e.id !== GM_ENTRY) ? carrier : null;
-  const isPlayer = (e: Entry) => !e.monster && e.id !== GM_ENTRY && e.id !== party && !e.dead;
+  const isPlayer = (e: Entry) => inParty(t, e);
   let entries = t.entries;
   if (together) {
     const rolled = t.entries.filter((e) => isPlayer(e) && e.roll !== null);
@@ -521,7 +523,7 @@ export const setTogether = (t: Tracker, together: boolean, carrier: string | nul
       : t.current === party
         ? (players.find((e) => entries.indexOf(e) > entries.findIndex((x) => x.id === party))?.id ?? players[0]?.id ?? null)
         : t.current;
-  return { ...t, entries, together, carrier: keep, current };
+  return { ...t, entries, together, carrier: keep, current, prior: together ? t.prior : {} };
 };
 
 // The players' own attachments, saved as the party comes together (kept

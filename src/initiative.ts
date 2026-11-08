@@ -31,4 +31,3 @@ export const toggleInitiative = async (ids: string[]) => {
 };
 
 // The right-click Set / Clear party token: partyMode.ts (lights and players too).
-export { changePartyToken as togglePartyToken } from "./partyMode";

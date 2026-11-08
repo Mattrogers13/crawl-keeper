@@ -254,4 +254,19 @@ describe("watchPartyToken (the Party token deleted while together)", () => {
     expect([b.attachedTo, b.disableAttachmentBehavior, b.visible]).toEqual(["horse", ["ROTATION"], true]);
     stop();
   });
+
+  it("finds them by our attach mark even after the tracker dropped the Party token, from the items it's handed", async () => {
+    obr.sceneMetadata = { [TRACKER_KEY]: { entries: [{ id: "a", roll: null, note: "", dead: false }, { id: GM_ENTRY, roll: null, note: "", dead: false }] } };
+    const off = ["ROTATION", "SCALE", "DELETE", "LOCKED", "COPY", "VISIBLE"] as never;
+    obr.items = [token("p"), token("a", { attachedTo: "p", disableAttachmentBehavior: off, visible: false }), token("l", { attachedTo: "p", visible: false })];
+    const stop = watchPartyToken();
+    await new Promise((r) => setTimeout(r, 0));
+    const reads = vi.mocked(OBR.scene.items.getItems).mock.calls.length;
+    await setItems(obr.items.filter((i) => i.id !== "p"));
+    await waitFor(() => expect(obr.items.find((i) => i.id === "a")!.visible).toBe(true));
+    expect(obr.items.find((i) => i.id === "a")!.attachedTo).toBeUndefined();
+    expect(obr.items.find((i) => i.id === "l")!.visible).toBe(false);
+    expect(vi.mocked(OBR.scene.items.getItems).mock.calls.length).toBe(reads);
+    stop();
+  });
 });
