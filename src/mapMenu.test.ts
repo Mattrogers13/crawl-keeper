@@ -4,7 +4,7 @@ import OBR from "@owlbear-rodeo/sdk";
 import { LIGHTS_KEY, TRACKER_KEY } from "./constants";
 import { MINUTE, parseLights, type Lights } from "./lights";
 import { ADD_EFFECT_CHANNEL, takeHandoff } from "./addEffectHandoff";
-import { menuRows, playerMenuRows, type MenuToken } from "./mapMenu";
+import { MENU_GROUPS, MENU_ROWS, PLAYER_MENU_GROUPS, PLAYER_MENU_ROWS, menuRows, playerMenuRows, type MenuToken } from "./mapMenu";
 import { REQUEST_CHANNEL } from "./playerLights";
 import { SETTINGS_KEY } from "./constants";
 import { render } from "./menu";
@@ -29,6 +29,17 @@ const apply = (s: Lights, tokens: MenuToken[], i: number) => {
 describe("the map menu's rows", () => {
   it("one untracked token: Add to initiative and every light; nothing to put out", () => {
     expect(labels(none, [tok("b")])).toEqual(["Add to initiative", "Add effect…", "Light torch", "Light lantern", "Cast Light", "Light campfire", "(Put out light)", "(Hand light to…)", "Set as party token"]);
+  });
+
+  it("groups: the tracker, lighting, putting out or handing on, the party token; the embed fits them", () => {
+    const rows = menuRows(t, none, [tok("b")], NOW);
+    const starts = rows.flatMap((r, i) => (r.group ? [i] : []));
+    expect(starts).toEqual([2, 6, 8]);
+    expect(rows).toHaveLength(MENU_ROWS);
+    expect(starts).toHaveLength(MENU_GROUPS);
+    const player = playerMenuRows(t, none, [tok("a")], NOW, "me");
+    expect(player).toHaveLength(PLAYER_MENU_ROWS);
+    expect(player.filter((r) => r.group)).toHaveLength(PLAYER_MENU_GROUPS);
   });
 
   it("a tracked token holding a torch: Remove, the torch row off, a swap for the others, Put out the torch", () => {
@@ -143,6 +154,13 @@ describe("the map menu page", () => {
     return root;
   };
   const button = (root: HTMLElement, name: string) => [...root.querySelectorAll("button")].find((b) => b.textContent === name)!;
+
+  it("draws a line before each group", async () => {
+    const root = await setup();
+    const kids = [...root.children].map((c) => (c.getAttribute("role") === "separator" ? "|" : c.textContent));
+    expect(kids.filter((k) => k === "|")).toHaveLength(MENU_GROUPS);
+    expect(kids.slice(0, 4)).toEqual(["Remove from initiative", "Add effect…", "|", "Light torch"]);
+  });
 
   it("lights a torch on the selected token as an undo step, then shows the new state", async () => {
     const root = await setup();

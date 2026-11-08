@@ -31,6 +31,8 @@ export type MenuRow = {
   title?: string;
   enabled: boolean;
   icon: string;
+  // Starts a new group: a thin line above it (menu.ts).
+  group?: true;
   action:
     | { type: "initiative"; ids: string[] }
     // Sets (or clears, if it already is) the Party token.
@@ -45,6 +47,12 @@ export type MenuRow = {
 
 export const MENU_ROWS = 9;
 export const PLAYER_MENU_ROWS = 4;
+// Group lines in each menu (rows with `group`), for the embed's fixed height:
+// 36 px a row, 9 px a line (1 px plus 4 px either side), 8 px padding.
+export const MENU_GROUPS = 3;
+export const PLAYER_MENU_GROUPS = 1;
+export const menuHeight = (rows: number, lines: number) => rows * 36 + lines * 9 + 8;
+const startsGroup = (row: MenuRow): MenuRow => ({ ...row, group: true });
 
 // Torch, lantern and Light spell are carried (character tokens); a campfire
 // goes on any token, a prop included.
@@ -159,11 +167,12 @@ export const menuRows = (t: Tracker, s: Lights, tokens: MenuToken[], now: number
   return [
     initiativeRow(t, tokens),
     addEffectRow(tokens),
-    ...CARRIED.map((kind) => lightRow(settled, tokens, kind)),
+    startsGroup(lightRow(settled, tokens, "torch")),
+    ...CARRIED.slice(1).map((kind) => lightRow(settled, tokens, kind)),
     lightRow(settled, tokens, "campfire"),
-    putOutRow(settled, tokens),
+    startsGroup(putOutRow(settled, tokens)),
     handRow(settled, tokens, now),
-    partyRow(t, tokens),
+    startsGroup(partyRow(t, tokens)),
   ];
 };
 
@@ -186,5 +195,5 @@ export const playerMenuRows = (t: Tracker, s: Lights, tokens: MenuToken[], now: 
     return toRequest(row, todo.map((x) => ({ tokenId: x.id, action: "light", kind })));
   });
   const lit = ok.filter((x) => litOn(settled, x.id));
-  return [...rows, toRequest(putOutRow(settled, ok), lit.map((x) => ({ tokenId: x.id, action: "putOut" })))];
+  return [...rows, startsGroup(toRequest(putOutRow(settled, ok), lit.map((x) => ({ tokenId: x.id, action: "putOut" }))))];
 };

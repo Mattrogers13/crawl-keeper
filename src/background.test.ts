@@ -55,7 +55,7 @@ describe("background: Add / Remove Initiative", () => {
     expect(menus[0].icons[0]).toMatchObject({ label: "Crawl Keeper", icon: "/img/initiative.svg" });
     expect(menus[0].icons[0].filter?.roles).toEqual(["GM"]);
     expect(menus[0].icons[0].filter?.every?.map((f) => f.value)).toEqual(["CHARACTER", "MOUNT", "PROP", "IMAGE"]);
-    expect(menus[0].embed).toEqual({ url: "/menu", height: 9 * 36 + 8 });
+    expect(menus[0].embed).toEqual({ url: "/menu", height: 9 * 36 + 3 * 9 + 8 });
   });
 });
 
