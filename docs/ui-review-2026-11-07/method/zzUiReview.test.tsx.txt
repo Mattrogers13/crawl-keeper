@@ -1,0 +1,233 @@
+// Throwaway: renders panel states to HTML for screenshots (UI review). Not part of the repo.
+import { afterEach, beforeEach, describe, it, vi } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { writeFileSync } from "node:fs";
+
+import App from "./App";
+import { EFFECTS_KEY, LIGHTS_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
+import { GM_ENTRY } from "../tracker";
+import { MINUTE } from "../lights";
+import { LIGHT_THEME, obr, token } from "../test/obrMock";
+
+const OUT = "/private/tmp/claude-501/-Users-matthewrogers-claude-projects-obr-crawl-keeper/05a7ed64-8e38-496a-8e55-0f5a841d0f39/scratchpad/ui-review/site";
+const T0 = Date.parse("2026-11-07T20:00:00Z");
+
+const snap = (name: string, extraCss = "") => {
+  const root = document.documentElement;
+  const html = `<!doctype html><html class="${root.className}" style="${root.getAttribute("style") ?? ""}"><head><meta charset="utf-8"><link rel="stylesheet" href="/main.css"><style>${extraCss}</style></head><body>${document.body.innerHTML}</body></html>`;
+  writeFileSync(`${OUT}/${name}.html`, html);
+};
+const settle = () => act(async () => new Promise((r) => setTimeout(r, 60)));
+
+const lit = (id: string, kind: string, tokenId: string, min: number, extra: object = {}) => ({
+  id,
+  kind,
+  tokenId,
+  carrier: tokenId,
+  note: "",
+  status: "lit",
+  remainingMs: min * MINUTE,
+  endsAt: T0 + min * MINUTE,
+  spentAt: null,
+  ...extra,
+});
+
+const items = () => [
+  token("a", { name: "Aria", url: "/tok/aria.svg" }),
+  token("b", { name: "Borin", url: "/tok/borin.svg", createdUserId: "p2" }),
+  token("t", { name: "Tamsin", url: "/tok/tamsin.svg", createdUserId: "p3" }),
+  token("k", { name: "Kell", url: "/tok/kell.svg", createdUserId: "p4" }),
+  token("g1", { name: "Goblin", url: "/tok/gob1.svg", createdUserId: "gm" }),
+  token("g2", { name: "Goblin 2", url: "/tok/gob2.svg", createdUserId: "gm" }),
+  token("gb", { name: "Goblin Boss", url: "/tok/boss.svg", createdUserId: "gm" }),
+  token("fire", { name: "Campfire", url: "/tok/fire.svg", layer: "PROP", createdUserId: "gm" }),
+];
+
+const entries = (rolls = true) =>
+  [
+    { id: "a", roll: rolls ? 17 : null, note: "Holding the rope" },
+    { id: GM_ENTRY, roll: rolls ? 14 : null },
+    { id: "b", roll: rolls ? 12 : null },
+    { id: "t", roll: rolls ? 9 : null },
+    { id: "k", roll: rolls ? 5 : null, dead: true },
+    { id: "g1", monster: true },
+    { id: "g2", monster: true },
+    { id: "gb", monster: true },
+  ].map((e) => ({ roll: null, note: "", dead: false, ...e }));
+
+const fx = [
+  { id: "e1", name: "Bless", kind: "rounds", holder: "a", rounds: 3, end: { round: 5, at: "a" } },
+  { id: "e2", name: "ADV", icon: "adv", kind: "until", holder: "a" },
+  { id: "f1", name: "Hold Person", kind: "focus", holder: "b" },
+  { id: "p1", name: "Paralyzed", icon: "paralyzed", kind: "until", holder: "g1", endsWith: "f1" },
+  { id: "c1", name: "Cloudkill", kind: "rounds", holder: null, rounds: 4, end: { round: 6, at: GM_ENTRY } },
+  { id: "h1", name: "Cursed", kind: "until", holder: "b", hidden: true },
+];
+const dying = { id: "d1", name: "Dying", icon: "dying", kind: "rounds", holder: "t", rounds: 3, end: { round: 5, at: "t" } };
+
+const lightsDoc = {
+  lights: [
+    lit("l1", "torch", "a", 42),
+    lit("l2", "lantern", "b", 8),
+    lit("l3", "campfire", "fire", 6 * 60),
+    { ...lit("l4", "torch", "t", 0), status: "spent", remainingMs: 0, endsAt: null, spentAt: T0 - 60_000 },
+  ],
+};
+
+const seed = (o: { phase?: "crawl" | "combat"; current?: string | null; round?: number; settings?: object; effects?: object[]; party?: string; together?: boolean; crawl?: object; rolls?: boolean; lights?: object } = {}) => {
+  obr.items = items();
+  obr.metadata = { [SETTINGS_KEY]: o.settings ?? {}, [LIGHTS_KEY]: o.lights ?? lightsDoc };
+  obr.sceneMetadata = {
+    [TRACKER_KEY]: {
+      entries: entries(o.rolls ?? true),
+      current: o.current === undefined ? GM_ENTRY : o.current,
+      round: o.round ?? 3,
+      phase: o.phase ?? "crawl",
+      gmMod: 2,
+      gmDie: { die: 12, mod: 2 },
+      crawl: { danger: "risky", dark: false, clock: 14, crawlRounds: 3, lastCheck: 1, last: null, ...(o.crawl ?? {}) },
+      ...(o.party ? { party: o.party, together: o.together ?? false } : {}),
+    },
+    [EFFECTS_KEY]: { effects: o.effects ?? fx },
+  };
+};
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(T0);
+});
+afterEach(() => vi.useRealTimers());
+
+const open = async () => {
+  render(<App />);
+  await screen.findAllByText("Aria");
+  await settle();
+};
+
+describe("ui review snaps", () => {
+  it("gm crawl dark", async () => {
+    seed();
+    await open();
+    snap("gm-crawl-dark");
+  });
+  it("gm crawl light", async () => {
+    obr.theme = LIGHT_THEME;
+    seed();
+    await open();
+    snap("gm-crawl-light");
+  });
+  it("gm crawl clock", async () => {
+    seed({ settings: { encounterMode: "clock" }, crawl: { clock: 4, last: { kind: "clock", sides: 6, dice: [6, 4], before: 14, after: 4, encounter: false } } });
+    await open();
+    snap("gm-crawl-clock");
+  });
+  it("gm crawl manual + dark", async () => {
+    seed({ settings: { encounterRolls: false }, lights: { lights: [] }, crawl: { dark: true } });
+    await open();
+    snap("gm-crawl-manual-dark");
+  });
+  it("gm combat dying", async () => {
+    seed({ phase: "combat", current: "t", round: 3, effects: [...fx, dying] });
+    await open();
+    snap("gm-combat-dying");
+  });
+  it("gm combat death prompt", async () => {
+    seed({ phase: "combat", current: "t", round: 3, effects: [...fx, dying] });
+    await open();
+    fireEvent.click(screen.getByLabelText("Next turn"));
+    await settle();
+    snap("gm-combat-deathprompt");
+  });
+  it("gm combat focus check + party", async () => {
+    seed({ phase: "combat", current: "b", round: 4, party: "a" });
+    await open();
+    snap("gm-combat-focus-party");
+  });
+  it("gm row menu", async () => {
+    seed();
+    await open();
+    const name = (await screen.findAllByText("Aria")).find((el) => el.closest("li"))!;
+    fireEvent.contextMenu(name, { clientX: 120, clientY: 300 });
+    await screen.findByRole("menu", { name: "Aria" });
+    await settle();
+    snap("gm-rowmenu");
+  });
+  it("gm light tracker", async () => {
+    seed();
+    await open();
+    fireEvent.click(screen.getByLabelText("Light Tracker"));
+    await settle();
+    snap("gm-lighttracker");
+  });
+  it("gm light tracker light", async () => {
+    obr.theme = LIGHT_THEME;
+    seed();
+    await open();
+    fireEvent.click(screen.getByLabelText("Light Tracker"));
+    await settle();
+    snap("gm-lighttracker-light");
+  });
+  it("gm settings", async () => {
+    seed();
+    await open();
+    fireEvent.click(screen.getByLabelText("Settings"));
+    await settle();
+    snap("gm-settings", ".h-screen{height:auto!important} .overflow-y-auto{overflow:visible!important}");
+  });
+  it("gm time passes", async () => {
+    seed();
+    await open();
+    fireEvent.click(screen.getByLabelText("Time passes"));
+    await settle();
+    fireEvent.click(screen.getByRole("button", { name: "1h" }));
+    await settle();
+    snap("gm-timepasses");
+  });
+  it("gm add effect", async () => {
+    seed();
+    await open();
+    const name = (await screen.findAllByText("Borin")).find((el) => el.closest("li"))!;
+    fireEvent.contextMenu(name);
+    fireEvent.click(within(await screen.findByRole("menu", { name: "Borin" })).getByRole("menuitem", { name: "Add effect…" }));
+    await settle();
+    fireEvent.click(screen.getByRole("button", { name: "Blinded" }));
+    await settle();
+    snap("gm-addeffect");
+  });
+  it("gm empty", async () => {
+    obr.items = [];
+    obr.metadata = {};
+    obr.sceneMetadata = {};
+    render(<App />);
+    await screen.findByText("GM / Monsters");
+    await settle();
+    snap("gm-empty");
+  });
+  it("gm paused", async () => {
+    seed({ lights: { ...lightsDoc, paused: true } });
+    await open();
+    snap("gm-paused");
+  });
+  it("player crawl dark", async () => {
+    obr.role = "PLAYER";
+    seed({ current: "a", settings: { showRolls: true, showDanger: true }, crawl: { last: { kind: "check", sides: 6, dice: [4], encounter: false } } });
+    await open();
+    snap("player-crawl-dark");
+  });
+  it("player combat light", async () => {
+    obr.role = "PLAYER";
+    obr.theme = LIGHT_THEME;
+    seed({ phase: "combat", current: "t", effects: [...fx, dying] });
+    await open();
+    snap("player-combat-light");
+  });
+  it("player lights", async () => {
+    obr.role = "PLAYER";
+    seed({ settings: { playersLight: true } });
+    obr.party = [{ id: "gm", name: "GM", role: "GM", connectionId: "c0", color: "#fff", syncView: false, metadata: {} } as never];
+    await open();
+    fireEvent.click(screen.getByLabelText("Light Tracker"));
+    await settle();
+    snap("player-lights");
+  });
+});
