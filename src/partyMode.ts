@@ -1,10 +1,11 @@
 // The GM's Party / Split switch (the panel's button, and Combat): reads the
 // room and the map fresh, plans the turns and lights (partySwitch.ts), works
-// out where the players stand (placement.ts), saves the lights then the
-// tracker as one undo step, moves the players, then attaches or detaches and
-// shows or hides them (marker.ts syncParty via afterChange, which undo runs
-// too; undo doesn't move tokens back). The lights go first so the map is
-// never left dark; if the tracker then fails to save, the lights go back.
+// out where the players stand (placement.ts), moves them and attaches or
+// detaches and shows or hides them in one map update (marker.ts syncParty,
+// which undo runs too; undo doesn't move tokens back), then saves the lights
+// and the tracker as one undo step. The map goes first (Dynamic Fog, see
+// syncParty); the lights before the tracker so the map is never left dark;
+// if a save fails, the lights and the map go back.
 //
 // Together: the Party token is the rally point (the GM drags it, hidden, to
 // where the party gathers); the players are pulled to free spots around it
@@ -113,7 +114,9 @@ export const switchParty = async (together: boolean, pick?: string, combat?: { c
   // the light is set while the token is hidden and misses the token being
   // shown a moment later (Matt's room, 2026-11-07: a shown party token whose
   // drawn light stayed hidden; hiding and showing it again fixed it).
-  await syncParty(tracker, next).catch((err) => notify(`Couldn't move the party's tokens together or apart: ${errorMessage(err)}`, "WARNING"));
+  // The players' moves go in the same update (marker.ts syncParty).
+  const was = Object.fromEntries(players.filter((p) => spots[p.id]).map((p) => [p.id, p.center]));
+  await syncParty(tracker, next, spots).catch((err) => notify(`Couldn't move the party's tokens together or apart: ${errorMessage(err)}`, "WARNING"));
   const lightsChanged = plan.lights !== lights;
   try {
     if (lightsChanged) await OBR.room.setMetadata({ [LIGHTS_KEY]: plan.lights });
@@ -125,7 +128,7 @@ export const switchParty = async (together: boolean, pick?: string, combat?: { c
       throw err;
     }
   } catch (err) {
-    await syncParty(next, tracker).catch(() => undefined);
+    await syncParty(next, tracker, was).catch(() => undefined);
     notify(`Couldn't ${together ? "bring the party together" : "split the party"}: ${errorMessage(err)}`, "WARNING");
     return null;
   }
@@ -133,16 +136,7 @@ export const switchParty = async (together: boolean, pick?: string, combat?: { c
     ...(lightsChanged ? [{ store: "room" as const, key: LIGHTS_KEY, before: lights, after: plan.lights }] : []),
     { store: "scene" as const, key: TRACKER_KEY, before: scene[TRACKER_KEY], after: next },
   ]);
-  // Players to their spots; afterChange does the rest (the turn ring; the
-  // party's tokens again, already in place).
-  const ids = Object.keys(spots);
-  if (ids.length > 0) {
-    await OBR.scene.items
-      .updateItems(ids, (drafts) => {
-        for (const d of drafts) d.position = { ...spots[d.id] };
-      })
-      .catch((err) => notify(`Couldn't move the players: ${errorMessage(err)}`, "WARNING"));
-  }
+  // The turn ring (the party's tokens again: already in place).
   await afterChange(tracker, next, settings);
   trace("done");
   if (plan.stayed > 0) notify(`${plan.stayed} light${plan.stayed === 1 ? "" : "s"} stayed put: that token already burns one.`, "WARNING");

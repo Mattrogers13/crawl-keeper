@@ -6,7 +6,7 @@ import OBR, { buildImage, type AttachmentBehavior, type Image, type Item } from 
 
 import { BADGE_KEY, EFFECT_ICON_KEY, MARKER_KEY, SETTINGS_KEY, SKULL_KEY, TRACKER_KEY } from "./constants";
 import { parseSettings, type Settings } from "./settings";
-import { GM_ENTRY, parseTracker, type PriorAttach, type Tracker } from "./tracker";
+import { GM_ENTRY, parseTracker, type Point, type PriorAttach, type Tracker } from "./tracker";
 import { debug } from "./debugLog";
 import { errorMessage, notify } from "./utils";
 
@@ -228,6 +228,10 @@ export const afterTurnChange = async (before: Tracker, after: Tracker, settings:
 // every switch and its undo; clearing or replacing the Party token while
 // together lets the players go and shows them. Setting it while split, or a
 // token the GM hides by hand, is left alone until the next switch.
+// `spots`: where players stand, set in the same update that shows or hides
+// them: Dynamic Fog keeps a token's light where the token was shown if the
+// move comes a moment later (Matt's room, 2026-11-07: after Split, the moved
+// players' 3 ft lights stayed where they'd been).
 export const PARTY_ATTACH_OFF: AttachmentBehavior[] = ["ROTATION", "SCALE", "DELETE", "LOCKED", "COPY", "VISIBLE"];
 
 const letGo = (d: Item, party: string, prior: PriorAttach | undefined) => {
@@ -240,7 +244,7 @@ const letGo = (d: Item, party: string, prior: PriorAttach | undefined) => {
 
 const partyPlayers = (t: Tracker, party: string) => t.entries.filter((e) => e.id !== GM_ENTRY && !e.monster && !e.dead && e.id !== party).map((e) => e.id);
 
-export const syncParty = async (before: Tracker, after: Tracker) => {
+export const syncParty = async (before: Tracker, after: Tracker, spots: Record<string, Point> = {}) => {
   debug("map", "sync", { before: { party: before.party, together: before.together }, after: { party: after.party, together: after.together } });
   if (before.party !== null && before.together && after.party !== before.party) {
     const party = before.party;
@@ -260,6 +264,7 @@ export const syncParty = async (before: Tracker, after: Tracker) => {
   debug("map", after.together ? "attach and hide players" : "detach and show players", { ids });
   await OBR.scene.items.updateItems(ids, (drafts) => {
     for (const d of drafts) {
+      if (spots[d.id]) d.position = { ...spots[d.id] };
       if (d.id === party) d.visible = after.together;
       else if (after.together) {
         d.attachedTo = party;

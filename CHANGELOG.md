@@ -9,6 +9,8 @@ Versions follow semver; the same number is in `package.json` and `public/manifes
 - A row's menu has Set as party token / Clear party token. Clearing or replacing the party token while together splits first: its light goes back to the player who carried it (timer and all), and the players are let go and shown. Deleting it while together lets them go too.
 - If the switch fails, it now says so instead of doing nothing.
 - Fixed: after Party or Split, a token could carry its light settings but cast no glow (Dynamic Fog had drawn the light while the token was still hidden). The switch now shows and hides the tokens before moving the lights.
+- Fixed: after Split moved a player out from behind a wall, its glow stayed where the token had been (Dynamic Fog drew the light at the spot where the token was shown). Players now move in the same map change that shows or hides them.
+- The right-click Crawl Keeper menu has thin lines between its groups (initiative and effects, lighting, putting out or handing on, the party token), like the row menu.
 - The "Who carries the light?" question is a dialog you can't miss; pressing Split again while it's open does nothing.
 
 ## v0.6.0 (2026-11-07)

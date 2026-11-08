@@ -71,7 +71,14 @@ export const render = async (root: HTMLElement) => {
     });
     return button;
   });
-  root.replaceChildren(...buttons);
+  root.replaceChildren(
+    ...rows.flatMap((row, i) => {
+      if (!row.group) return [buttons[i]];
+      const line = document.createElement("div");
+      line.setAttribute("role", "separator");
+      return [line, buttons[i]];
+    }),
+  );
 };
 
 if (OBR.isAvailable) {
@@ -80,6 +87,7 @@ if (OBR.isAvailable) {
     const theme = await OBR.theme.getTheme().catch(() => null);
     if (theme) {
       document.documentElement.style.setProperty("--text", theme.text.primary);
+      document.documentElement.style.setProperty("--line", theme.mode === "DARK" ? "rgba(255, 255, 255, 0.12)" : "rgba(0, 0, 0, 0.12)");
       document.documentElement.style.setProperty("--hover", theme.mode === "DARK" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)");
       // The icons are white; darkened on a light theme.
       if (theme.mode === "LIGHT") document.body.classList.add("light");

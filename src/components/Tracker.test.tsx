@@ -184,9 +184,19 @@ describe("Tracker (GM)", () => {
     expect(at("b").position.x).toBeLessThan(900);
     // The trip dragged Borin across the wall.
     await setItems(obr.items.map((i) => (i.id === "b" ? { ...i, position: { x: 1125, y: 825 } } : i)));
+    // Dynamic Fog keeps a light where a token was shown if the move comes
+    // after: Borin is never shown behind the wall, not even for one update.
+    const shownAt: number[] = [];
+    const update = vi.mocked(OBR.scene.items.updateItems);
+    const real = update.getMockImplementation()!;
+    update.mockImplementation(async (...args: Parameters<typeof real>) => {
+      await real(...args);
+      if (at("b").visible) shownAt.push(at("b").position.x);
+    });
     fireEvent.click(screen.getByRole("button", { name: "Split" }));
     await waitFor(() => expect(at("b").visible).toBe(true));
     expect(at("b").position.x).toBeLessThan(900);
+    expect(shownAt.every((x) => x < 900)).toBe(true);
   });
 
   it("Combat with the party together splits it in the same step (one undo); with a light, it asks for the carrier first", async () => {
