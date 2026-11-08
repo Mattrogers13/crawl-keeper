@@ -206,6 +206,18 @@ describe("manual (encounter checks and clock off)", () => {
     const early = rounds(crawl({ danger: "risky" }), 1);
     expect(checkMade(early)).toBe(early);
   });
+
+  it("manual's reminder runs on `every`, not the danger level; every round in darkness", () => {
+    const c = rounds(crawl({ danger: "deadly" }), 4);
+    expect(due(c, "manual", false, 5)).toBe(false);
+    expect(due(rounds(c, 1), "manual", false, 5)).toBe(true);
+    expect(due(rounds(crawl(), 1), "manual", true, 5)).toBe(true);
+    expect(checkMade(c, false, 5)).toBe(c);
+    expect(checkMade(rounds(c, 1), false, 5)).toMatchObject({ lastCheck: 5 });
+    // A roll on a due reminder answers it.
+    expect(rollFor("manual", undefined, false, 5)(rounds(c, 1), () => 0.5)).toMatchObject({ lastCheck: 5 });
+    expect(rollFor("manual", undefined, false, 5)(c, () => 0.5)).toMatchObject({ lastCheck: 0 });
+  });
 });
 
 describe("rounds", () => {

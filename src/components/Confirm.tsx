@@ -1,6 +1,11 @@
 import { useState } from "react";
 
-// A link that asks before doing something hard to undo. `asking` /
+// A text link, like the turn bar's (Reset rounds, Add effect).
+export const LINK = "py-1.5 text-xs text-obr-text-secondary underline hover:text-obr-text";
+
+// A link that asks before doing something Undo can't bring back (Clear log,
+// Reset all). What Undo covers runs at once instead; the Undo bar names the
+// step (Matt, 2026-11-08, reversing the 2026-10-16 confirms). `asking` /
 // `setAsking` let a caller open it another way too (e.g. a right-click).
 const Confirm = (props: {
   label: string;
@@ -15,7 +20,7 @@ const Confirm = (props: {
   const setAsking = props.setAsking ?? setOwnAsking;
   if (!asking)
     return (
-      <button type="button" className="py-1.5 text-xs text-obr-text-secondary underline hover:text-obr-text" onClick={() => setAsking(true)}>
+      <button type="button" className={LINK} onClick={() => setAsking(true)}>
         {props.label}
       </button>
     );

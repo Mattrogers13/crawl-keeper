@@ -1,6 +1,6 @@
-import { useId, useState } from "react";
+import { useId } from "react";
 
-import Confirm from "./Confirm";
+import { LINK } from "./Confirm";
 import { EyeIcon, HiddenIcon } from "./icons";
 import type { Change } from "./Tracker";
 import {
@@ -39,6 +39,8 @@ const CrawlBar = (props: {
   crawl: Crawl;
   mode: EncounterMode;
   start: number;
+  // Manual rolls: the reminder's cadence (Settings).
+  every?: number;
   gmTurn: boolean;
   dark: boolean;
   following: boolean;
@@ -54,10 +56,11 @@ const CrawlBar = (props: {
 }) => {
   const seen = props.seen ?? { clock: false, danger: false, rolls: false };
   const { crawl, mode, start, dark, change } = props;
-  const [askingReset, setAskingReset] = useState(false);
+  // No confirm: an undo step (the Undo bar names it).
+  const resetTheClock = () => change("Reset clock", resetClock);
   const clock = mode === "clock";
   const manual = mode === "manual";
-  const isDue = due(crawl, mode, dark);
+  const isDue = due(crawl, mode, dark, props.every);
   const callForRoll = isDue && props.gmTurn;
   const toNext = roundsToCheck(crawl, dark);
   const every = cadence(crawl, dark);
@@ -66,15 +69,20 @@ const CrawlBar = (props: {
 
   // Manual rolls (Matt, 2026-11-07): the GM rolls at the table, so no danger
   // level or dial; the darkness switch stays, with a small die for the
-  // occasional check (a d6, a d8 in darkness).
+  // occasional check (a d6, a d8 in darkness). Every few crawl rounds the
+  // card pulses on the GM's turn, a friendly reminder (Matt, 2026-11-08):
+  // it stops on a roll or when the turn moves on.
   if (manual) {
     const sides = crawlDie(dark);
     return (
       <section
         aria-label="Encounter checks"
-        className="flex shrink-0 items-center gap-2.5 rounded-[14px] bg-obr-bg px-2.5 py-1 ring-1 ring-obr-text/10 ring-inset"
+        className={`flex shrink-0 items-center gap-2.5 rounded-[14px] bg-obr-bg px-2.5 py-1 ring-1 ring-inset ${callForRoll ? "ck-remind ring-obr-primary" : "ring-obr-text/10"}`}
       >
-        <span className="text-sm font-medium">Manual rolls</span>
+        <span className="flex flex-col text-sm font-medium">
+          Manual rolls
+          {callForRoll && <span className="text-[11px] font-normal text-obr-primary">Time for an encounter roll?</span>}
+        </span>
         <TorchToggle
           dark={dark}
           following={props.following}
@@ -88,7 +96,7 @@ const CrawlBar = (props: {
             sides={sides}
             label={`Encounter check (d${sides})`}
             rolling={props.rolling}
-            onClick={() => (props.roll ? props.roll("Encounter check") : change("Encounter check", (c) => rollFor(mode, start, dark)(c, cryptoRand)))}
+            onClick={() => (props.roll ? props.roll("Encounter check") : change("Encounter check", (c) => rollFor(mode, start, dark, props.every)(c, cryptoRand)))}
           />
           <div role="status" aria-label="Last roll" className="flex max-w-[64px] flex-col items-center">
             {last && <Outcome roll={last} />}
@@ -114,7 +122,7 @@ const CrawlBar = (props: {
             title="Right-click to reset the clock"
             onContextMenu={(e) => {
               e.preventDefault();
-              setAskingReset(true);
+              resetTheClock();
             }}
           >
             <ClockDial value={clockLeft(crawl, start)} of={start} size={52} />
@@ -144,11 +152,6 @@ const CrawlBar = (props: {
               <span className={isDue ? "font-medium text-obr-primary" : ""}>{isDue ? "check now" : `${plural(toNext, "round")} left`}</span>
             </>
           )}
-          {manual && (
-            <span className={`block ${isDue ? "font-medium text-obr-text" : ""}`}>
-              {isDue ? "Check due: roll the d6, here or at the table" : "Manual rolls"}
-            </span>
-          )}
           {clock && omen(crawl) && !crawl.last?.encounter && (
             <>
               {" · "}
@@ -169,14 +172,9 @@ const CrawlBar = (props: {
           onClick={() => change(crawl.dark ? "Torchlit" : "Darkness", (c) => setDark(c, !c.dark))}
         />
         {clock && (
-          <Confirm
-            label="Reset clock"
-            question={`Reset the clock to ${start}?`}
-            action="Reset"
-            onConfirm={() => change("Reset clock", resetClock, { toast: true })}
-            asking={askingReset}
-            setAsking={setAskingReset}
-          />
+          <button type="button" className={LINK} onClick={resetTheClock}>
+            Reset clock
+          </button>
         )}
       </div>
 

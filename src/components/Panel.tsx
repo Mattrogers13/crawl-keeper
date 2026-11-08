@@ -50,7 +50,10 @@ const Panel = ({ role }: { role: Role }) => {
             </button>
           )}
           {!away && <KeyIcon />}
-          <h1 className="shrink-0 text-[17px] font-medium tracking-[0.01em] whitespace-nowrap">{TITLES[shown]}</h1>
+          {/* The tracker shows the key alone: Owlbear's toolbar button already
+              names the extension, and the round count needs the room (UI
+              review, 2026-11-08). */}
+          <h1 className={away ? "shrink-0 text-[17px] font-medium tracking-[0.01em] whitespace-nowrap" : "sr-only"}>{TITLES[shown]}</h1>
           {!away && <span ref={setTitleSlot} className="min-w-0 truncate text-xs text-obr-text-secondary empty:hidden" />}
           {role !== "GM" && !away && (
             <div className="ml-auto flex">
@@ -87,11 +90,11 @@ const Panel = ({ role }: { role: Role }) => {
       </header>
       <main className="flex min-h-0 flex-1 flex-col">
         {shown === "log" ? (
-          <div className="relative min-h-0 flex-1 overflow-y-auto">
+          <div className={SCROLL}>
             <SessionLog />
           </div>
         ) : shown === "lights" ? (
-          <div className="relative min-h-0 flex-1 overflow-y-auto">
+          <div className={SCROLL}>
             {role !== "GM" ? (
               scene.ready ? (
                 <PlayerLightsOnMap key={scene.opened} />
@@ -108,7 +111,7 @@ const Panel = ({ role }: { role: Role }) => {
           // relative: the switches' hidden inputs (sr-only, absolute) are
           // placed in here; otherwise against the page, which then scrolls
           // too (a second scrollbar, Matt's room pass 2026-10-31).
-          <div className="relative min-h-0 flex-1 overflow-y-auto">
+          <div className={SCROLL}>
             <Settings openLog={() => setView("log")} />
           </div>
         ) : scene.ready === null ? (
@@ -127,44 +130,43 @@ const Panel = ({ role }: { role: Role }) => {
   );
 };
 
-// While the lights are paused, a red bar across the top (Matt, 2026-11-07);
-// clicking it resumes them and the normal view returns.
+// While the lights are paused, a slim amber bar across the top; clicking it
+// resumes them. One control at a time: the header's ❚❚ while running, this
+// bar while paused (UI review, Matt, 2026-11-08: amber for now, red maybe
+// after trying it; red stays for danger).
 const PausedBar = () => {
   const { loaded, lights, change } = useLights();
   if (!loaded || !lights.paused) return null;
   return (
     <button
       type="button"
-      aria-label="Paused. Resume lights"
+      aria-label="Lights paused. Resume"
       title="Lights are paused. Click to resume"
-      className="-mx-3 -mt-3 flex shrink-0 items-center justify-center gap-2 bg-red-700 px-3 py-2.5 text-base font-semibold tracking-wide text-white hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white"
+      className="-mx-3 -mt-3 flex shrink-0 items-center gap-2 bg-amber-500/20 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-500/30 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-amber-400 dark:text-amber-300"
       onClick={() => change("Resume lights", resume)}
     >
-      Paused
-      <span className="text-xs font-normal opacity-80">click to resume</span>
+      <span aria-hidden>❚❚</span>
+      <span className="flex-1 text-left">Lights paused</span>
+      <span className="font-semibold">Resume</span>
     </button>
   );
 };
 
-// Pause / resume the light timers from the main page (Matt, 2026-11-07), the
-// same change as the Light Tracker's button. Only once there are lights; lit
-// amber while paused.
+// Pause the light timers from the main page (Matt, 2026-11-07), the same
+// change as the Light Tracker's button. Only once there are lights, and only
+// while running: paused, the bar above resumes.
 const PauseButton = () => {
   const { loaded, lights, change } = useLights();
-  if (!loaded || lights.lights.length === 0) return null;
-  const paused = lights.paused;
+  if (!loaded || lights.lights.length === 0 || lights.paused) return null;
   return (
     <button
       type="button"
-      aria-label={paused ? "Resume lights" : "Pause lights"}
-      aria-pressed={paused}
-      title={paused ? "Lights paused. Resume" : "Pause the lights"}
-      className={`flex h-8 w-8 items-center justify-center rounded-full text-sm hover:bg-obr-bg ${
-        paused ? "bg-amber-500/20 text-amber-700 dark:text-amber-300" : "text-obr-text-secondary hover:text-obr-text"
-      }`}
-      onClick={() => (paused ? change("Resume lights", resume) : change("Pause lights", pause))}
+      aria-label="Pause lights"
+      title="Pause the lights"
+      className="flex h-8 w-8 items-center justify-center rounded-full text-sm text-obr-text-secondary hover:bg-obr-bg hover:text-obr-text"
+      onClick={() => change("Pause lights", pause)}
     >
-      {paused ? "▶" : "❚❚"}
+      ❚❚
     </button>
   );
 };
@@ -188,6 +190,10 @@ const LightsButton = ({ open }: { open: () => void }) => {
     </button>
   );
 };
+
+// A view that scrolls (the log, the Light Tracker, Settings): a gap between
+// its cards and the scrollbar (Matt, 2026-11-08: the bar sat on the cards).
+const SCROLL = "relative min-h-0 flex-1 overflow-y-auto pr-2";
 
 const TITLES = { tracker: "Crawl Keeper", settings: "Settings", lights: "Light Tracker", log: "Session log" };
 

@@ -28,7 +28,7 @@ const Homepage = () => {
         <Steps>
           <li>Open a scene. Each map keeps its own tracker, rounds and clock.</li>
           <li>
-            Right-click tokens on the map and pick <b>Add / Remove Initiative</b>. They join as players and allies.
+            Right-click tokens on the map and pick <b>Crawl Keeper → Add to initiative</b>. They join as players and allies.
           </li>
           <li>
             Right-click a row in the panel (or hover it and click ⋯) for its menu: <b>Mark as monster</b>, dead or alive,
@@ -89,9 +89,10 @@ const Homepage = () => {
             total darkness. Settings can make it two d20s, run down one at a time.
           </li>
           <li>
-            <b>Manual rolls</b> (Settings, "Encounter checks and the Crawling Clock" off): no clock, no auto roll and no
-            danger level. The bar keeps the Torchlit / Darkness switch and a small die for the odd check (a d6, a d8 in
-            darkness); the eye beside it shows or hides your rolls to players. A due check counts as made when you press ▶.
+            <b>Manual rolls</b> (Settings → Encounter checks → Manual): no clock, no auto roll and no danger level. The bar
+            keeps the Torchlit / Darkness switch and a small die for the odd check (a d6, a d8 in darkness); the eye beside it
+            shows or hides your rolls to players. Every few crawl rounds (Settings → Remind me every; every round in darkness)
+            the bar pulses on your turn as a reminder; a roll or ▶ stops it.
           </li>
         </Steps>
         <p>
@@ -114,7 +115,7 @@ const Homepage = () => {
           <li>
             The flame beside the gear opens the <b>Light Tracker</b>: every light's time left (click a time to correct
             it), Put lights out, and how a second light burns (Ride along or Separate timers, p. 84); the <b>i</b> there has the
-            rules. ❚❚ in the header pauses every light (a red Paused bar shows until you click it). Torches and lanterns
+            rules. ❚❚ in the header pauses every light (an amber "Lights paused · Resume" bar shows until you click it). Torches and lanterns
             last an hour of real time (p. 82).
           </li>
           <li>

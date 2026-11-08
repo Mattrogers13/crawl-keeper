@@ -26,7 +26,7 @@ import { useRoomValue } from "./useRoomValue";
 export type LightChange = (
   label: string,
   fn: (s: Lights, now: number) => Lights,
-  opts?: { toast?: boolean; saved?: () => void; effects?: (e: Effects) => Effects },
+  opts?: { saved?: () => void; effects?: (e: Effects) => Effects },
 ) => void;
 
 // The open map's effects and their change, if there's a map and a change.
@@ -66,12 +66,12 @@ export const useLights = () => {
           return;
         }
       }
-      void record(label, changes, opts);
+      void record(label, changes);
       opts?.saved?.();
     };
     run().catch((err) => notify(`Couldn't change the lights: ${errorMessage(err)}`, "ERROR"));
   };
-  // An automatic change: read fresh, apply, save; no undo step and no toast
+  // An automatic change: read fresh, apply, save; no undo step
   // (spent lights leaving at the next turn).
   const quiet = (fn: (s: Lights) => Lights) => {
     const run = async () => {

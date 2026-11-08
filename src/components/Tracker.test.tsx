@@ -382,18 +382,17 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["b", GM_ENTRY]));
   });
 
-  it("resets the rounds only after the GM confirms", async () => {
+  it("resets the rounds at once, no confirm; the bar's Undo brings them back", async () => {
     obr.items = [token("a", { name: "Aria" })];
     scene([{ id: "a", roll: 7 }, { id: GM_ENTRY }], "a", 5);
     render(<App />);
     fireEvent.click(await screen.findByText("Reset rounds"));
-    fireEvent.click(screen.getByText("Cancel"));
-    expect(screen.getByText("Round 5")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("Reset rounds"));
-    fireEvent.click(screen.getByText("Reset"));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     await waitFor(() => expect(saved()).toMatchObject({ current: null, round: 0 }));
     expect(saved().entries[0].roll).toBe(7);
     expect(screen.getByText("Not started")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Undo: Reset rounds" }));
+    await waitFor(() => expect(saved()).toMatchObject({ current: "a", round: 5 }));
   });
 
   it("a new turn moves the marker and the selection to that token", async () => {
@@ -508,7 +507,7 @@ describe("Tracker (GM)", () => {
     expect(screen.queryByLabelText("Actions for GM / Monsters")).not.toBeInTheDocument();
   });
 
-  it("removes the monsters after a fight, only when asked and only while crawling", async () => {
+  it("removes the monsters after a fight at once (Undo covers it), only while crawling", async () => {
     obr.items = [token("p", { name: "Aria" }), token("m1", { name: "Goblin" })];
     scene([{ id: "p" }, { id: GM_ENTRY }, { id: "m1", monster: true }], null, 0, COMBAT);
     render(<App />);
@@ -516,10 +515,7 @@ describe("Tracker (GM)", () => {
     expect(screen.queryByText("Remove monsters")).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("Crawl"));
     fireEvent.click(await screen.findByText("Remove monsters"));
-    fireEvent.click(screen.getByText("Cancel"));
-    expect(screen.getByText("Goblin")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("Remove monsters"));
-    fireEvent.click(screen.getByText("Remove"));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["p", GM_ENTRY]));
     expect(screen.queryByRole("button", { name: "Remove monsters" })).not.toBeInTheDocument();
   });
@@ -800,10 +796,14 @@ describe("Tracker (GM)", () => {
     expect(saved().current).toBeNull();
   });
 
-  it("the round count sits beside the title", async () => {
+  it("the round count sits in the header; the tracker shows the key without the title text, so the count isn't cut off", async () => {
     scene([{ id: GM_ENTRY }], GM_ENTRY, 4);
     render(<App />);
-    expect((await screen.findByText("Round 4")).closest("header")).toHaveTextContent("Crawl Keeper");
+    expect((await screen.findByText("Round 4")).closest("header")).toBeInTheDocument();
+    // Named for screen readers, not drawn.
+    expect(screen.getByRole("heading", { name: "Crawl Keeper" })).toHaveClass("sr-only");
+    fireEvent.click(screen.getByLabelText("Settings"));
+    expect(await screen.findByRole("heading", { name: "Settings" })).not.toHaveClass("sr-only");
   });
 
   it("the modifier box shows what's stored, even when nothing changed", async () => {
@@ -983,19 +983,20 @@ describe("Tracker (GM)", () => {
       expect(within(card).queryByText("Roll the encounter now")).not.toBeInTheDocument();
     });
 
-    it("clock: Reset clock asks first; right-clicking the clock asks too", async () => {
+    it("clock: Reset clock and right-clicking the clock reset at once (no confirm; Undo covers it)", async () => {
       obr.metadata = { [SETTINGS_KEY]: { encounterMode: "clock" } };
       scene([{ id: GM_ENTRY }], null, 0, { crawl: { clock: 7 } });
       render(<App />);
       const card = await screen.findByRole("region", { name: "Crawling Clock" });
       fireEvent.click(within(card).getByText("Reset clock"));
-      fireEvent.click(within(card).getByText("Cancel"));
-      expect(saved().crawl.clock).toBe(7);
-      fireEvent.contextMenu(within(card).getByTitle("Right-click to reset the clock"));
-      fireEvent.click(within(card).getByText("Reset"));
+      expect(within(card).queryByRole("alertdialog")).toBeNull();
       // Full for either size (a 1d20 clock reads it as 20).
       await waitFor(() => expect(saved().crawl.clock).toBe(40));
       expect(within(card).getByRole("img", { name: "Clock 20 of 20" })).toBeInTheDocument();
+      fireEvent.click(await screen.findByRole("button", { name: "Undo: Reset clock" }));
+      await waitFor(() => expect(saved().crawl.clock).toBe(7));
+      fireEvent.contextMenu(within(card).getByTitle("Right-click to reset the clock"));
+      await waitFor(() => expect(saved().crawl.clock).toBe(40));
     });
 
     it("a green eye marks what players see: the clock, the danger level, the rolls", async () => {
@@ -1078,6 +1079,59 @@ describe("Tracker (GM)", () => {
       fireEvent.click(within(card).getByRole("button", { name: "Encounter check (d6)" }));
       await waitFor(() => expect(saved().crawl.last).toMatchObject({ kind: "check", sides: 6 }));
       expect(await screen.findByRole("button", { name: "Undo: Encounter check" })).toBeInTheDocument();
+    });
+
+    it("manual: every N crawl rounds (Settings, default 3) the card pulses on the GM turn; a roll or ▶ stops it", async () => {
+      obr.metadata = { [SETTINGS_KEY]: { encounterRolls: false, remindEvery: 2 } };
+      obr.items = [token("a", { name: "Aria" })];
+      // Crawl round 2, nothing rolled yet: due at 2.
+      scene([{ id: GM_ENTRY }, { id: "a" }], GM_ENTRY, 2, { crawl: { crawlRounds: 2 } });
+      render(<App />);
+      const card = await screen.findByRole("region", { name: "Encounter checks" });
+      expect(card).toHaveClass("ck-remind");
+      expect(card).toHaveTextContent("Time for an encounter roll?");
+      // A roll answers it.
+      fireEvent.click(within(card).getByRole("button", { name: "Encounter check (d6)" }));
+      await waitFor(() => expect(saved().crawl).toMatchObject({ lastCheck: 2 }));
+      await waitFor(() => expect(card).not.toHaveClass("ck-remind"));
+      expect(card).not.toHaveTextContent("Time for an encounter roll?");
+    });
+
+    it("manual: off the GM turn, or before N rounds, no pulse; ▶ off the GM turn answers it", async () => {
+      obr.metadata = { [SETTINGS_KEY]: { encounterRolls: false } };
+      obr.items = [token("a", { name: "Aria" })];
+      // Round 2 of a default 3: not yet.
+      scene([{ id: GM_ENTRY }, { id: "a" }], GM_ENTRY, 2, { crawl: { crawlRounds: 2 } });
+      render(<App />);
+      const card = () => screen.getByRole("region", { name: "Encounter checks" });
+      expect(await screen.findByRole("region", { name: "Encounter checks" })).not.toHaveClass("ck-remind");
+      // Aria's turn: never on a player's turn.
+      fireEvent.click(screen.getByLabelText("Next turn"));
+      await waitFor(() => expect(saved()).toMatchObject({ current: "a" }));
+      expect(card()).not.toHaveClass("ck-remind");
+      // Crawl round 3, the GM's turn: it pulses.
+      fireEvent.click(screen.getByLabelText("Next turn"));
+      await waitFor(() => expect(saved()).toMatchObject({ current: GM_ENTRY, crawl: { crawlRounds: 3 } }));
+      await waitFor(() => expect(card()).toHaveClass("ck-remind"));
+      // ▶ on without a roll: answered, gone.
+      fireEvent.click(screen.getByLabelText("Next turn"));
+      await waitFor(() => expect(saved()).toMatchObject({ current: "a", crawl: { lastCheck: 3 } }));
+      expect(card()).not.toHaveClass("ck-remind");
+    });
+
+    it("Settings: Manual shows Remind me every (1 to 10), saved as a setting and an undo step", async () => {
+      obr.metadata = { [SETTINGS_KEY]: { encounterRolls: false } };
+      scene([{ id: GM_ENTRY }]);
+      render(<App />);
+      fireEvent.click(await screen.findByLabelText("Settings"));
+      const every = await screen.findByRole("combobox", { name: /Remind me every/ });
+      expect(every).toHaveValue("3");
+      expect(screen.queryByText(/shows the danger level/)).not.toBeInTheDocument();
+      fireEvent.change(every, { target: { value: "5" } });
+      await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ remindEvery: 5 }));
+      expect(screen.getByRole("button", { name: "Undo: Setting: remind every" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("radio", { name: "Interval" }));
+      await waitFor(() => expect(screen.queryByRole("combobox", { name: /Remind me every/ })).not.toBeInTheDocument());
     });
 
     it("Settings: one choice of four sets the method; Manual keeps the clock size and hides auto roll and rolls", async () => {

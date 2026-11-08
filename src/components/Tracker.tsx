@@ -13,7 +13,7 @@ import {
 import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 
-import Confirm from "./Confirm";
+import { LINK } from "./Confirm";
 import { onAddEffect, takeHandoff } from "../addEffectHandoff";
 import { AddEffect, RowEffects, type EffectsChange } from "./Effects";
 import { DeathPrompt, deathKey, owesDeathRoll, type DeathActions, type DeathDecision } from "./Dying";
@@ -85,11 +85,10 @@ import {
 } from "../tracker";
 
 // A GM edit to the tracker: a pure change, saved, and an undo step named
-// `label` ("Undo: Next turn"); `toast` offers Undo for a few seconds after
-// bigger actions.
+// `label` ("Undo: Next turn").
 // `effects`: a change to this map's effects in the same write and undo step
 // (Mark dead ends focus, Reset rounds keeps rounds left).
-export type ChangeOpts = { toast?: boolean; effects?: (e: Effects, before: TrackerDoc, after: TrackerDoc) => Effects };
+export type ChangeOpts = { effects?: (e: Effects, before: TrackerDoc, after: TrackerDoc) => Effects };
 export type Change<T = TrackerDoc> = (label: string, fn: (t: T) => T, opts?: ChangeOpts) => void;
 
 // No lights (players: the notices tell the GM's lights only).
@@ -299,7 +298,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
         : doc.write(updated, effectsAfter !== effectsBefore ? { [EFFECTS_KEY]: effectsAfter } : undefined);
     void write.then((saved) => {
       if (!saved) return;
-      void record(label, steps, opts);
+      void record(label, steps);
       if (updated !== before) return afterChange(tracker, updated, settings.value);
     });
   };
@@ -418,6 +417,8 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   const myTurn = currentToken && currentToken.owner === OBR.player.id ? currentToken.name : null;
   const mode = effectiveMode(settings.value);
   const start = clockStart(settings.value.clockDice);
+  // Manual rolls: the reminder's cadence (Settings), not the danger level's.
+  const every = mode === "manual" ? settings.value.remindEvery : undefined;
   // Players see the Crawling Clock unless the GM hides it; the GM sees it on the card.
   const showClock = !gm && mode === "clock" && settings.value.showClock;
   const showDanger = !gm && !combat && mode !== "clock" && settings.value.showDanger;
@@ -428,14 +429,14 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   // says. One at a time: a second click while Dice+ rolls does nothing.
   const rollTarget: RollTarget = settings.value.showRolls ? "everyone" : "gm_only";
   const rollEncounter = (label: string) => {
-    if (!dicePlusActive()) return change(label, (t) => updateCrawl(t, (c) => rollFor(mode, start, dark)(c, cryptoRand)));
+    if (!dicePlusActive()) return change(label, (t) => updateCrawl(t, (c) => rollFor(mode, start, dark, every)(c, cryptoRand)));
     if (rollingRef.current) return;
     rollingRef.current = true;
     setRolling(true);
     const sides = mode === "clock" ? crawlDie(dark) : 6;
     const dice = mode === "clock" ? rollExploding(sides, label, rollTarget) : rollDice({ count: 1, sides, label, target: rollTarget });
     void dice
-      .then((values) => liveChange(label, (t) => updateCrawl(t, (c) => rollFor(mode, start, dark)(c, replayRand(values, sides)))))
+      .then((values) => liveChange(label, (t) => updateCrawl(t, (c) => rollFor(mode, start, dark, every)(c, replayRand(values, sides)))))
       .finally(() => {
         rollingRef.current = false;
         setRolling(false);
@@ -448,7 +449,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   const deferRoll = mode !== "manual" && settings.value.autoRoll && dicePlusActive();
   const advance = (t: TrackerDoc) =>
     mode === "manual"
-      ? nextAfterManualCheck(t, dark)
+      ? nextAfterManualCheck(t, dark, every)
       : settings.value.autoRoll && !deferRoll
         ? nextWithAutoRoll(t, mode, cryptoRand, start, dark)
         : next(t);
@@ -549,7 +550,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
     n: goNext,
     b: () => change("Back", previous),
     r: () => {
-      if (!combat && due(tracker.crawl, mode, dark)) rollEncounter("Encounter roll");
+      if (!combat && due(tracker.crawl, mode, dark, every)) rollEncounter("Encounter roll");
     },
   };
   const drop = ({ active, over }: DragEndEvent) => {
@@ -608,28 +609,22 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           }}
         />
       )}
-      {/* Under the turn bar, where they're easy to find (each asks first). */}
+      {/* Under the turn bar, where they're easy to find. No confirms: each
+          is an undo step the Undo bar names. */}
       {gm && (
         <div className="-mt-1 flex shrink-0 flex-wrap items-center gap-x-3">
-          {/* A stray click would lose the crawl round count the encounter checks run on. */}
-          <Confirm
-            label="Reset rounds"
-            question="Reset the round count to 0? Encounter checks start over too."
-            action="Reset"
-            onConfirm={() => change("Reset rounds", resetRounds, { toast: true, effects: resetEffectRounds })}
-          />
+          <button type="button" className={LINK} onClick={() => change("Reset rounds", resetRounds, { effects: resetEffectRounds })}>
+            Reset rounds
+          </button>
           {/* A free-standing effect (a row's own: its menu). */}
-          <button type="button" className="py-1.5 text-xs text-obr-text-secondary underline hover:text-obr-text" onClick={() => openAdding([])}>
+          <button type="button" className={LINK} onClick={() => openAdding([])}>
             Add effect
           </button>
           {/* After a fight: clear the monsters out (kept until then, so a fight can resume). */}
           {!combat && tracker.entries.some((e) => e.monster) && (
-            <Confirm
-              label="Remove monsters"
-              question="Remove every monster from the tracker?"
-              action="Remove"
-              onConfirm={() => change("Remove monsters", removeMonsters, { toast: true })}
-            />
+            <button type="button" className={LINK} onClick={() => change("Remove monsters", removeMonsters)}>
+              Remove monsters
+            </button>
           )}
         </div>
       )}
@@ -688,6 +683,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           crawl={tracker.crawl}
           mode={mode}
           start={start}
+          every={every}
           gmTurn={tracker.current === GM_ENTRY}
           dark={dark}
           following={following}
@@ -864,7 +860,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
         </DndContext>
         {gm && tracker.entries.length === 1 && (
           <p className="text-sm text-obr-text-secondary">
-            Right-click a token on the map: “Add / Remove Initiative”. Right-click a row here (or hover it for ⋯) to mark
+            Right-click a token on the map: Crawl Keeper → Add to initiative. Right-click a row here (or hover it for ⋯) to mark
             monsters; drag its grip to move it. Click a roll to edit it.
           </p>
         )}
