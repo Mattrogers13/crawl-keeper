@@ -516,7 +516,7 @@ export type ButtonProps = { label: string; pressed?: boolean; onClick: (e: Mouse
 // (16 + 16 + 26 px and 8 px gaps). On a mouse there's no checkbox column
 // (Cmd/Shift-click select; Matt, 2026-11-08), so 24 px less; touch keeps it,
 // the only way to pick several there.
-const NO_CHECKBOX = "[@media(hover:hover)]:hidden";
+export const NO_CHECKBOX = "[@media(hover:hover)]:hidden";
 export const GUTTER = {
   header: "pl-[82px] [@media(hover:hover)]:pl-[58px]",
   fold: "pl-[48px] [@media(hover:hover)]:pl-[24px]",
@@ -531,7 +531,7 @@ const HOVER_ONLY = "[@media(hover:hover)]:opacity-0 group-hover:opacity-100 focu
 // The same width on every row (see Row).
 const ROW_ACTION = "h-8 w-7 shrink-0";
 
-const RowAction = (props: ButtonProps) => (
+export const RowAction = (props: ButtonProps) => (
   <button
     type="button"
     aria-label={props.label}
