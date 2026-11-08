@@ -7,9 +7,10 @@ import OBR from "@owlbear-rodeo/sdk";
 
 import { askToAddEffect } from "./addEffectHandoff";
 import { LIGHTS_KEY, TRACKER_KEY } from "./constants";
-import { toggleInitiative, togglePartyToken } from "./initiative";
+import { toggleInitiative } from "./initiative";
 import { newLightId, parseLights, type Lights } from "./lights";
 import { menuRows, playerMenuRows, type MenuRow, type MenuToken } from "./mapMenu";
+import { changePartyToken } from "./partyMode";
 import { requestLight } from "./playerLights";
 import { parseTracker } from "./tracker";
 import { record } from "./undo";
@@ -27,7 +28,7 @@ const changeLights = async (step: string, fn: (s: Lights, now: number, newId: ()
 const run = async (row: MenuRow) => {
   const a = row.action;
   if (a?.type === "initiative") await toggleInitiative(a.ids);
-  else if (a?.type === "party") await togglePartyToken(a.id);
+  else if (a?.type === "party") await changePartyToken(a.id);
   else if (a?.type === "lights") await changeLights(a.step, a.fn);
   else if (a?.type === "addEffect") await askToAddEffect(a.ids);
   else if (a?.type === "request")

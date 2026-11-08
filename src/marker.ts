@@ -328,9 +328,10 @@ export const readSettings = async () => parseSettings((await OBR.room.getMetadat
 export const watchPartyToken = () => {
   let gm = false;
   const check = async (items: Item[]) => {
+    if (!gm) return;
     const here = new Set(items.map((i) => i.id));
     const left = items.filter((i) => i.attachedTo && !here.has(i.attachedTo) && pulledIn(i, i.attachedTo));
-    if (!gm || left.length === 0) return;
+    if (left.length === 0) return;
     const t = parseTracker((await OBR.scene.getMetadata())[TRACKER_KEY]);
     await OBR.scene.items.updateItems(
       left.map((i) => i.id),

@@ -17,9 +17,6 @@ export type Switch =
 
 const holds = (s: Lights, id: string) => s.lights.filter((l) => l.tokenId === id && (l.status === "lit" || l.status === "out"));
 
-// The living player entries that can carry the party's light.
-export const carriers = partyMembers;
-
 // `pick`: the carrier chosen for a split (else the remembered one). `nameOf`
 // is a token's name for the light's carrier label.
 export const planSwitch = (
@@ -33,7 +30,7 @@ export const planSwitch = (
   if (t.party === null || t.together === together) return { done: true, tracker: t, lights, stayed: 0 };
   const party = t.party;
   const settled = settle(lights, now);
-  const players = carriers(t);
+  const players = partyMembers(t);
   let s = settled;
   let stayed = 0;
   const moveAll = (from: string[], to: string) => {
@@ -53,9 +50,9 @@ export const planSwitch = (
     const from = moveAll(players, party);
     return { done: true, tracker: setTogether(t, true, from ?? t.carrier), lights: s, stayed };
   }
-  if (holds(settled, party).length === 0 || players.length === 0) {
-    return { done: true, tracker: setTogether(t, false), lights: lights, stayed: players.length === 0 && holds(settled, party).length > 0 ? holds(settled, party).length : 0 };
-  }
+  // Nothing on the Party token to hand on, or no one to take it (it stays).
+  const onParty = holds(settled, party).length;
+  if (onParty === 0 || players.length === 0) return { done: true, tracker: setTogether(t, false), lights, stayed: players.length === 0 ? onParty : 0 };
   const to = pick && players.includes(pick) ? pick : t.carrier && players.includes(t.carrier) ? t.carrier : null;
   if (to === null) return { done: false, choices: players };
   moveAll([party], to);

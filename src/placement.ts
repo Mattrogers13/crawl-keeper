@@ -34,11 +34,12 @@ export const toSegment = (p: Point, a: Point, b: Point): number => {
   return dist(p, { x: a.x + t * ab.x, y: a.y + t * ab.y });
 };
 
-const segments = (walls: Wall[]) => walls.flatMap((w) => w.slice(1).map((b, i) => [w[i], b] as const));
+type Segment = readonly [Point, Point];
+const segments = (walls: Wall[]): Segment[] => walls.flatMap((w) => w.slice(1).map((b, i) => [w[i], b] as const));
+const reach = (from: Point, spot: Point, segs: Segment[], clear: number) => segs.every(([a, b]) => !crosses(from, spot, a, b) && toSegment(spot, a, b) >= clear);
 
 // A spot a token can stand on, reached from the rally point.
-export const reachable = (from: Point, spot: Point, walls: Wall[], clear: number): boolean =>
-  segments(walls).every(([a, b]) => !crosses(from, spot, a, b) && toSegment(spot, a, b) >= clear);
+export const reachable = (from: Point, spot: Point, walls: Wall[], clear: number): boolean => reach(from, spot, segments(walls), clear);
 
 // Spots around the rally point, ring by ring (`cell` apart, up to `rings`
 // out), nearest first; the SDK snaps them to the grid afterwards.
@@ -57,7 +58,8 @@ export const gather = (rally: Point, players: Placed[], spots: Point[], walls: W
   const clear = cell / 2;
   const held = [...taken];
   const free = (p: Point) => held.every((h) => dist(h, p) >= cell / 2);
-  const legal = spots.filter((p) => reachable(rally, p, walls, clear));
+  const segs = segments(walls);
+  const legal = spots.filter((p) => reach(rally, p, segs, clear));
   const out: Record<string, Point> = {};
   for (const pl of [...players].sort((a, b) => dist(a.center, rally) - dist(b.center, rally))) {
     const away = dist(pl.center, rally);
@@ -73,5 +75,7 @@ export const gather = (rally: Point, players: Placed[], spots: Point[], walls: W
 
 // After travelling attached, the players who ended up behind or in a wall
 // (from the Party token's spot): they move to a legal spot; the rest stay.
-export const strays = (rally: Point, players: Placed[], walls: Wall[], cell: number): Placed[] =>
-  players.filter((p) => !reachable(rally, p.center, walls, cell / 2));
+export const strays = (rally: Point, players: Placed[], walls: Wall[], cell: number): Placed[] => {
+  const segs = segments(walls);
+  return players.filter((p) => !reach(rally, p.center, segs, cell / 2));
+};
