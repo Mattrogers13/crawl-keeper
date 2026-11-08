@@ -5,6 +5,7 @@ import OBR from "@owlbear-rodeo/sdk";
 import App from "./App";
 import { LIGHTS_KEY, MARKER_KEY, SETTINGS_KEY, SKULL_KEY, TRACKER_KEY } from "../constants";
 import { GM_ENTRY, parseTracker } from "../tracker";
+import { VERSION } from "../version";
 import { obr, setItems, setSceneReady, token, writeFromElsewhere, writeSceneFromElsewhere } from "../test/obrMock";
 
 const saved = () => parseTracker(obr.sceneMetadata[TRACKER_KEY]);
@@ -386,8 +387,10 @@ describe("Tracker (GM)", () => {
     obr.items = [token("a", { name: "Aria" })];
     scene([{ id: "a", roll: 7 }, { id: GM_ENTRY }], "a", 5);
     render(<App />);
-    fireEvent.click(await screen.findByText("Reset rounds"));
+    fireEvent.click(await screen.findByRole("button", { name: "Round menu: Crawl, Round 5" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Reset rounds/ }));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("menu", { name: "Round" })).not.toBeInTheDocument();
     await waitFor(() => expect(saved()).toMatchObject({ current: null, round: 0 }));
     expect(saved().entries[0].roll).toBe(7);
     expect(screen.getByText("Not started")).toBeInTheDocument();
@@ -512,9 +515,9 @@ describe("Tracker (GM)", () => {
     scene([{ id: "p" }, { id: GM_ENTRY }, { id: "m1", monster: true }], null, 0, COMBAT);
     render(<App />);
     await screen.findByText("Goblin");
-    expect(screen.queryByText("Remove monsters")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove monsters" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("Crawl"));
-    fireEvent.click(await screen.findByText("Remove monsters"));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove monsters" }));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["p", GM_ENTRY]));
     expect(screen.queryByRole("button", { name: "Remove monsters" })).not.toBeInTheDocument();
@@ -773,16 +776,71 @@ describe("Tracker (GM)", () => {
     expect(saved().crawl.last).toBeNull();
   });
 
-  it("Reset rounds and Remove monsters sit under the turn bar, above the list", async () => {
+  it("no links row: Reset rounds is in the round pill's menu, Remove monsters on the Monsters header, Add effect a + in the header", async () => {
     obr.items = [token("m", { name: "Goblin" })];
-    scene([{ id: GM_ENTRY }, { id: "m", monster: true }]);
+    scene([{ id: GM_ENTRY }, { id: "m", monster: true }], GM_ENTRY, 2);
     render(<App />);
     await screen.findByText("Goblin");
-    const list = screen.getByLabelText("Monsters").closest(".overflow-y-auto")!;
-    const next = screen.getByLabelText("Next turn");
-    for (const link of [screen.getByText("Reset rounds"), screen.getByText("Remove monsters")]) {
-      expect(list.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
-      expect(next.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText("Reset rounds")).not.toBeInTheDocument();
+    expect(screen.queryByText("Add effect")).not.toBeInTheDocument();
+    // The pill's menu; Escape closes it.
+    fireEvent.click(screen.getByRole("button", { name: "Round menu: Crawl, Round 2" }));
+    expect(screen.getByRole("menuitem", { name: /Reset rounds/ })).toBeInTheDocument();
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(screen.queryByRole("menu", { name: "Round" })).not.toBeInTheDocument();
+    // Remove monsters sits on the Monsters header, in the list.
+    const remove = screen.getByRole("button", { name: "Remove monsters" });
+    expect(remove.closest(".overflow-y-auto")).not.toBeNull();
+    expect(remove).toHaveTextContent("Remove all");
+    // + in the header opens Add effect.
+    const plus = screen.getByRole("button", { name: "Add effect" });
+    expect(plus.closest("header")).not.toBeNull();
+    fireEvent.click(plus);
+    expect(await screen.findByRole("form", { name: "Add effect" })).toBeInTheDocument();
+  });
+
+  it("one bottom row: no hotkey line (the empty list and ◀ ▶ tooltips say the keys); the GM's version is in Settings → About", async () => {
+    scene([{ id: GM_ENTRY }]);
+    render(<App />);
+    expect(await screen.findByText(/Keys \(click in the panel first\): N next · B back · R roll/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Next turn")).toHaveAttribute("title", "Next turn (N)");
+    expect(screen.queryByText(`v${VERSION}`)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Settings"));
+    expect(await screen.findByText(`Crawl Keeper v${VERSION}`)).toBeInTheDocument();
+  });
+
+  it("players keep the version in the footer", async () => {
+    obr.role = "PLAYER";
+    scene([{ id: GM_ENTRY }]);
+    render(<App />);
+    expect(await screen.findByText(`v${VERSION}`)).toBeInTheDocument();
+  });
+
+  it("on a mouse no checkbox column (Cmd/Shift-click select); touch keeps it, and the names line up either way", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    scene([{ id: "a" }, { id: GM_ENTRY }]);
+    render(<App />);
+    const box = await screen.findByRole("checkbox", { name: "Select Aria" });
+    expect(box.parentElement).toHaveClass("[@media(hover:hover)]:hidden");
+    expect(screen.getByText("Name")).toHaveClass("pl-[82px]", "[@media(hover:hover)]:pl-[58px]");
+  });
+
+  it("the turn's row scrolls into view as the turn moves", async () => {
+    // jsdom has no scrollIntoView: stand one in.
+    const seen: string[] = [];
+    Element.prototype.scrollIntoView = function (this: Element) {
+      seen.push(this.textContent ?? "");
+    };
+    try {
+      obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+      scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
+      render(<App />);
+      fireEvent.click(await screen.findByLabelText("Next turn"));
+      await waitFor(() => expect(seen.at(-1)).toContain("Aria"));
+      fireEvent.click(screen.getByLabelText("Next turn"));
+      await waitFor(() => expect(seen.at(-1)).toContain("Borin"));
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
     }
   });
 
@@ -884,11 +942,13 @@ describe("Tracker (GM)", () => {
     expect(screen.queryByText("Ogre")).not.toBeInTheDocument();
   });
 
-  it("the round pill says the phase; in combat the crawl card folds to a line", async () => {
+  it("the round pill says the phase; in combat no crawl card and no combat line (the Combat button's tooltip says checks pause)", async () => {
     scene([{ id: GM_ENTRY }], GM_ENTRY, 4, COMBAT);
     render(<App />);
     expect((await screen.findByText("Round 4")).closest("header")).toHaveTextContent("Combat·Round 4");
-    expect(screen.getByText(/encounter checks paused/)).toBeInTheDocument();
+    expect(screen.queryByText(/encounter checks paused/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: /Encounter checks|Crawling Clock/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Combat" })).toHaveAttribute("title", "Combat: encounter checks pause");
   });
 
   describe("the crawl card", () => {
