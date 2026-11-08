@@ -394,6 +394,18 @@ export const deathRollDue = (e: Effect, t: Tracker) => {
   return st.state === "active" && st.left !== null && st.left < e.rounds;
 };
 
+// What the dying line counts (Matt, 2026-11-08): the holder's turns with a
+// death d20 still to come, the last chance included and this turn too while
+// its roll is owed. A timer of 7 reads "7 turns" after it's rolled and "1
+// turn" once only the last chance is left. Null: not counting (the timer
+// not rolled, or out).
+export const dyingTurnsLeft = (e: Effect, t: Tracker): number | null => {
+  const st = statusOf(e, t);
+  if (e.icon !== "dying" || st.state !== "active" || st.left === null) return null;
+  return st.left + (deathRollDue(e, t) ? 1 : 0);
+};
+export const turnsText = (n: number) => `${n} turn${n === 1 ? "" : "s"}`;
+
 // Undo / redo of one step (undo.ts): put back only the effects the step
 // changed, over the doc as it is now. Parsing afterwards drops what no
 // longer holds together (an effect whose focus is gone).

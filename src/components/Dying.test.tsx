@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import OBR from "@owlbear-rodeo/sdk";
 
@@ -105,11 +105,24 @@ describe("the death timer (GM)", () => {
     expect(tracker().current).toBe("a");
   });
 
+  it("counts turns: each of the holder's turns with a d20 to come, this one and the last chance included", async () => {
+    // Aria's timer of 3 rolled in round 1: her d20 turns are rounds 2, 3 and 4 (the last chance).
+    setup([dying], "b", 1);
+    expect(await screen.findByRole("button", { name: /^Dying · 3 turns left \(timer 3\)/ })).toBeInTheDocument();
+    cleanup();
+    setup([dying], "b", 3);
+    expect(await screen.findByRole("button", { name: /^Dying · 1 turn left \(timer 3\)/ })).toBeInTheDocument();
+    cleanup();
+    setup([dying], "a", 3);
+    expect(await screen.findByRole("group", { name: "Aria dying" })).toHaveTextContent("Aria is dying · 2 turns left");
+    expect(await screen.findByRole("dialog", { name: "Death roll first" })).toHaveTextContent("2 turns left, this one included");
+  });
+
   it("on their later turns: Roll d20 (a 20 rises), Nat 20, Stabilized, Healed", async () => {
     die(0xffffffff); // a 20
     setup([dying], "a", 2);
     const line = await screen.findByRole("group", { name: "Aria dying" });
-    expect(line).toHaveTextContent("Aria is dying · 2 rounds left");
+    expect(line).toHaveTextContent("Aria is dying · 3 turns left");
     // The turn's decision opens by itself as the big prompt; the line keeps a way back to it.
     const prompt = await screen.findByRole("dialog", { name: "Death roll first" });
     expect(within(line).getAllByRole("button").map((b) => b.textContent)).toEqual(["Death roll…"]);
@@ -133,7 +146,7 @@ describe("the death timer (GM)", () => {
 
   it("healed off their turn from the effect line's menu", async () => {
     setup([dying], "b", 2);
-    fireEvent.click(await screen.findByRole("button", { name: /^Dying · 2 of 3 rounds left/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Dying on Aria · 2 turns left \(timer 3\)|^Dying · 2 turns left \(timer 3\)/ }));
     fireEvent.click(within(screen.getByRole("menu", { name: "Dying" })).getByRole("menuitem", { name: "Healed (no longer dying)" }));
     await waitFor(() => expect(effects()).toEqual([]));
     expect(sent()).toEqual([{ event: "healed", name: "Aria" }]);
@@ -294,7 +307,7 @@ describe("the death timer (player)", () => {
     obr.role = "PLAYER";
     setup([dying], "a", 2);
     const line = await screen.findByRole("group", { name: "Aria dying" });
-    expect(line).toHaveTextContent("Aria is dying · 2 rounds left");
+    expect(line).toHaveTextContent("Aria is dying · 3 turns left");
     expect(within(line).queryAllByRole("button")).toEqual([]);
   });
 });

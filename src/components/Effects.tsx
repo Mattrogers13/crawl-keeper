@@ -23,6 +23,8 @@ import {
   setRoundsLeft,
   stabilize,
   statusOf,
+  dyingTurnsLeft,
+  turnsText,
   stopDying,
   type Condition,
   type Dice,
@@ -49,7 +51,9 @@ export const describe = (e: Effect, t: Tracker, holder?: string) => {
           ? e.icon === "dying"
             ? "the timer is rolled on their turn"
             : "until removed"
-          : `${st.state === "active" ? st.left : 0} of ${e.rounds} rounds left${e.dice ? ` (${e.dice})` : ""}`;
+          : e.icon === "dying"
+            ? `${turnsText(dyingTurnsLeft(e, t) ?? 0)} left (timer ${e.rounds})`
+            : `${st.state === "active" ? st.left : 0} of ${e.rounds} rounds left${e.dice ? ` (${e.dice})` : ""}`;
   const hint = e.icon ? CONDITIONS[e.icon].hint : undefined;
   return [holder ? `${e.name} on ${holder}` : e.name, time, e.hidden ? "hidden from players" : "", hint ?? ""].filter(Boolean).join(" · ");
 };
@@ -159,14 +163,16 @@ const timeText = (e: Effect, t: Tracker) => {
   const st = statusOf(e, t);
   if (st.state === "ended") return "ended";
   if (e.kind === "focus") return "focus";
-  if (e.kind === "until") return "ongoing";
+  if (e.kind === "until") return e.icon === "dying" ? "timer on turn" : "ongoing";
+  const turns = dyingTurnsLeft(e, t);
+  if (turns !== null) return turnsText(turns);
   return st.state === "active" && st.left !== null ? `${st.left} rnd` : "";
 };
 
 const lineTone = (e: Effect, t: Tracker) => {
   const st = statusOf(e, t);
   if (st.state === "ended") return "text-obr-text-secondary line-through";
-  if (st.state === "active" && st.left === 1) return "text-amber-800 dark:text-amber-300";
+  if (st.state === "active" && (dyingTurnsLeft(e, t) ?? st.left) === 1) return "text-amber-800 dark:text-amber-300";
   return "";
 };
 
