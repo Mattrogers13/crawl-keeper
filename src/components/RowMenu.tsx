@@ -29,8 +29,13 @@ const RowMenu = (props: {
   // focus check now (damage or distraction, p. 50).
   effects: Effects;
   addEffect: (ids: string[]) => void;
-  // Open the row's empty note to type in.
+  // Open the row's empty note to type in; edit the token's name in the row.
   addNote: (id: string) => void;
+  rename: (id: string) => void;
+  // This map's Party token (Set / Clear party token from the row), and the
+  // GM's way to change it (partyMode.ts: lights and players too).
+  party: string | null;
+  setParty: (id: string) => void;
   checkFocus: (effectId: string) => void;
   // Open the Dying sheet for this row (the death timer, p. 89).
   startDying: (id: string) => void;
@@ -56,42 +61,60 @@ const RowMenu = (props: {
     return () => document.removeEventListener("pointerdown", outside);
   }, [close]);
 
-  // [label, shown?, action]
+  // [label, shown?, action], in groups: a thin line separates the groups that
+  // have anything to show (what it is, how it's found, effects, lights, leaving).
+  type Item = [string, boolean, () => void];
   const some = (f: (e: Entry) => boolean) => entries.some(f);
-  const items: [string, boolean, () => void][] = [
-    ["Mark as monster", some((e) => !e.monster), () => change("Mark as monster", (t) => setMonster(t, ids, true))],
-    ["Mark as player or ally", some((e) => e.monster), () => change("Mark as player or ally", (t) => setMonster(t, ids, false))],
-    // Death ends a focus, and what ends with it, and a death timer, in the same step.
+  const one = ids.length === 1 && ids[0] !== GM_ENTRY;
+  const groups: Item[][] = [
     [
-      "Mark dead",
-      some((e) => !e.dead),
-      () => change("Mark dead", (t) => setDead(t, ids, true), { effects: (s) => ids.reduce(stopDying, endFocusOf(s, ids)) }),
+      ["Mark as monster", some((e) => !e.monster), () => change("Mark as monster", (t) => setMonster(t, ids, true))],
+      ["Mark as player or ally", some((e) => e.monster), () => change("Mark as player or ally", (t) => setMonster(t, ids, false))],
+      // Death ends a focus, and what ends with it, and a death timer, in the same step.
+      [
+        "Mark dead",
+        some((e) => !e.dead),
+        () => change("Mark dead", (t) => setDead(t, ids, true), { effects: (s) => ids.reduce(stopDying, endFocusOf(s, ids)) }),
+      ],
+      ["Mark alive", some((e) => e.dead), () => change("Mark alive", (t) => setDead(t, ids, false))],
+      // A player at 0 HP (monsters at 0 just die).
+      [
+        "Dying…",
+        ids.length === 1 && ids[0] !== GM_ENTRY && !entries[0].monster && !entries[0].dead && !dyingOf(props.effects, ids[0]),
+        () => props.startDying(ids[0]),
+      ],
     ],
-    ["Mark alive", some((e) => e.dead), () => change("Mark alive", (t) => setDead(t, ids, false))],
-    // A player at 0 HP (monsters at 0 just die).
     [
-      "Dying…",
-      ids.length === 1 && ids[0] !== GM_ENTRY && !entries[0].monster && !entries[0].dead && !dyingOf(props.effects, ids[0]),
-      () => props.startDying(ids[0]),
+      ["Show on map", ids.length === 1, () => props.show(ids[0])],
+      ["Rename…", one, () => props.rename(ids[0])],
+      [
+        props.party === ids[0] ? "Clear party token" : "Set as party token",
+        one && !entries[0].monster,
+        () => props.setParty(ids[0]),
+      ],
+      ["Add note", ids.length === 1 && !entries[0].note, () => props.addNote(ids[0])],
+      ["Turn marker on", some((e) => !e.marker), () => change("Turn marker on", (t) => setMarker(t, ids, true))],
+      ["Turn marker off", some((e) => e.marker), () => change("Turn marker off", (t) => setMarker(t, ids, false))],
     ],
-    ["Turn marker on", some((e) => !e.marker), () => change("Turn marker on", (t) => setMarker(t, ids, true))],
-    ["Turn marker off", some((e) => e.marker), () => change("Turn marker off", (t) => setMarker(t, ids, false))],
-    ["Show on map", ids.length === 1, () => props.show(ids[0])],
-    ["Add note", ids.length === 1 && !entries[0].note, () => props.addNote(ids[0])],
-    [ids.length === 1 ? "Add effect…" : `Add effect to ${ids.length}…`, true, () => props.addEffect(ids.filter((id) => id !== GM_ENTRY))],
-    ...focusCheck(),
-    ...giveLight(),
     [
-      ids.length === 1 ? "Remove from initiative" : `Remove ${ids.length} from initiative`,
-      true,
-      () => {
-        change("Remove from initiative", (t) => remove(t, ids), { toast: true });
-        props.clear();
-      },
+      [ids.length === 1 ? "Add effect…" : `Add effect to ${ids.length}…`, true, () => props.addEffect(ids.filter((id) => id !== GM_ENTRY))],
+      ...focusCheck(),
+    ],
+    giveLight(),
+    [
+      [
+        ids.length === 1 ? "Remove from initiative" : `Remove ${ids.length} from initiative`,
+        true,
+        () => {
+          change("Remove from initiative", (t) => remove(t, ids), { toast: true });
+          props.clear();
+        },
+      ],
     ],
   ];
+  const shown = groups.map((g) => g.filter(([, visible]) => visible)).filter((g) => g.length > 0);
   // One focusing token: its check now (taking damage or being distracted).
-  function focusCheck(): [string, boolean, () => void][] {
+  function focusCheck(): Item[] {
     const f = ids.length === 1 ? focusOf(props.effects, ids[0]) : null;
     return f ? [["Focus check now", true, () => props.checkFocus(f.id)]] : [];
   }
@@ -99,14 +122,14 @@ const RowMenu = (props: {
   // light (p. 84), so with one already lit the item says the swap: "Put out
   // the torch, light the lantern". A lantern the token has out offers its
   // oil back, or a refill.
-  function giveLight(): [string, boolean, () => void][] {
+  function giveLight(): Item[] {
     const l = props.lights;
     const id = ids.length === 1 && ids[0] !== GM_ENTRY ? ids[0] : null;
     if (!l || !id) return [];
     const held = litOn(l.lights, id);
     const waiting = outOn(l.lights, id);
     const oil = waiting ? ` (${formatRemaining(waiting.remainingMs)} left)` : "";
-    return GIVEN.filter((kind) => kind !== held?.kind).flatMap((kind): [string, boolean, () => void][] => {
+    return GIVEN.filter((kind) => kind !== held?.kind).flatMap((kind): Item[] => {
       const light = { kind, tokenId: id, carrier: props.name };
       const kept = waiting?.kind === kind ? oil : "";
       if (held)
@@ -145,22 +168,24 @@ const RowMenu = (props: {
       className="fixed z-50 flex min-w-44 flex-col rounded-lg bg-obr-paper py-1 text-sm shadow-xl ring-1 ring-obr-text/10"
       onKeyDown={onKeyDown}
     >
-      {items
-        .filter(([, shown]) => shown)
-        .map(([label, , run]) => (
-        <button
-          key={label}
-          type="button"
-          role="menuitem"
-          className="px-3 py-2 text-left hover:bg-obr-text/5 focus:bg-obr-text/10 focus:outline-none"
-          onClick={() => {
-            run();
-            close();
-          }}
-        >
-          {label}
-        </button>
-        ))}
+      {shown.map((group, i) => (
+        <div key={group[0][0]} role="group" className={i > 0 ? "mt-1 border-t border-obr-text/10 pt-1" : ""}>
+          {group.map(([label, , run]) => (
+            <button
+              key={label}
+              type="button"
+              role="menuitem"
+              className="w-full px-3 py-2 text-left hover:bg-obr-text/5 focus:bg-obr-text/10 focus:outline-none"
+              onClick={() => {
+                run();
+                close();
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      ))}
     </div>
   );
 };

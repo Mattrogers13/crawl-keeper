@@ -137,7 +137,7 @@ describe("the Light Tracker", () => {
     vi.setSystemTime(T0 + 10 * MINUTE);
     fireEvent.click(within(card("Lantern · Aria")).getByRole("button", { name: "Put out" }));
     await waitFor(() => expect(saved().lights[0]).toMatchObject({ status: "out", remainingMs: 45 * MINUTE }));
-    expect(screen.getByRole("status")).toHaveTextContent(/total darkness/);
+    expect(screen.getByRole("status")).toHaveTextContent(/Darkness · DIS/);
     vi.setSystemTime(T0 + 30 * MINUTE);
     fireEvent.click(within(card("Lantern · Aria")).getByRole("button", { name: "Light" }));
     await waitFor(() => expect(saved().lights[0].status).toBe("lit"));
@@ -188,6 +188,39 @@ describe("the Light Tracker", () => {
     await waitFor(() => expect(saved().lights.map((l) => l.status)).toEqual(["spent", "spent"]));
     fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
     await waitFor(() => expect(saved().lights.map((l) => l.status)).toEqual(["lit", "lit"]));
+  });
+
+  it("the rules live behind the (i), not in the list; the header Pause works from the main page too", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a")] } };
+    scene(["a"]);
+    render(<App />);
+    // Main page: Pause in the header.
+    fireEvent.click(await screen.findByRole("button", { name: "Pause lights" }));
+    await waitFor(() => expect(saved().paused).toBe(true));
+    expect(screen.getByRole("button", { name: "Resume lights" })).toHaveAttribute("aria-pressed", "true");
+    await open();
+    expect(screen.queryByText(/joins that timer/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "How lights work" }));
+    const rules = await screen.findByRole("dialog", { name: "How lights work" });
+    expect(within(rules).getByText(/joins that timer/)).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("Paused: a red bar across the top that resumes on a click; Remove works on a lit light too", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    obr.metadata = { [LIGHTS_KEY]: { paused: true, lights: [{ ...lit("l1", "a"), endsAt: null }] } };
+    scene(["a"]);
+    render(<App />);
+    const bar = await screen.findByRole("button", { name: "Paused. Resume lights" });
+    expect(bar).toHaveTextContent("Paused");
+    fireEvent.click(bar);
+    await waitFor(() => expect(saved().paused).toBe(false));
+    expect(screen.queryByRole("button", { name: "Paused. Resume lights" })).not.toBeInTheDocument();
+    await open();
+    fireEvent.click(within(card("Torch · Aria")).getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(saved().lights).toHaveLength(0));
   });
 
   it("Remove all lights asks first, then offers Undo", async () => {
@@ -246,7 +279,7 @@ describe("the Light Tracker", () => {
     expect(screen.getByRole("button", { name: "Undo: Lighting rule" })).toBeInTheDocument();
   });
 
-  it("a torch that ran out shows spent and is replaced by a new one", async () => {
+  it("a torch that ran out shows spent, with no way to relight it or time it back; Remove clears it", async () => {
     obr.items = [token("a", { name: "Aria" })];
     obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a", "torch", 5 * MINUTE)] } };
     scene(["a"]);
@@ -256,11 +289,11 @@ describe("the Light Tracker", () => {
     // The name follows a rename on the map; the next second's tick shows it out.
     await setItems([token("a", { name: "Aria the Bold" })]);
     await waitFor(() => expect(card("Torch · Aria the Bold")).toHaveTextContent("spent"), { timeout: 2000 });
-    fireEvent.click(within(card("Torch · Aria the Bold")).getByRole("button", { name: "New torch" }));
-    await waitFor(() => expect(saved().lights).toHaveLength(1));
-    await waitFor(() => expect(saved().lights[0].status).toBe("lit"));
-    expect(saved().lights[0].id).not.toBe("l1");
-    expect(left(0)).toBe(60 * MINUTE);
+    const spent = within(card("Torch · Aria the Bold"));
+    expect(spent.queryByRole("button", { name: /New torch|Light$/ })).not.toBeInTheDocument();
+    expect(spent.queryByRole("button", { name: /Correct it/ })).not.toBeInTheDocument();
+    fireEvent.click(spent.getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(saved().lights).toHaveLength(0));
   });
 
   it("players get no strip; their flame opens their own view, without the GM's controls", async () => {
@@ -281,30 +314,45 @@ describe("the strip, badges and DIS", () => {
   const strip = () => screen.getByRole("region", { name: "Notices" });
   const rowOf = (name: string) => screen.getAllByRole("listitem").reverse().find((r) => within(r).queryByText(name))!;
 
-  it("the GM clicks a torch's badge to put it out (spent), then for a new one", async () => {
+  it("the GM clicks a torch's badge and lands in the Light Tracker (nothing is put out); spent, it still opens it", async () => {
     obr.items = [token("a", { name: "Aria" })];
     obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a")] } };
     scene(["a"]);
     render(<App />);
-    const badge = await screen.findByRole("button", { name: "Torch: 1:00:00 left. Click: put out torch" });
+    fireEvent.click(await screen.findByRole("button", { name: "Torch: 1:00:00 left. Open the Light Tracker" }));
+    expect(await screen.findByRole("heading", { name: "Light Tracker" })).toBeInTheDocument();
+    await screen.findByRole("article", { name: "Torch · Aria" });
+    expect(saved().lights[0].status).toBe("lit");
+    // Spent, the badge is a picture, not a button.
     vi.setSystemTime(T0 + 5 * MINUTE);
-    fireEvent.click(badge);
+    fireEvent.click(within(card("Torch · Aria")).getByRole("button", { name: "Put out" }));
     await waitFor(() => expect(saved().lights[0].status).toBe("spent"));
-    fireEvent.click(await screen.findByRole("button", { name: "Torch: spent. Click: new torch" }));
-    await waitFor(() => expect(saved().lights[0]?.status).toBe("lit"));
-    expect(left(0)).toBe(60 * MINUTE);
+    fireEvent.click(screen.getByRole("button", { name: "Back to tracker" }));
+    expect(await screen.findByRole("button", { name: "Torch: spent. Open the Light Tracker" })).toBeInTheDocument();
   });
 
-  it("a lantern's badge: put out keeps the oil, rounded down; clicked again it burns on", async () => {
+  it("a spent torch's badge stays through the turn and goes at the next one", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    obr.metadata = { [LIGHTS_KEY]: { lights: [{ ...lit("l1", "a"), status: "spent", remainingMs: 0, endsAt: null, spentAt: T0 }] } };
+    scene(["a"]);
+    render(<App />);
+    expect(await screen.findByRole("button", { name: "Torch: spent. Open the Light Tracker" })).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Next turn"));
+    await waitFor(() => expect(saved().lights).toHaveLength(0));
+    expect(screen.queryByRole("button", { name: /Torch: spent/ })).not.toBeInTheDocument();
+  });
+
+  it("a lantern's badge opens the Light Tracker too; put out there keeps the oil, rounded down; Light burns on", async () => {
     obr.items = [token("a", { name: "Aria" })];
     obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a", "lantern")] } };
     scene(["a"]);
     render(<App />);
-    const badge = await screen.findByRole("button", { name: "Lantern: 1:00:00 left. Click: put out lantern" });
+    fireEvent.click(await screen.findByRole("button", { name: "Lantern: 1:00:00 left. Open the Light Tracker" }));
+    await screen.findByRole("article", { name: "Lantern · Aria" });
     vi.setSystemTime(T0 + 5 * MINUTE);
-    fireEvent.click(badge);
+    fireEvent.click(within(card("Lantern · Aria")).getByRole("button", { name: "Put out" }));
     await waitFor(() => expect(saved().lights[0]).toMatchObject({ status: "out", remainingMs: 45 * MINUTE }));
-    fireEvent.click(await screen.findByRole("button", { name: "Lantern: out, 45:00 of oil. Click: light lantern" }));
+    fireEvent.click(within(card("Lantern · Aria")).getByRole("button", { name: "Light" }));
     await waitFor(() => expect(saved().lights[0].status).toBe("lit"));
     expect(left(0)).toBe(45 * MINUTE);
   });
@@ -329,7 +377,7 @@ describe("the strip, badges and DIS", () => {
     expect(screen.queryByRole("button", { name: /Click/ })).not.toBeInTheDocument();
   });
 
-  it("total darkness: a red strip and DIS on living players' rows, not monsters, the dead or the GM row", async () => {
+  it("darkness: a red strip and DIS on living players' rows, not monsters, the dead or the GM row", async () => {
     obr.items = [token("a", { name: "Aria" }), token("d", { name: "Dead Dan" }), token("m", { name: "Goblin" })];
     obr.metadata = { [LIGHTS_KEY]: { lights: [{ ...lit("l1", "a"), status: "out", endsAt: null }] } };
     obr.sceneMetadata = {
@@ -346,7 +394,7 @@ describe("the strip, badges and DIS", () => {
     };
     render(<App />);
     await screen.findByText("Aria");
-    expect(strip()).toHaveTextContent("Total darkness (p. 84)");
+    expect(strip()).toHaveTextContent("Darkness · DIS");
     expect(within(rowOf("Aria")).getByText("DIS")).toBeInTheDocument();
     expect(within(rowOf("Dead Dan")).queryByText("DIS")).not.toBeInTheDocument();
     expect(within(rowOf("Goblin")).queryByText("DIS")).not.toBeInTheDocument();
@@ -395,7 +443,7 @@ describe("the strip, badges and DIS", () => {
     scene(["a"]);
     render(<App />);
     const card = await screen.findByRole("region", { name: "Encounter checks" });
-    expect(strip()).toHaveTextContent("Total darkness (p. 84)");
+    expect(strip()).toHaveTextContent("Darkness · DIS");
     expect(card).toHaveTextContent("Every crawl round");
     expect(within(card).getByLabelText("Danger level")).toHaveValue("unsafe");
     const toggle = within(card).getByRole("button", { name: /Darkness/ });
@@ -412,7 +460,7 @@ describe("the strip, badges and DIS", () => {
     expect(card).toHaveTextContent("Every 3 rounds");
     fireEvent.click(within(card).getByRole("button", { name: /Darkness/ }));
     await waitFor(() => expect(card).toHaveTextContent("Every crawl round"));
-    expect(strip()).toHaveTextContent("Total darkness (p. 84)");
+    expect(strip()).toHaveTextContent("Darkness · DIS");
     expect(obr.sceneMetadata[TRACKER_KEY]).toMatchObject({ crawl: { dark: true, danger: "unsafe" } });
     expect(within(rowOf("Aria")).getByText("DIS")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Undo: Darkness" })).toBeInTheDocument();
@@ -429,7 +477,7 @@ describe("the strip, badges and DIS", () => {
     const card = await screen.findByRole("region", { name: "Crawling Clock" });
     expect(card).toHaveTextContent("Crawling die d6");
     expect(screen.queryByText("DIS")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Total darkness/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Darkness · DIS/)).not.toBeInTheDocument();
     // The die is drawn as a d6 (no diamond) until it's dark.
     expect(within(card).getByRole("button", { name: "Roll d6" }).querySelector("svg")).toBeNull();
     fireEvent.click(within(card).getByRole("button", { name: "Darkness" }));
@@ -438,7 +486,7 @@ describe("the strip, badges and DIS", () => {
     // The Light Tracker doesn't call it darkness either.
     fireEvent.click(screen.getByRole("button", { name: "Light Tracker" }));
     await waitFor(() => expect(screen.getAllByRole("status").some((el) => /Follow light is off/.test(el.textContent ?? ""))).toBe(true));
-    expect(screen.queryByText(/No light: total darkness/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Darkness · DIS/)).not.toBeInTheDocument();
   });
 
   it("Time passes from the ⏳ sheet: any time typed, Esc closes it", async () => {

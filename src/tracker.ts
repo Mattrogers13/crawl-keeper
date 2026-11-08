@@ -72,7 +72,27 @@ export type Tracker = {
   // (`d20 12 + 2`). Shown only while it still adds up to that row's roll (a
   // typed roll replaces it).
   gmDie: GmDie | null;
+  // The Party token: one tracked player entry standing for the whole party
+  // while exploring. Null when the map has none.
+  party: string | null;
+  // The party travels together: the Party token takes turns and the players'
+  // rows sit out. Off (split): the players take turns and the Party token
+  // sits out. Always off with no Party token.
+  together: boolean;
+  // The player who carried the party's light the last time it split, so the
+  // next split offers them first. A tracked player entry, else null.
+  carrier: string | null;
+  // While together, each player's token is attached to the Party token so it
+  // travels with it (Owlbear's attach, position only). What it was attached to
+  // before (a mount, say), to put back on Split. Tracked player entries only.
+  prior: Record<string, PriorAttach>;
 };
+
+// A token's own attachment before the party took it: its parent and the
+// behaviours it had switched off (null: none).
+export type PriorAttach = { to: string | null; off: string[] | null };
+
+export type Point = { x: number; y: number };
 
 export type GmDie = { die: number; mod: number };
 
@@ -84,6 +104,10 @@ export const emptyTracker = (): Tracker => ({
   crawl: emptyCrawl(),
   gmMod: 0,
   gmDie: null,
+  party: null,
+  together: false,
+  carrier: null,
+  prior: {},
 });
 
 
@@ -124,11 +148,38 @@ export const parseTracker = (raw: unknown): Tracker => {
     crawl: parseCrawl(raw.crawl),
     gmMod: intIn(raw.gmMod, MOD_MIN, MOD_MAX) ?? 0,
     gmDie: parseGmDie(raw.gmDie),
+    party: null,
+    together: false,
+    carrier: null,
+    prior: {},
   };
+  const party =
+    typeof raw.party === "string" && entries.some((e) => e.id === raw.party && e.id !== GM_ENTRY && !e.monster) ? raw.party : null;
+  const carrier =
+    party !== null && typeof raw.carrier === "string" && entries.some((e) => e.id === raw.carrier && e.id !== GM_ENTRY && e.id !== party && !e.monster)
+      ? raw.carrier
+      : null;
+  const together = party !== null && raw.together === true;
+  const parsed: Tracker = { ...t, party, together, carrier, prior: party === null ? {} : parsePrior(raw.prior, entries, party) };
   // A turn only exists inside a round, and only for an entry that takes
-  // turns now (living; monsters only in combat).
-  const current = t.round > 0 && typeof raw.current === "string" ? turnFor(t, raw.current) : null;
-  return current ? { ...t, current } : t;
+  // turns now (living, in the party's mode; monsters only in combat).
+  const current = parsed.round > 0 && typeof raw.current === "string" ? turnFor(parsed, raw.current) : null;
+  return current ? { ...parsed, current } : parsed;
+};
+
+const BEHAVIOURS = ["VISIBLE", "SCALE", "ROTATION", "POSITION", "DELETE", "LOCKED", "COPY"];
+// Untrusted: tracked player entries only; an id-sized parent; known behaviours.
+const parsePrior = (raw: unknown, entries: Entry[], party: string): Record<string, PriorAttach> => {
+  const out: Record<string, PriorAttach> = {};
+  if (!isObject(raw)) return out;
+  for (const e of entries) {
+    const v = raw[e.id];
+    if (e.monster || e.id === GM_ENTRY || e.id === party || !isObject(v)) continue;
+    const to = typeof v.to === "string" && v.to !== "" && v.to.length <= 64 && v.to !== party ? v.to : null;
+    const off = Array.isArray(v.off) ? v.off.filter((b): b is string => typeof b === "string" && BEHAVIOURS.includes(b)) : null;
+    out[e.id] = { to, off };
+  }
+  return out;
 };
 
 const parseGmDie = (raw: unknown): GmDie | null => {
@@ -182,10 +233,16 @@ export const prune = (t: Tracker, exists: (id: string) => boolean): Tracker => {
   return withEntries(t, entries);
 };
 
+// With a Party token the players split into two sets and one sits out: the
+// Party token while split, the players while together. Everyone else (the GM
+// row, monsters) always takes part; with no Party token, so does everyone.
+export const inTurns = (t: Tracker, e: Entry): boolean =>
+  t.party === null || e.monster || e.id === GM_ENTRY || (e.id === t.party) === t.together;
+
 // The order turns are taken in: living entries only (never empty, the GM row
 // can't die).
 export const turnOrder = (t: Tracker): Entry[] => {
-  const living = t.entries.filter((e) => !e.dead);
+  const living = t.entries.filter((e) => !e.dead && inTurns(t, e));
   const monsters = t.phase === "combat" ? living.filter((e) => e.monster) : [];
   return living.filter((e) => !e.monster).flatMap((e) => (e.id === GM_ENTRY ? [e, ...monsters] : [e]));
 };
@@ -305,7 +362,10 @@ export const remove = (t: Tracker, ids: string[]): Tracker => {
 // passes to whoever would have been next (in the old order) and still gets
 // turns.
 const withEntries = (t: Tracker, entries: Entry[]): Tracker => {
-  const updated = { ...t, entries };
+  const party = t.party !== null && entries.some((e) => e.id === t.party && !e.monster) ? t.party : null;
+  const carrier = t.carrier !== null && party !== null && entries.some((e) => e.id === t.carrier && !e.monster) ? t.carrier : null;
+  const prior = party === null ? {} : Object.fromEntries(Object.entries(t.prior).filter(([id]) => entries.some((e) => e.id === id && !e.monster)));
+  const updated = { ...t, entries, party, together: party !== null && t.together, carrier, prior };
   const turns = new Set(turnOrder(updated).map((e) => e.id));
   if (t.current === null || turns.has(t.current)) return updated;
   const order = turnOrder(t);
@@ -411,3 +471,62 @@ export const toggle = (t: Tracker, ids: string[]): Tracker => {
   const have = new Set(t.entries.map((e) => e.id));
   return ids.length > 0 && ids.every((id) => have.has(id)) ? remove(t, ids) : add(t, ids);
 };
+
+// The Party token (right-click "Set as party token"): a player entry that
+// stands for everyone. Setting it tracks the token if it isn't yet (no room,
+// a monster or the GM row: nothing changes); another token replaces it; null
+// clears it. Either way the players are split afterwards and nothing is
+// hidden or moved by the change itself (the switch does that).
+export const setParty = (t: Tracker, id: string | null): Tracker => {
+  if (id === null) return t.party === null ? t : { ...t, party: null, together: false, carrier: null, prior: {} };
+  if (id === GM_ENTRY || t.party === id) return t;
+  const tracked = add(t, [id]);
+  const entry = tracked.entries.find((e) => e.id === id);
+  if (!entry || entry.monster) return t;
+  return { ...tracked, party: id, together: false, carrier: null, prior: {} };
+};
+
+// Who the Party token stands for: the living players (not monsters, not the
+// GM row, not the Party token). The turns, the lights and the map all use it.
+export const inParty = (t: Pick<Tracker, "party">, e: Entry) => !e.monster && e.id !== GM_ENTRY && e.id !== t.party && !e.dead;
+export const partyMembers = (t: Tracker): string[] => t.entries.filter((e) => inParty(t, e)).map((e) => e.id);
+
+// The Party / Split switch. It doesn't end the round (Matt, 2026-11-07).
+// Coming together, the Party token takes the initiative of the party's
+// highest roll and sits where that player sat (no rolls: it stays put); the
+// turn in progress carries over: a player's turn is the Party token's. Splitting,
+// the Party token's turn is the first player's (the one with the highest
+// roll: the player after it in the list). `carrier`: who has the light now when splitting, kept for next time;
+// coming together, who it came from.
+export const setTogether = (t: Tracker, together: boolean, carrier: string | null = t.carrier): Tracker => {
+  if (t.party === null || t.together === together) return t;
+  const party = t.party;
+  const keep = carrier !== null && carrier !== party && t.entries.some((e) => e.id === carrier && !e.monster && e.id !== GM_ENTRY) ? carrier : null;
+  const isPlayer = (e: Entry) => inParty(t, e);
+  let entries = t.entries;
+  if (together) {
+    const rolled = t.entries.filter((e) => isPlayer(e) && e.roll !== null);
+    if (rolled.length > 0) {
+      const top = Math.max(...rolled.map((e) => e.roll as number));
+      const at = t.entries.findIndex((e) => isPlayer(e) && e.roll === top);
+      const me = t.entries.find((e) => e.id === party)!;
+      const rest = t.entries.filter((e) => e.id !== party);
+      const place = rest.findIndex((e) => e.id === t.entries[at].id);
+      entries = [...rest.slice(0, place), { ...me, roll: top }, ...rest.slice(place)];
+    }
+  }
+  const players = entries.filter(isPlayer);
+  const current = t.current === null || t.current === GM_ENTRY || entries.some((e) => e.id === t.current && e.monster)
+    ? t.current
+    : together
+      ? (t.current === party ? party : players.some((e) => e.id === t.current) ? party : t.current)
+      : t.current === party
+        ? (players.find((e) => entries.indexOf(e) > entries.findIndex((x) => x.id === party))?.id ?? players[0]?.id ?? null)
+        : t.current;
+  return { ...t, entries, together, carrier: keep, current, prior: together ? t.prior : {} };
+};
+
+// The players' own attachments, saved as the party comes together (kept
+// until it splits, then cleared).
+export const setPrior = (t: Tracker, prior: Record<string, PriorAttach>): Tracker =>
+  t.party === null || JSON.stringify(t.prior) === JSON.stringify(prior) ? t : { ...t, prior };

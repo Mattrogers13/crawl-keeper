@@ -23,7 +23,7 @@ import TimeSheet from "./TimeSheet";
 import CrawlBar, { ClockDial, FOCUS, PlayerRoll } from "./CrawlBar";
 import { clockLeft, clockStart, crawlDie, cryptoRand, due, lastFor, replayRand, rollFor } from "../crawl";
 import { dicePlusActive, rollDice, rollExploding, setDicePlusEnabled, type RollTarget } from "../diceRoller";
-import { ChevronIcon, HourglassIcon, PlayIcon, SortIcon } from "./icons";
+import { ChevronIcon, HourglassIcon, PlayIcon } from "./icons";
 import Loading from "./Loading";
 import RowMenu from "./RowMenu";
 import Row, { INIT_SLOT, tokenInfo, type ButtonProps, type Token } from "./TrackerRow";
@@ -50,7 +50,7 @@ import { sayDeath } from "../deathNotices";
 import type { Change as HistoryChange } from "../history";
 import type { Role } from "../hooks/useRole";
 import { useLightStatus, useLights } from "../hooks/useLights";
-import { followingLights, type Light } from "../lights";
+import { dropSpent, followingLights, renameCarrier, type Light } from "../lights";
 import { centerOn } from "../viewport";
 import { useRoomValue, useSceneValue } from "../hooks/useRoomValue";
 import { useSceneItems } from "../hooks/useScene";
@@ -60,9 +60,11 @@ import { NO_SELECTION, clickRow, keepRows, menuTargets, type Selection } from ".
 import { effectiveMode, parseSettings } from "../settings";
 import { readLocal, writeLocal } from "../storage";
 import { errorMessage, notify } from "../utils";
+import { changePartyToken, switchParty, type Choice } from "../partyMode";
 import {
   GM_ENTRY,
   gmEquation,
+  inTurns,
   moveTo,
   next,
   nextAfterManualCheck,
@@ -95,7 +97,7 @@ const NO_LIGHTS: Light[] = [];
 
 // toolSlot: the buttons beside the title (the GM's ⏳ Time passes); titleSlot:
 // beside the title, for the round count.
-const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?: HTMLElement | null }) => {
+const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?: HTMLElement | null; openLights?: () => void }) => {
   const { role, toolSlot = null, titleSlot = null } = props;
   const settings = useRoomValue(SETTINGS_KEY, parseSettings);
   const doc = useSceneValue(TRACKER_KEY, parseTracker);
@@ -113,9 +115,15 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   // The GM's row selection (click, Shift-click, Cmd/Ctrl-click) and row menu
   // (right-click or ⋯), which acts on the selection.
   const [picked, setPicked] = useState<Selection>(NO_SELECTION);
+  // The Party / Split switch asking who carries the party's light.
+  const [carrierChoices, setCarrierChoices] = useState<Choice[] | null>(null);
+  // The carrier question came from Combat: the answer starts combat too.
+  const [askedByCombat, setAskedByCombat] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   // The token row whose empty note the GM opened from its menu.
   const [noting, setNoting] = useState<string | null>(null);
+  // The row whose token is being renamed (row menu → Rename…).
+  const [renaming, setRenaming] = useState<string | null>(null);
   // The GM's Add effect form, for these rows (none: free-standing).
   const [adding, setAdding] = useState<string[] | null>(null);
   // The Time passes sheet (the ⏳ beside the title).
@@ -228,6 +236,17 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   // A called-for focus check lasts until the turn moves.
   useEffect(() => setCheckNow([]), [docValue.current, docValue.round]);
 
+  // A torch, spell or campfire that went out stays on its row until the turn
+  // moves on (its notice too); then it's let go. Not on first showing.
+  const turnSeen = useRef<string | null>(null);
+  const tidyLights = lights.quiet;
+  useEffect(() => {
+    const turn = `${docValue.round}:${docValue.current}`;
+    const before = turnSeen.current;
+    turnSeen.current = turn;
+    if (role === "GM" && before !== null && before !== turn) tidyLights(dropSpent);
+  }, [docValue.current, docValue.round, role]);
+
   // The GM's hotkeys while the panel has focus (Owlbear keeps keys typed on
   // the map): N next turn, B back, R the encounter roll when one is due (a
   // stray R can't replace a roll already made). Not while typing, dragging
@@ -240,7 +259,8 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || e.repeat || dragging.current) return;
       const target = e.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, [role=alertdialog]") || document.querySelector("[role=menu]")) return;
+      // Not while a menu or a dialog (Who carries the light?, an (i) popup) is open.
+      if (target?.closest("input, textarea, select, [role=alertdialog]") || document.querySelector("[role=menu], [role=dialog]")) return;
       const run = hotkeys.current[e.key.toLowerCase()];
       if (!run) return;
       e.preventDefault();
@@ -349,11 +369,45 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
     const list = effectsOf.get(e.id);
     return list ? <RowEffects effects={list} tracker={tracker} change={effectChange} current={e.id === current} name={names.get(e.id)} /> : undefined;
   };
-  const rowProps = { gm, change: liveChange, show, focus, openMenu, lightChange: gm ? lights.change : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker), noting, setNoting };
+  // Party | Split (and Combat's split). A light on the Party token asks who
+  // carries it first; the pick runs it again.
+  const runSwitch = (together: boolean, pick?: string, combat = false) => {
+    if (carrierChoices && pick === undefined) return; // the question is open: answer it or cancel
+    setCarrierChoices(null);
+    setAskedByCombat(combat);
+    switchParty(together, pick, combat ? { clearRolls: settings.value.clearRollsOnCombat } : undefined)
+      .then((choices) => {
+        setCarrierChoices(choices);
+        if (!choices) setAskedByCombat(false);
+      })
+      .catch((err) => notify(`Couldn't ${together ? "bring the party together" : "split the party"}: ${errorMessage(err)}`, "ERROR"));
+  };
+  // The eye by the die: show or hide the rolls to players, the Settings switch
+  // as an undo step.
+  const toggleRolls = () => {
+    const before = settings.value;
+    const after = { ...before, showRolls: !before.showRolls };
+    void settings.write(after).then((saved) => {
+      if (saved) void record(`Setting: ${after.showRolls ? "show" : "hide"} rolls`, [{ store: "room", key: SETTINGS_KEY, before, after }]);
+    });
+  };
+  // Renames the token itself, so the map label, the light cards and every
+  // other tool follow. Not an undo step (the scene's items aren't ours to
+  // restore); rename it back.
+  // The token's own name; its lights' carrier name follows (notices use it).
+  const renameToken = (id: string, name: string) => {
+    OBR.scene.items
+      .updateItems([id], (drafts) => {
+        for (const d of drafts) d.name = name;
+      })
+      .then(() => tidyLights((s) => renameCarrier(s, id, name)))
+      .catch((err) => notify(`Couldn't rename the token: ${errorMessage(err)}`, "WARNING"));
+  };
+  const rowProps = { gm, change: liveChange, show, focus, openMenu, openLights: gm ? (props.openLights ?? null) : null, select, checking: selection.ids.length > 0, gmMod: tracker.gmMod, gmDie: gmEquation(tracker), noting, setNoting, renaming, setRenaming, renameToken };
   const targets = menu ? tracker.entries.filter((e) => selection.ids.includes(e.id)) : [];
   const round = tracker.round;
   const roundLabel =
-    round === 0 ? (gm ? "Not started" : "") : gm || !settings.value.hideRound ? `Round ${round}` : "";
+    round === 0 ? (gm ? "Not started" : "") : gm || settings.value.showRound ? `Round ${round}` : "";
   const combat = tracker.phase === "combat";
   // A monster's combat turn opens the folded list while it lasts, so the
   // current row shows (folding is off until then).
@@ -365,14 +419,14 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   const mode = effectiveMode(settings.value);
   const start = clockStart(settings.value.clockDice);
   // Players see the Crawling Clock unless the GM hides it; the GM sees it on the card.
-  const showClock = !gm && mode === "clock" && !settings.value.hideClock;
+  const showClock = !gm && mode === "clock" && settings.value.showClock;
   const showDanger = !gm && !combat && mode !== "clock" && settings.value.showDanger;
   // Manual: the GM's rolls stay the GM's.
-  const playerRoll = !gm && mode !== "manual" && settings.value.showRolls ? lastFor(tracker.crawl, mode) : null;
+  const playerRoll = !gm && settings.value.showRolls ? lastFor(tracker.crawl, mode) : null;
   // The encounter roll (the card's die, R, the auto roll): here, or Dice+
   // when it answered (src/diceRoller.ts), shown to players as the setting
   // says. One at a time: a second click while Dice+ rolls does nothing.
-  const rollTarget: RollTarget = mode !== "manual" && settings.value.showRolls ? "everyone" : "gm_only";
+  const rollTarget: RollTarget = settings.value.showRolls ? "everyone" : "gm_only";
   const rollEncounter = (label: string) => {
     if (!dicePlusActive()) return change(label, (t) => updateCrawl(t, (c) => rollFor(mode, start, dark)(c, cryptoRand)));
     if (rollingRef.current) return;
@@ -527,14 +581,12 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
               type="button"
               aria-pressed={combat}
               className={`h-8 rounded-full px-4 ${combat ? "bg-red-700 text-white" : "hover:bg-obr-text/10"}`}
-              onClick={() => change("Combat", (t) => toCombat(t, settings.value.clearRollsOnCombat))}
+              // Combat splits a party that's together (Matt, 2026-11-07), in the same step.
+              onClick={() => (tracker.party !== null && tracker.together ? runSwitch(false, undefined, true) : change("Combat", (t) => toCombat(t, settings.value.clearRollsOnCombat)))}
             >
               Combat
             </button>
           </div>
-          <RoundButton label="Sort by roll" onClick={() => change("Sort by roll", sortByRoll)}>
-            <SortIcon />
-          </RoundButton>
           <div className="ml-auto flex gap-1.5">
             <RoundButton label="Previous turn" hint="B" wide disabled={tracker.current === null} onClick={() => change("Back", previous)}>
               <PlayIcon back />
@@ -544,6 +596,17 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
             </RoundButton>
           </div>
         </div>
+      )}
+      {gm && tracker.party !== null && (
+        <PartySwitch
+          together={tracker.together}
+          choices={carrierChoices}
+          go={(together, pick) => runSwitch(together, pick, !together && pick !== undefined && askedByCombat)}
+          cancel={() => {
+            setCarrierChoices(null);
+            setAskedByCombat(false);
+          }}
+        />
       )}
       {/* Under the turn bar, where they're easy to find (each asks first). */}
       {gm && (
@@ -631,10 +694,11 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           change={(label, fn, opts) => change(label, (t) => updateCrawl(t, fn), opts)}
           roll={rollEncounter}
           rolling={rolling}
+          toggleRolls={toggleRolls}
           seen={{
-            clock: mode === "clock" && !settings.value.hideClock,
+            clock: mode === "clock" && settings.value.showClock,
             danger: mode !== "clock" && settings.value.showDanger,
-            rolls: mode !== "manual" && settings.value.showRolls,
+            rolls: settings.value.showRolls,
           }}
         />
       )}
@@ -724,12 +788,26 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           {/* Two drag groups: players and the GM row; monsters inside the GM row. */}
           <div
             className="flex border-b border-obr-text/10 py-1 pr-1 text-[10px] font-semibold tracking-[0.1em] text-obr-text-disabled uppercase"
-            aria-hidden
+            aria-hidden={gm ? undefined : true}
           >
             {/* Lined up with the names: the GM's grip, checkbox and portrait (16 + 16 + 26 px and
                 three 8 px gaps), or a player's inset and portrait (4 + 26 + 8). */}
             <span className={`flex-1 ${gm ? "pl-[82px]" : "pl-[38px]"}`}>Name</span>
-            <span className={`${INIT_SLOT} pr-2 text-right`}>Init</span>
+            {/* Possible deletion (docs/design.md, Releases): rolls already sort the list as they are entered, so this may go unused. */}
+            {gm ? (
+              <span className={`${INIT_SLOT} pr-2 text-right`}>
+                <button
+                  type="button"
+                  title="Sort by roll, highest first"
+                  className="cursor-pointer uppercase underline decoration-dotted underline-offset-2 hover:text-obr-text focus-visible:text-obr-text focus-visible:outline-none"
+                  onClick={() => change("Sort by roll", sortByRoll)}
+                >
+                  Init
+                </button>
+              </span>
+            ) : (
+              <span className={`${INIT_SLOT} pr-2 text-right`}>Init</span>
+            )}
             {gm && <span className="w-7" />}
           </div>
           <SortableContext items={top.map((e) => e.id)} strategy={verticalListSortingStrategy}>
@@ -743,6 +821,8 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
                   token={tokenFor(entry)}
                   current={entry.id === current}
                   selected={selection.ids.includes(entry.id)}
+                  party={entry.id === tracker.party}
+                  sitsOut={!inTurns(tracker, entry)}
                   {...rowProps}
                 >
                   {entry.id === GM_ENTRY && monsters.length > 0 && (
@@ -811,6 +891,9 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           effects={settle(effects, tracker)}
           addEffect={(ids) => openAdding(ids)}
           addNote={setNoting}
+          rename={setRenaming}
+          party={tracker.party}
+          setParty={(id) => void changePartyToken(id).catch((err) => notify(`Couldn't change the party token: ${errorMessage(err)}`, "ERROR"))}
           startDying={openDying}
           checkFocus={(id) => setCheckNow((c) => (c.includes(id) ? c : [...c, id]))}
         />
@@ -851,5 +934,70 @@ const RoundButton = (
     {props.children}
   </button>
 );
+
+// Party | Split under the turn bar (only with a Party token): together, the
+// Party token takes the turns and the players sit out; split, the reverse.
+// Splitting with a light on the Party token asks who carries it.
+const PartySwitch = (props: {
+  together: boolean;
+  choices: Choice[] | null;
+  go: (together: boolean, pick?: string) => void;
+  cancel: () => void;
+}) => {
+  const { together, choices } = props;
+  const seg = (on: boolean, label: string, hint: string, click: () => void) => (
+    <button
+      type="button"
+      aria-pressed={on}
+      title={hint}
+      className={`h-7 rounded-full px-3 ${on ? "bg-obr-primary text-obr-primary-contrast" : "hover:bg-obr-text/10"}`}
+      onClick={click}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div className="flex shrink-0 flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        <div role="group" aria-label="Party or split" className="flex rounded-full bg-obr-bg p-[3px] text-xs font-medium">
+          {seg(together, "Party", "The Party token takes the turns; the players sit out", () => !together && props.go(true))}
+          {seg(!together, "Split", "The players take the turns; the Party token sits out", () => together && props.go(false))}
+        </div>
+        <span className="text-xs text-obr-text-secondary">{together ? "Party token has the turns" : "Players have the turns"}</span>
+      </div>
+      {/* A dialog over the panel: inline under the switch it was easy to miss,
+          and each press redrew it (Matt's "flicker", 2026-11-07). */}
+      {choices && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-3 pt-16" onPointerDown={(e) => e.target === e.currentTarget && props.cancel()}>
+          <div
+            role="dialog"
+            aria-label="Who carries the light"
+            className="flex w-full max-w-sm flex-col gap-3 rounded-xl bg-obr-paper p-4 text-sm shadow-xl ring-1 ring-obr-text/10"
+            onKeyDown={(e) => e.key === "Escape" && props.cancel()}
+          >
+            <h2 className="text-base font-semibold">Who carries the light?</h2>
+            <p className="text-xs text-obr-text-secondary">The party token's light goes to this player when the party splits, timer and all. Next time they're asked first.</p>
+            <div className="flex flex-wrap gap-1.5">
+              {choices.map((c, i) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  autoFocus={i === 0}
+                  className="h-8 rounded-md px-3 font-medium ring-1 ring-obr-text/15 ring-inset hover:bg-obr-text/10 focus-visible:ring-2 focus-visible:ring-obr-primary focus-visible:outline-none"
+                  onClick={() => props.go(false, c.id)}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+            <button type="button" className="h-8 self-end rounded-md px-3 text-obr-text-secondary hover:bg-obr-text/10" onClick={props.cancel}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default Tracker;

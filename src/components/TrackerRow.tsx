@@ -1,6 +1,6 @@
 // One tracker row (token, or the GM / Monsters row with its monsters under
 // it) and its in-place inputs: roll, note, the monsters' DEX modifier.
-import { useState, type ChangeEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { useRef, useState, type ChangeEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { type Item } from "@owlbear-rodeo/sdk";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -10,7 +10,6 @@ import { dicePlusActive, rollDice } from "../diceRoller";
 import type { Change } from "./Tracker";
 import LightBadge from "./LightBadge";
 import { D20Icon, GmPortrait, GripIcon, MoreIcon, SkullIcon } from "./icons";
-import type { LightChange } from "../hooks/useLights";
 import type { Light } from "../lights";
 import {
   MOD_MAX,
@@ -51,9 +50,14 @@ const Row = (props: {
   focus: (id: string) => void;
   // The token's lights, and the GM's way to put one out or on (players: null).
   lights?: Light[];
-  lightChange: LightChange | null;
+  // The GM's way to the Light Tracker (a light badge opens it); players: null.
+  openLights: (() => void) | null;
   // Disadvantage: total darkness, on a living player's row (p. 84).
   dis?: boolean;
+  // This is the Party token (right-click: Set as party token).
+  party?: boolean;
+  // Not in the turn order now: the Party token while split, the players while together.
+  sitsOut?: boolean;
   openMenu: (id: string, x: number, y: number) => void;
   select: (id: string, mods: { shift: boolean; toggle: boolean }) => void;
   selected: boolean;
@@ -71,6 +75,11 @@ const Row = (props: {
   // closing it again.
   noting: string | null;
   setNoting: (id: string | null) => void;
+  // The row whose token the GM is renaming (row menu → Rename…), saving the
+  // new name on the token itself, and closing the field.
+  renaming?: string | null;
+  setRenaming?: (id: string | null) => void;
+  renameToken?: (id: string, name: string) => void;
   // A monster under the GM row: indented, a smaller portrait.
   small?: boolean;
 }) => {
@@ -87,7 +96,7 @@ const Row = (props: {
     : props.selected
       ? "bg-obr-primary/10"
       : "";
-  const fade = `${token && !token.visible ? "opacity-60" : ""} ${entry.dead ? "opacity-55" : ""}`;
+  const fade = `${token && !token.visible ? "opacity-60" : ""} ${entry.dead ? "opacity-55" : ""} ${props.sitsOut ? "opacity-45" : ""}`;
   return (
     <li
       ref={sortable.setNodeRef}
@@ -171,10 +180,19 @@ const Row = (props: {
         )}
         <div className="relative flex min-w-0 flex-1 flex-col">
           <span className="flex min-w-0 items-center gap-1">
-            <span className={`truncate leading-tight ${props.small ? "text-[13px]" : "font-medium"} ${entry.dead ? "line-through" : ""}`}>
-              {name}
-              {entry.dead && <span className="sr-only"> (dead)</span>}
-            </span>
+            {gm && token && props.renaming === entry.id ? (
+              <RenameInput
+                name={name}
+                small={props.small}
+                save={(n) => props.renameToken?.(entry.id, n)}
+                done={() => props.setRenaming?.(null)}
+              />
+            ) : (
+              <span className={`truncate leading-tight ${props.small ? "text-[13px]" : "font-medium"} ${entry.dead ? "line-through" : ""}`}>
+                {name}
+                {entry.dead && <span className="sr-only"> (dead)</span>}
+              </span>
+            )}
           </span>
           {gm && !token ? (
             // The GM row (no menu, no effects): an empty note hangs under the
@@ -205,9 +223,14 @@ const Row = (props: {
             entry.note && <span className="text-xs whitespace-pre-wrap text-obr-text-secondary">{entry.note}</span>
           )}
         </div>
-        {props.lights && <LightBadge lights={props.lights} change={props.lightChange} />}
+        {props.lights && <LightBadge lights={props.lights} open={props.openLights} />}
+        {props.party && (
+          <span title="Party token: stands for the whole party" className="shrink-0 rounded bg-obr-primary/15 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-obr-text">
+            PARTY
+          </span>
+        )}
         {props.dis && (
-          <span title="Total darkness: disadvantage on tasks that need sight (p. 84)" className="shrink-0 rounded bg-red-600/15 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-red-700 dark:text-red-300">
+          <span title="Darkness: disadvantage on tasks that need sight (p. 84)" className="shrink-0 rounded bg-red-600/15 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-red-700 dark:text-red-300">
             DIS
           </span>
         )}
@@ -451,6 +474,40 @@ const NoteInput = (props: { name: string; value: string; save: (n: string) => vo
         }}
       />
     </span>
+  );
+};
+
+// Renames the token itself (Owlbear's name, so the map label, the light cards
+// and the other tools follow). Enter or leaving the field saves; Escape
+// cancels; an empty or unchanged name does nothing.
+const RenameInput = (props: { name: string; small?: boolean; save: (name: string) => void; done: () => void }) => {
+  const [text, setText] = useState(props.name === "Unnamed" ? "" : props.name);
+  const finished = useRef(false);
+  const finish = (save: boolean) => {
+    if (finished.current) return;
+    finished.current = true;
+    const next = text.trim();
+    if (save && next !== "" && next !== props.name) props.save(next);
+    props.done();
+  };
+  return (
+    <input
+      aria-label={`Rename ${props.name}`}
+      autoFocus
+      value={text}
+      maxLength={100}
+      onChange={(e) => setText(e.target.value)}
+      onFocus={(e) => e.currentTarget.select()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") finish(true);
+        else if (e.key === "Escape") {
+          e.stopPropagation();
+          finish(false);
+        }
+      }}
+      onBlur={() => finish(true)}
+      className={`min-w-0 flex-1 rounded px-1 ${props.small ? "text-[13px]" : "font-medium"} ${GHOST_INPUT} ring-1 ring-obr-primary`}
+    />
   );
 };
 

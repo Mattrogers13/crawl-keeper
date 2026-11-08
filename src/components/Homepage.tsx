@@ -36,12 +36,20 @@ const Homepage = () => {
             once.
           </li>
           <li>
+            Exploring on one token? Right-click it → Crawl Keeper → <b>Set as party token</b> (or use a row's menu). A <b>Party | Split</b> switch
+            appears under the turn bar. Party: the players gather around the party token (clear of Dynamic Fog's walls),
+            attach to it and hide, so they travel with it; the party token takes the turns at the highest player's roll.
+            Split (or Combat): they show again where they stand and take their own turns. To regroup elsewhere, drag the
+            faded party token there before pressing Party. The light goes with the switch: coming together it moves to the
+            party token, splitting you pick who carries it. <b>Rename…</b> in a row's menu renames the token itself.
+          </li>
+          <li>
             Monsters are listed under the <b>GM / Monsters</b> row and act on its roll. Put the highest DEX modifier among
             them in its <b>DEX</b> box and click the d20 to roll d20 + that (core pp. 83, 88).
           </li>
           <li>
             Type each player's roll in their row (click the number to edit it). The list sorts itself, highest first, as each
-            roll goes in; Sort (☰) puts it back in order after a drag.
+            roll goes in; the <b>Init</b> heading sorts it again after a drag.
           </li>
         </Steps>
       </Section>
@@ -81,9 +89,9 @@ const Homepage = () => {
             total darkness. Settings can make it two d20s, run down one at a time.
           </li>
           <li>
-            <b>Manual rolls</b> (Settings, "Encounter checks and the Crawling Clock" off): no clock and no auto roll. The
-            card keeps the danger level and lights up on the GM's turn when a check is due. Roll its d6, or roll at the
-            table: a due check counts as made when you press ▶.
+            <b>Manual rolls</b> (Settings, "Encounter checks and the Crawling Clock" off): no clock, no auto roll and no
+            danger level. The bar keeps the Torchlit / Darkness switch and a small die for the odd check (a d6, a d8 in
+            darkness); the eye beside it shows or hides your rolls to players. A due check counts as made when you press ▶.
           </li>
         </Steps>
         <p>
@@ -99,25 +107,29 @@ const Homepage = () => {
         <Steps>
           <li>
             Give a token a light: right-click it on the map → <b>Crawl Keeper</b> → Light torch, Light lantern, Cast Light
-            or Light campfire, or use a row's menu. One lit light per token. With Dynamic Fog on, the token casts it: near
+            or Light campfire, or use a row's menu. The GM can light any of them on a prop too (a torch in a sconce);
+            its time shows in the Light Tracker. One lit light per token. With Dynamic Fog on, the token casts it: near
             (30 ft), a lantern double near (60 ft). Every party token without one keeps 3 ft of dim light.
           </li>
           <li>
             The flame beside the gear opens the <b>Light Tracker</b>: every light's time left (click a time to correct
-            it), Pause, Put lights out, and how a second light burns (Ride along or Separate timers, p. 84). Torches and
-            lanterns last an hour of real time (p. 82).
+            it), Put lights out, and how a second light burns (Ride along or Separate timers, p. 84); the <b>i</b> there has the
+            rules. ❚❚ in the header pauses every light (a red Paused bar shows until you click it). Torches and lanterns
+            last an hour of real time (p. 82).
           </li>
           <li>
             The hourglass beside the title is <b>Time passes</b>: 10m, 30m, 1h, an 8 hour rest (p. 86) or any time
             (1:30, 90). It shows what will happen first: each light's time before and after, and the effects that end.
           </li>
           <li>
-            A torch, Light spell or campfire is used up once lit: putting it out spends it. A lantern put out keeps its oil,
-            rounded down to the quarter hour. Undo takes back any light change.
+            A torch, Light spell or campfire is used up once lit: putting it out spends it, and once it's out it's out (its
+            badge goes at the next turn). A lantern put out keeps its oil, rounded down to the quarter hour. To move a light,
+            select two tokens, one holding it, and right-click → Crawl Keeper → <b>Hand light to…</b>: the timer goes with
+            it. Undo takes back any light change.
           </li>
           <li>
-            <b>Follow light</b> (Settings, on): when no tracked light is shining, it's total darkness: a check every crawl
-            round, a d8 crawling die, and DIS on the party's rows (p. 84). With no lights tracked, the crawl card's
+            <b>Follow light</b> (Settings, on): when no tracked light is shining, it's darkness: DIS on the party's
+            rows, a check every crawl round, a d8 crawling die (p. 84). With no lights tracked, the crawl card's
             Torchlit / Darkness switch decides.
           </li>
           <li>

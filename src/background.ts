@@ -6,13 +6,13 @@
 import OBR, { type Metadata } from "@owlbear-rodeo/sdk";
 
 import { MENU_ID, PLAYER_MENU_ID, SETTINGS_KEY, TRACKER_KEY } from "./constants";
-import { MENU_ROWS, PLAYER_MENU_ROWS } from "./mapMenu";
+import { MENU_GROUPS, MENU_ROWS, PLAYER_MENU_GROUPS, PLAYER_MENU_ROWS, menuHeight } from "./mapMenu";
 import { parseSettings } from "./settings";
 import { watchEffectIcons } from "./effectIcons";
 import { watchDeathNotices } from "./deathNotices";
 import { watchEffectNotices } from "./effectNotices";
 import { watchLightNotices } from "./lightNotices";
-import { fixMarkerVisibility } from "./marker";
+import { fixMarkerVisibility, watchPartyToken } from "./marker";
 import { watchLightRequests } from "./playerLights";
 import { watchTokenLights } from "./tokenLights";
 import { clearHistory } from "./undo";
@@ -23,7 +23,7 @@ import { errorMessage, notify } from "./utils";
 // One Crawl Keeper item on a token's right-click menu, opening a submenu
 // (menu.html, rows in mapMenu.ts): Add / Remove initiative and the lights.
 // Props too, for a campfire. The GM's; players get their own below.
-// The embed's height is fixed here: MENU_ROWS rows of 36 px plus padding.
+// The embed's height is fixed here: its rows and group lines (mapMenu.ts).
 export const createMenu = () =>
   OBR.contextMenu.create({
     id: MENU_ID,
@@ -42,7 +42,7 @@ export const createMenu = () =>
         },
       },
     ],
-    embed: { url: "/menu", height: MENU_ROWS * 36 + 8 },
+    embed: { url: "/menu", height: menuHeight(MENU_ROWS, MENU_GROUPS) },
   });
 
 // The players' Crawl Keeper item: the three carried lights and Put out on
@@ -66,7 +66,7 @@ const createPlayerMenu = () =>
         },
       },
     ],
-    embed: { url: "/menu", height: PLAYER_MENU_ROWS * 36 + 8 },
+    embed: { url: "/menu", height: menuHeight(PLAYER_MENU_ROWS, PLAYER_MENU_GROUPS) },
   });
 
 export const watchPlayerMenu = () => {
@@ -154,6 +154,7 @@ OBR.onReady(() => {
   watchCombat();
   watchMarkerVisibility();
   watchTokenLights();
+  watchPartyToken();
   watchEffectIcons();
   watchLightNotices();
   watchEffectNotices();

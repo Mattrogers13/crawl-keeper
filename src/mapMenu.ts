@@ -5,12 +5,13 @@
 // token outside the initiative list can still carry a light (Matt,
 // 2026-10-31): the menu neither asks nor adds it.
 //
-// The rows are always the same seven (the embed's height is fixed when the
+// The rows are always the same nine (the embed's height is fixed when the
 // menu is made); one that doesn't apply is disabled and says why.
 import {
   LIGHT_KINDS,
   formatRemaining,
   litOn,
+  moveLight,
   outOn,
   putOut,
   settle,
@@ -30,8 +31,12 @@ export type MenuRow = {
   title?: string;
   enabled: boolean;
   icon: string;
+  // Starts a new group: a thin line above it (menu.ts).
+  group?: true;
   action:
     | { type: "initiative"; ids: string[] }
+    // Sets (or clears, if it already is) the Party token.
+    | { type: "party"; id: string }
     | { type: "lights"; step: string; fn: (s: Lights, now: number, newId: () => string) => Lights }
     // A player's: asked of the GM's client, one token at a time (playerLights.ts).
     | { type: "request"; asks: LightAsk[] }
@@ -40,11 +45,19 @@ export type MenuRow = {
     | null;
 };
 
-export const MENU_ROWS = 7;
+export const MENU_ROWS = 9;
 export const PLAYER_MENU_ROWS = 4;
+// Group lines in each menu (rows with `group`), for the embed's fixed height:
+// 36 px a row, 9 px a line (1 px plus 4 px either side), 8 px padding.
+export const MENU_GROUPS = 3;
+export const PLAYER_MENU_GROUPS = 1;
+export const menuHeight = (rows: number, lines: number) => rows * 36 + lines * 9 + 8;
+const startsGroup = (row: MenuRow): MenuRow => ({ ...row, group: true });
 
-// Torch, lantern and Light spell are carried (character tokens); a campfire
-// goes on any token, a prop included.
+// Torch, lantern and Light spell are carried: a player lights them on
+// character tokens only. The GM lights any of the four on any token, a prop
+// included (Matt, 2026-11-07: a torch in a sconce, a glowing rune); a prop
+// has no row, so its time shows in the Light Tracker only.
 const CARRIED: LightKind[] = ["torch", "lantern", "lightSpell"];
 const carries = (t: MenuToken) => t.layer === "CHARACTER" || t.layer === "MOUNT";
 const lower = (kind: LightKind) => (kind === "lightSpell" ? "Light spell" : LIGHT_KINDS[kind].label.toLowerCase());
@@ -72,11 +85,11 @@ const initiativeRow = (t: Tracker, tokens: MenuToken[]): MenuRow => {
 // Light `kind` on each token: one already lit with another light swaps
 // (put out, light this one); a lantern that's out goes back on with its
 // oil; one already holding this kind lit is skipped.
+// `tokens`: the ones that may hold it (the players' menu passes only theirs).
 const lightRow = (s: Lights, tokens: MenuToken[], kind: LightKind): MenuRow => {
-  const allowed = kind === "campfire" ? tokens : tokens.filter(carries);
-  const todo = allowed.filter((x) => litOn(s, x.id)?.kind !== kind);
+  const todo = tokens.filter((x) => litOn(s, x.id)?.kind !== kind);
   const base = { icon: ICON[kind], label: verb(kind) };
-  if (allowed.length === 0) return { ...base, enabled: false, title: "Character tokens only", action: null };
+  if (tokens.length === 0) return { ...base, enabled: false, title: "Select a token", action: null };
   if (todo.length === 0) return { ...base, enabled: false, title: `${LIGHT_KINDS[kind].label} already lit`, action: null };
   // swapLight puts out what's lit and relights a waiting lantern.
   const fn = (st: Lights, at: number, newId: () => string) =>
@@ -118,14 +131,52 @@ const putOutRow = (s: Lights, tokens: MenuToken[]): MenuRow => {
   };
 };
 
+// Two tokens selected, one holding a light (lit, else a lantern that's out):
+// the light goes to the other, timer and all. Whatever moveLight refuses
+// (the other already burns a light) is the row's reason.
+const handRow = (s: Lights, tokens: MenuToken[], now: number): MenuRow => {
+  const base = { icon: "/img/menu-hand.svg", label: "Hand light to…" };
+  const no = (title: string): MenuRow => ({ ...base, enabled: false, title, action: null });
+  if (tokens.length !== 2) return no("Select the token holding the light and the one to give it to");
+  const [a, b] = tokens;
+  const held = (x: MenuToken) => litOn(s, x.id) ?? outOn(s, x.id);
+  const [la, lb] = [held(a), held(b)];
+  if (!la && !lb) return no("Neither token holds a light");
+  if (la && lb) return no("Both tokens hold a light");
+  const [light, to] = la ? [la, b] : [lb!, a];
+  const fn = (st: Lights, at: number) => moveLight(st, at, light.id, to.id, to.name);
+  try {
+    fn(s, now);
+  } catch (err) {
+    return no(err instanceof Error ? err.message : "Can't hand it on");
+  }
+  const kind = lower(light.kind);
+  return { ...base, label: `Hand light to ${to.name}`, enabled: true, action: { type: "lights", step: `Hand ${kind} to ${to.name}`, fn } };
+};
+
+// One character token: it stands for the whole party (it is tracked if it
+// isn't yet); the Party token again clears it.
+const partyRow = (t: Tracker, tokens: MenuToken[]): MenuRow => {
+  const base = { icon: "/img/menu-party.svg" };
+  const one = tokens.length === 1 && carries(tokens[0]) ? tokens[0] : null;
+  if (!one) return { ...base, label: "Set as party token", enabled: false, title: "Select one character token", action: null };
+  const clearing = t.party === one.id;
+  if (t.entries.some((e) => e.id === one.id && e.monster))
+    return { ...base, label: "Set as party token", enabled: false, title: "A monster can't be the party token", action: null };
+  return { ...base, label: clearing ? "Clear party token" : "Set as party token", enabled: true, action: { type: "party", id: one.id } };
+};
+
 export const menuRows = (t: Tracker, s: Lights, tokens: MenuToken[], now: number): MenuRow[] => {
   const settled = settle(s, now);
   return [
     initiativeRow(t, tokens),
     addEffectRow(tokens),
-    ...CARRIED.map((kind) => lightRow(settled, tokens, kind)),
+    startsGroup(lightRow(settled, tokens, "torch")),
+    ...CARRIED.slice(1).map((kind) => lightRow(settled, tokens, kind)),
     lightRow(settled, tokens, "campfire"),
-    putOutRow(settled, tokens),
+    startsGroup(putOutRow(settled, tokens)),
+    handRow(settled, tokens, now),
+    startsGroup(partyRow(t, tokens)),
   ];
 };
 
@@ -148,5 +199,5 @@ export const playerMenuRows = (t: Tracker, s: Lights, tokens: MenuToken[], now: 
     return toRequest(row, todo.map((x) => ({ tokenId: x.id, action: "light", kind })));
   });
   const lit = ok.filter((x) => litOn(settled, x.id));
-  return [...rows, toRequest(putOutRow(settled, ok), lit.map((x) => ({ tokenId: x.id, action: "putOut" })))];
+  return [...rows, startsGroup(toRequest(putOutRow(settled, ok), lit.map((x) => ({ tokenId: x.id, action: "putOut" }))))];
 };

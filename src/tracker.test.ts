@@ -23,6 +23,10 @@ import {
   removeMonsters,
   setMarker,
   setMonster,
+  setPrior,
+  setParty,
+  setTogether,
+  partyMembers,
   resetRounds,
   rollGmInitiative,
   gmEquation,
@@ -48,6 +52,10 @@ const tracker = (rolls: Record<string, number | null>, current: string | null = 
   crawl: emptyCrawl(),
   gmMod: 0,
   gmDie: null,
+  party: null,
+  together: false,
+  carrier: null,
+  prior: {},
 });
 const ids = (t: { id: string }[]) => t.map((e) => e.id);
 
@@ -488,6 +496,129 @@ describe("toggle (right-click)", () => {
   });
 });
 
+describe("the Party token", () => {
+  const base = () => tracker({ a: 1, b: 2, m1: null, [GM_ENTRY]: 3 });
+
+  it("set tracks the token if it isn't yet, and another replaces it", () => {
+    const t = setParty(base(), "p");
+    expect(t.party).toBe("p");
+    expect(t.entries.find((e) => e.id === "p")).toMatchObject({ monster: false, dead: false });
+    expect(setParty(t, "a").party).toBe("a");
+  });
+
+  it("a monster, the GM row or a full list can't be the party", () => {
+    const t = base();
+    expect(setParty(t, "m1")).toBe(t);
+    expect(setParty(t, GM_ENTRY)).toBe(t);
+    const full = tracker(Object.fromEntries([...Array.from({ length: MAX_ENTRIES - 1 }, (_, i) => [`x${i}`, null]), [GM_ENTRY, null]]));
+    expect(setParty(full, "new")).toBe(full);
+  });
+
+  it("clearing: null clears it; clearing nothing changes nothing", () => {
+    const t = setParty(base(), "a");
+    expect(t.party).toBe("a");
+    expect(setParty(t, null).party).toBeNull();
+    const none = base();
+    expect(setParty(none, null)).toBe(none);
+  });
+
+  it("its members: living players only; the prior attachments go when it splits", () => {
+    const t = setParty(base(), "a");
+    expect(partyMembers(t)).not.toContain("a");
+    const together = setPrior(setTogether(t, true), { b: { to: "horse", off: null } });
+    expect(together.prior).toEqual({ b: { to: "horse", off: null } });
+    expect(setTogether(together, false).prior).toEqual({});
+  });
+
+  it("goes when its entry is removed, pruned, or made a monster", () => {
+    const t = setParty(base(), "a");
+    expect(remove(t, ["a"]).party).toBeNull();
+    expect(prune(t, (id) => id !== "a").party).toBeNull();
+    expect(setMonster(t, ["a"], true).party).toBeNull();
+    expect(remove(t, ["b"]).party).toBe("a");
+  });
+
+  it("parsing keeps it only for a tracked player entry", () => {
+    const t = setParty(base(), "a");
+    expect(parseTracker(JSON.parse(JSON.stringify(t))).party).toBe("a");
+    for (const bad of ["zzz", "m1", GM_ENTRY, 5, null]) expect(parseTracker({ ...JSON.parse(JSON.stringify(t)), party: bad }).party).toBeNull();
+  });
+});
+
+
+describe("Party / Split", () => {
+  const withParty = (together = false) => {
+    const t = setParty(tracker({ a: 1, b: 2, m1: null, [GM_ENTRY]: 3 }), "p");
+    return together ? setTogether(t, true, null) : t;
+  };
+  const order = (t: Tracker) => ids(turnOrder({ ...t, phase: "combat" }));
+
+  it("no Party token: everyone takes turns; split: the Party token sits out; together: the players do", () => {
+    expect(order(setParty(tracker({ a: 1, b: 2, [GM_ENTRY]: 3 }), null))).toEqual(["a", "b", GM_ENTRY]);
+    expect(order(withParty(false))).toEqual(["a", "b", GM_ENTRY, "m1"]);
+    expect(order(withParty(true))).toEqual(["p", GM_ENTRY, "m1"]);
+  });
+
+  it("together: the Party token takes the highest roll and that player's place; the carrier is kept; a switch that changes nothing is a no-op", () => {
+    const t = setParty(tracker({ a: 5, b: 17, c: 9, [GM_ENTRY]: 3 }), "p");
+    const joined = setTogether(t, true, "b");
+    expect(ids(joined.entries)).toEqual(["a", "p", "b", "c", GM_ENTRY]);
+    expect(joined.entries.find((e) => e.id === "p")?.roll).toBe(17);
+    expect(joined).toMatchObject({ together: true, carrier: "b" });
+    expect(setTogether(joined, true)).toBe(joined);
+    expect(setTogether(tracker({ a: 1, [GM_ENTRY]: 2 }), true)).toEqual(tracker({ a: 1, [GM_ENTRY]: 2 }));
+    expect(setTogether(joined, false, "zzz").carrier).toBeNull();
+    expect(setTogether(joined, false, "p").carrier).toBeNull();
+  });
+
+  it("no player has rolled: the Party token keeps its place and roll", () => {
+    const t = setParty(tracker({ a: null, [GM_ENTRY]: null }), "p");
+    expect(ids(setTogether(t, true).entries)).toEqual(ids(t.entries));
+  });
+
+  it("switching keeps the round: a player's turn becomes the Party token's, and back to the first player's", () => {
+    const t = { ...setParty(tracker({ a: 5, b: 17, [GM_ENTRY]: 3 }), "p"), round: 2, current: "a" };
+    const joined = setTogether(t, true, "b");
+    expect(joined).toMatchObject({ round: 2, current: "p" });
+    expect(setTogether(joined, false, "b")).toMatchObject({ round: 2, current: "b" });
+    const gm = setTogether({ ...t, current: GM_ENTRY }, true);
+    expect(gm.current).toBe(GM_ENTRY);
+    expect(setTogether({ ...t, current: null }, true).current).toBeNull();
+  });
+
+  it("clearing, replacing or losing the Party token splits the players and forgets the carrier", () => {
+    const joined = setTogether(withParty(false), true, "a");
+    for (const t of [setParty(joined, null), setParty(joined, "a"), remove(joined, ["p"])]) expect(t).toMatchObject({ together: false, carrier: null });
+    expect(remove(joined, ["a"])).toMatchObject({ together: true, carrier: null });
+  });
+
+  it("saved and parsed: together and carrier need a Party token and a tracked player", () => {
+    const joined = setTogether(withParty(false), true, "a");
+    expect(parseTracker(JSON.parse(JSON.stringify(joined)))).toMatchObject({ party: "p", together: true, carrier: "a" });
+    const raw = JSON.parse(JSON.stringify(joined));
+    expect(parseTracker({ ...raw, party: null })).toMatchObject({ together: false, carrier: null });
+    expect(parseTracker({ ...raw, carrier: "m1" }).carrier).toBeNull();
+    expect(parseTracker({ ...raw, carrier: "p" }).carrier).toBeNull();
+  });
+
+  it("prior attachments: kept for tracked players only, checked when read; gone when the Party token is cleared or a player leaves", () => {
+    const t = setPrior(withParty(false), { a: { to: "mount", off: ["ROTATION"] }, b: { to: null, off: null } });
+    expect(parseTracker(JSON.parse(JSON.stringify(t))).prior).toEqual({ a: { to: "mount", off: ["ROTATION"] }, b: { to: null, off: null } });
+    const raw = JSON.parse(JSON.stringify(t));
+    const bad = parseTracker({ ...raw, prior: { a: { to: 5, off: ["ROTATION", "NOPE", 3] }, m1: { to: "x", off: null }, p: { to: "x", off: null }, b: { to: "p", off: "x" }, zzz: { to: "x", off: null } } });
+    expect(bad.prior).toEqual({ a: { to: null, off: ["ROTATION"] }, b: { to: null, off: null } });
+    expect(remove(t, ["a"]).prior).toEqual({ b: { to: null, off: null } });
+    expect(setParty(t, null).prior).toEqual({});
+    expect(setParty(t, "a").prior).toEqual({});
+    expect(setPrior(tracker({ a: 1, [GM_ENTRY]: 2 }), { a: { to: null, off: null } }).prior).toEqual({});
+  });
+
+  it("a saved turn on a token that now sits out moves on", () => {
+    const raw = JSON.parse(JSON.stringify({ ...setTogether(withParty(false), true, "a"), round: 1, current: "a" }));
+    expect(parseTracker(raw).current).not.toBe("a");
+  });
+});
+
 describe("size", () => {
   // About 12 kB passed in a real room (PR 1); this worst case, with a full
   // crawl (10 exploded dice), is about 12.3 kB.
@@ -525,12 +656,12 @@ describe("parseSettings", () => {
       encounterRolls: true,
       encounterMode: "standard",
       clockDice: 1,
-      hideClock: false,
+      showClock: true,
       showDanger: false,
       autoRoll: false,
       showRolls: false,
       followLight: true,
-      hideRound: false,
+      showRound: true,
       clearRollsOnCombat: true,
       showMarker: true,
       selectOnTurn: true,
@@ -540,10 +671,13 @@ describe("parseSettings", () => {
       showDeath: true,
       dicePlus: true,
     });
-    const off = { encounterRolls: false, encounterMode: "clock", clockDice: 2, hideClock: true, showDanger: true, autoRoll: true, showRolls: true, followLight: false, hideRound: true, clearRollsOnCombat: false, showMarker: false, selectOnTurn: false, showLights: false, playersLight: true, effectIcons: false, showDeath: false, dicePlus: false };
+    const off = { encounterRolls: false, encounterMode: "clock", clockDice: 2, showClock: false, showDanger: true, autoRoll: true, showRolls: true, followLight: false, showRound: false, clearRollsOnCombat: false, showMarker: false, selectOnTurn: false, showLights: false, playersLight: true, effectIcons: false, showDeath: false, dicePlus: false };
     expect(parseSettings(off)).toEqual(off);
     // Rooms saved while Table order existed keep working.
-    expect(parseSettings({ orderMode: "table", hideRound: "yes", clearRollsOnCombat: "no", showMarker: 0 })).toEqual(DEFAULT_SETTINGS);
+    expect(parseSettings({ orderMode: "table", showRound: "no", clearRollsOnCombat: "no", showMarker: 0 })).toEqual(DEFAULT_SETTINGS);
+    // Rooms saved with the old hide switches keep their choice.
+    expect(parseSettings({ hideRound: true, hideClock: true })).toMatchObject({ showRound: false, showClock: false });
+    expect(parseSettings({ hideRound: true, showRound: true })).toMatchObject({ showRound: true });
     expect(parseSettings({ encounterRolls: 0, clockDice: 3 })).toMatchObject({ encounterRolls: true, clockDice: 1 });
   });
 

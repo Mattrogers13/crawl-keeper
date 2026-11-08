@@ -61,6 +61,8 @@ const fresh = () => ({
   sceneReady: true,
   sceneMetadata: {} as Metadata,
   items: [] as Item[],
+  // This browser's own items (OBR.scene.local), e.g. Dynamic Fog's walls.
+  localItems: [] as Item[],
   sceneReadyListeners: [] as Listener<boolean>[],
   sceneMetadataListeners: [] as Listener<Metadata>[],
   itemListeners: [] as Listener<Item[]>[],
@@ -285,8 +287,15 @@ export const OBR = {
     // A 5 ft grid at 150 dpi, Owlbear's default.
     grid: {
       getDpi: vi.fn(async () => 150),
+      // Cell centres of the 150 px grid.
+      snapPosition: vi.fn(async (p: { x: number; y: number }) => ({ x: Math.floor(p.x / 150) * 150 + 75, y: Math.floor(p.y / 150) * 150 + 75 })),
       getScale: vi.fn(async () => ({ raw: "5ft", parsed: { multiplier: 5, unit: "ft", digits: 0 } })),
       onChange: vi.fn(() => () => {}),
+    },
+    local: {
+      getItems: vi.fn(async (filter?: string[] | ((i: Item) => boolean)) =>
+        Array.isArray(filter) ? obr.localItems.filter((i) => filter.includes(i.id)) : filter ? obr.localItems.filter(filter) : obr.localItems,
+      ),
     },
     isReady: vi.fn(async () => obr.sceneReady),
     onReadyChange: vi.fn((cb: Listener<boolean>) => subscribe(obr.sceneReadyListeners, cb)),
@@ -327,7 +336,7 @@ export const OBR = {
         while (grew) {
           grew = false;
           for (const i of obr.items) {
-            if (!gone.has(i.id) && i.attachedTo && gone.has(i.attachedTo)) {
+            if (!gone.has(i.id) && i.attachedTo && gone.has(i.attachedTo) && !i.disableAttachmentBehavior?.includes("DELETE")) {
               gone.add(i.id);
               grew = true;
             }

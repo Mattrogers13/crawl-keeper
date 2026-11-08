@@ -11,6 +11,7 @@ import Tracker from "./Tracker";
 import UndoBar from "./UndoBar";
 import { onAddEffect } from "../addEffectHandoff";
 import { useLights } from "../hooks/useLights";
+import { pause, resume } from "../lights";
 import type { Role } from "../hooks/useRole";
 import { useSceneItems, useSceneReady } from "../hooks/useScene";
 import { VERSION } from "../version";
@@ -34,6 +35,7 @@ const Panel = ({ role }: { role: Role }) => {
   return (
     // Fills the popover: header and footer stay put, the content scrolls.
     <div className="flex h-screen flex-col gap-3 p-3 pb-0">
+      {role === "GM" && <PausedBar />}
       <header className="flex shrink-0 flex-col gap-2.5 border-b border-obr-text/10 pb-3">
         <div className="flex items-center gap-2">
           {away && (
@@ -68,6 +70,7 @@ const Panel = ({ role }: { role: Role }) => {
           {role === "GM" && !away && (
             <div className="ml-auto flex shrink-0">
               <span ref={setToolSlot} className="flex empty:hidden" />
+              <PauseButton />
               <LightsButton open={() => setView("lights")} />
               <button
                 type="button"
@@ -112,7 +115,7 @@ const Panel = ({ role }: { role: Role }) => {
           <Loading />
         ) : scene.ready ? (
           // A new key per opened scene: switching maps reads the new map fresh.
-          <Tracker key={scene.opened} role={role} toolSlot={toolSlot} titleSlot={titleSlot} />
+          <Tracker key={scene.opened} role={role} toolSlot={toolSlot} titleSlot={titleSlot} openLights={() => setView("lights")} />
         ) : (
           <p className="text-sm text-obr-text-secondary">Open a scene to use the tracker.</p>
         )}
@@ -121,6 +124,48 @@ const Panel = ({ role }: { role: Role }) => {
       <Footer />
       <ResizeGrip />
     </div>
+  );
+};
+
+// While the lights are paused, a red bar across the top (Matt, 2026-11-07);
+// clicking it resumes them and the normal view returns.
+const PausedBar = () => {
+  const { loaded, lights, change } = useLights();
+  if (!loaded || !lights.paused) return null;
+  return (
+    <button
+      type="button"
+      aria-label="Paused. Resume lights"
+      title="Lights are paused. Click to resume"
+      className="-mx-3 -mt-3 flex shrink-0 items-center justify-center gap-2 bg-red-700 px-3 py-2.5 text-base font-semibold tracking-wide text-white hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white"
+      onClick={() => change("Resume lights", resume)}
+    >
+      Paused
+      <span className="text-xs font-normal opacity-80">click to resume</span>
+    </button>
+  );
+};
+
+// Pause / resume the light timers from the main page (Matt, 2026-11-07), the
+// same change as the Light Tracker's button. Only once there are lights; lit
+// amber while paused.
+const PauseButton = () => {
+  const { loaded, lights, change } = useLights();
+  if (!loaded || lights.lights.length === 0) return null;
+  const paused = lights.paused;
+  return (
+    <button
+      type="button"
+      aria-label={paused ? "Resume lights" : "Pause lights"}
+      aria-pressed={paused}
+      title={paused ? "Lights paused. Resume" : "Pause the lights"}
+      className={`flex h-8 w-8 items-center justify-center rounded-full text-sm hover:bg-obr-bg ${
+        paused ? "bg-amber-500/20 text-amber-700 dark:text-amber-300" : "text-obr-text-secondary hover:text-obr-text"
+      }`}
+      onClick={() => (paused ? change("Resume lights", resume) : change("Pause lights", pause))}
+    >
+      {paused ? "▶" : "❚❚"}
+    </button>
   );
 };
 
@@ -152,7 +197,8 @@ const NO_NAMES = new Map<string, string>();
 const LightsOnMap = () => {
   const items = useSceneItems();
   if (items === null) return <Loading />;
-  return <LightTracker names={new Map(items.map((i) => [i.id, i.name?.trim() || "Unnamed"]))} />;
+  const names = new Map(items.map((i) => [i.id, i.name?.trim() || "Unnamed"]));
+  return <LightTracker names={names} />;
 };
 
 // The players' view needs the open map's tokens (which are theirs, names).

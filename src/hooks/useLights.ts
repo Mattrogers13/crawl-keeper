@@ -71,7 +71,17 @@ export const useLights = () => {
     };
     run().catch((err) => notify(`Couldn't change the lights: ${errorMessage(err)}`, "ERROR"));
   };
-  return { loaded: doc.loaded, lights: doc.value, change };
+  // An automatic change: read fresh, apply, save; no undo step and no toast
+  // (spent lights leaving at the next turn).
+  const quiet = (fn: (s: Lights) => Lights) => {
+    const run = async () => {
+      const before = parseLights((await OBR.room.getMetadata())[LIGHTS_KEY]);
+      const after = fn(before);
+      if (after !== before) await doc.write(after);
+    };
+    run().catch((err) => console.warn(`Couldn't tidy the lights: ${errorMessage(err)}`));
+  };
+  return { loaded: doc.loaded, lights: doc.value, change, quiet };
 };
 
 // "none" / "lit" / "dark", re-read when the next lit light burns out, so a

@@ -50,10 +50,10 @@ describe("undo", () => {
 
   it("a room-only step (settings) needs no map and restores the settings", async () => {
     obr.sceneReady = false;
-    obr.metadata = { [SETTINGS_KEY]: { hideRound: true } };
-    await record("Setting: hide rounds", [{ store: "room", key: SETTINGS_KEY, before: { hideRound: false }, after: { hideRound: true } }]);
+    obr.metadata = { [SETTINGS_KEY]: { showRound: false } };
+    await record("Setting: show rounds", [{ store: "room", key: SETTINGS_KEY, before: { showRound: true }, after: { showRound: false } }]);
     await undo();
-    expect(obr.metadata[SETTINGS_KEY]).toEqual({ hideRound: false });
+    expect(obr.metadata[SETTINGS_KEY]).toEqual({ showRound: true });
   });
 
   it("nothing changed: no step", async () => {
@@ -103,8 +103,8 @@ describe("undo", () => {
   });
 
   it("a failed write keeps the step and says so", async () => {
-    obr.metadata = { [SETTINGS_KEY]: { hideRound: true } };
-    await record("Setting", [{ store: "room", key: SETTINGS_KEY, before: { hideRound: false }, after: { hideRound: true } }]);
+    obr.metadata = { [SETTINGS_KEY]: { showRound: false } };
+    await record("Setting", [{ store: "room", key: SETTINGS_KEY, before: { showRound: true }, after: { showRound: false } }]);
     obr.failWrites = true;
     await undo();
     expect(OBR.notification.show).toHaveBeenCalledWith(expect.stringContaining("Couldn't undo"), "ERROR");

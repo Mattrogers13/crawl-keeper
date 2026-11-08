@@ -2,11 +2,11 @@
 // dead tokens, and selecting the current token. Runs on the GM's client, only from the GM's own clicks
 // (a turn change, a setting), never from data change events: each client
 // reacting to the same change would add a marker each.
-import OBR, { buildImage, type Image, type Item } from "@owlbear-rodeo/sdk";
+import OBR, { buildImage, type AttachmentBehavior, type Image, type Item } from "@owlbear-rodeo/sdk";
 
 import { BADGE_KEY, EFFECT_ICON_KEY, MARKER_KEY, SETTINGS_KEY, SKULL_KEY, TRACKER_KEY } from "./constants";
 import { parseSettings, type Settings } from "./settings";
-import { GM_ENTRY, parseTracker, type Tracker } from "./tracker";
+import { GM_ENTRY, parseTracker, partyMembers, type Point, type PriorAttach, type Tracker } from "./tracker";
 import { errorMessage, notify } from "./utils";
 
 type TurnSettings = Pick<Settings, "showMarker" | "selectOnTurn">;
@@ -219,14 +219,86 @@ export const afterTurnChange = async (before: Tracker, after: Tracker, settings:
   await syncTurn(token, { showMarker: settings.showMarker, selectOnTurn: select }).catch(report);
 };
 
+// The Party / Split switch on the map (Matt, 2026-11-07, option 2): together,
+// the living players are attached to the Party token (position only: they
+// travel with it, nothing else follows) and hidden, and the Party token
+// shows; split, they're detached (their own earlier attachment put back) and
+// shown, and the Party token hides. Positions are partyMode.ts's. Runs on
+// every switch and its undo; clearing or replacing the Party token lets the
+// players go and shows them (together), or shows the old Party token
+// (split). Setting it, or a token the GM hides by hand, is left alone until
+// the next switch.
+// `spots`: where players stand, set in the same update that shows or hides
+// them: Dynamic Fog keeps a token's light where the token was shown if the
+// move comes a moment later (Matt's room, 2026-11-07: after Split, the moved
+// players' 3 ft lights stayed where they'd been).
+export const PARTY_ATTACH_OFF: AttachmentBehavior[] = ["ROTATION", "SCALE", "DELETE", "LOCKED", "COPY", "VISIBLE"];
+
+const letGo = (d: Item, party: string, prior: PriorAttach | undefined) => {
+  if (d.attachedTo !== party) return;
+  if (prior?.to) d.attachedTo = prior.to;
+  else delete d.attachedTo;
+  if (prior?.off) d.disableAttachmentBehavior = prior.off as AttachmentBehavior[];
+  else delete d.disableAttachmentBehavior;
+};
+
+// A token we attached to `party` (our exact behaviours off): a player pulled
+// in. Something the GM attached by hand, a label, is left alone.
+const pulledIn = (i: Item, party: string) => i.attachedTo === party && (i.disableAttachmentBehavior ?? []).join() === PARTY_ATTACH_OFF.join();
+
+// Letting go: the tracker's players plus every token still pulled in, so one
+// marked dead or a monster, or taken off the list, while together comes back
+// too (it's no longer on the tracker's list of players).
+const stillPulledIn = async (party: string, listed: string[]) => {
+  const held = await OBR.scene.items.getItems((i) => pulledIn(i, party));
+  return [...new Set([...listed, ...held.map((i) => i.id)])];
+};
+
+export const syncParty = async (before: Tracker, after: Tracker, spots: Record<string, Point> = {}) => {
+  if (before.party !== null && after.party !== before.party) {
+    const party = before.party;
+    // Together: let the players go. Split: the old Party token was hidden by
+    // the switch; it's a plain row now, so show it.
+    const ids = before.together ? await stillPulledIn(party, partyMembers(before)) : [party];
+    if (ids.length > 0)
+      await OBR.scene.items.updateItems(ids, (drafts) => {
+        for (const d of drafts) {
+          if (before.together) letGo(d, party, before.prior[d.id]);
+          d.visible = true;
+        }
+      });
+    return;
+  }
+  if (after.party === null || before.party !== after.party || before.together === after.together) return;
+  const party = after.party;
+  const ids = [party, ...(after.together ? partyMembers(after) : await stillPulledIn(party, partyMembers(after)))];
+  await OBR.scene.items.updateItems(ids, (drafts) => {
+    for (const d of drafts) {
+      if (spots[d.id]) d.position = { ...spots[d.id] };
+      if (d.id === party) d.visible = after.together;
+      else if (after.together) {
+        d.attachedTo = party;
+        d.disableAttachmentBehavior = [...PARTY_ATTACH_OFF];
+        d.visible = false;
+      } else {
+        letGo(d, party, before.prior[d.id] ?? after.prior[d.id]);
+        d.visible = true;
+      }
+    }
+  });
+};
+
 // Every GM write calls this (panel and right-click): the marker and
 // selection when the turn changed, the skulls when who's dead changed (marked,
 // revived, or removed from the tracker while dead).
-export const afterChange = async (before: Tracker, after: Tracker, settings: TurnSettings) => {
+// `partySynced`: the caller already ran syncParty (the switch, the party
+// token, undo), so it isn't run twice.
+export const afterChange = async (before: Tracker, after: Tracker, settings: TurnSettings, partySynced = false) => {
   const dead = deadTokens(after);
   const deadChanged = dead.join() !== deadTokens(before).join();
   await Promise.all([
     afterTurnChange(before, after, settings),
+    !partySynced && syncParty(before, after).catch((err) => notify(`Couldn't move the party's tokens together or apart: ${errorMessage(err)}`, "WARNING")),
     deadChanged && syncSkulls(dead).catch((err) => notify(`Couldn't update the skulls: ${errorMessage(err)}`, "WARNING")),
   ]);
 };
@@ -246,3 +318,43 @@ export const syncTurnFromScene = (settings: Pick<Settings, "showMarker">) =>
 
 // For the background page: the current settings from the room.
 export const readSettings = async () => parseSettings((await OBR.room.getMetadata())[SETTINGS_KEY]);
+
+// GM background page: the Party token deleted while the party is together.
+// Its players would stay hidden, still pointing at it (DELETE off keeps
+// them, with a stale attachedTo); let them go and show them. Works from the
+// items Owlbear hands over (no reads on every drag); the tracker only for
+// their own earlier attachments, and it may already have dropped the Party
+// token (prune), so the orphans are found by our attach mark, not the list.
+export const watchPartyToken = () => {
+  let gm = false;
+  const check = async (items: Item[]) => {
+    if (!gm) return;
+    const here = new Set(items.map((i) => i.id));
+    const left = items.filter((i) => i.attachedTo && !here.has(i.attachedTo) && pulledIn(i, i.attachedTo));
+    if (left.length === 0) return;
+    const t = parseTracker((await OBR.scene.getMetadata())[TRACKER_KEY]);
+    await OBR.scene.items.updateItems(
+      left.map((i) => i.id),
+      (drafts) => {
+        for (const d of drafts) {
+          letGo(d, d.attachedTo!, t.prior[d.id]);
+          d.visible = true;
+        }
+      },
+    );
+  };
+  const run = (items: Item[]) => void check(items).catch((err) => console.warn(`Couldn't let the party go after its token was deleted: ${errorMessage(err)}`));
+  OBR.player
+    .getRole()
+    .then(async (r) => {
+      gm = r === "GM";
+      if (gm && (await OBR.scene.isReady())) run(await OBR.scene.items.getItems());
+    })
+    .catch((err) => console.warn(`Couldn't read the role: ${errorMessage(err)}`));
+  const offPlayer = OBR.player.onChange((p) => (gm = p.role === "GM"));
+  const offItems = OBR.scene.items.onChange(run);
+  return () => {
+    offPlayer();
+    offItems();
+  };
+};

@@ -30,3 +30,4 @@ export const toggleInitiative = async (ids: string[]) => {
   await afterChange(tracker, updated, settings);
 };
 
+// The right-click Set / Clear party token: partyMode.ts (lights and players too).

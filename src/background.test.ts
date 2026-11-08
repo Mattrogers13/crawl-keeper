@@ -55,7 +55,7 @@ describe("background: Add / Remove Initiative", () => {
     expect(menus[0].icons[0]).toMatchObject({ label: "Crawl Keeper", icon: "/img/initiative.svg" });
     expect(menus[0].icons[0].filter?.roles).toEqual(["GM"]);
     expect(menus[0].icons[0].filter?.every?.map((f) => f.value)).toEqual(["CHARACTER", "MOUNT", "PROP", "IMAGE"]);
-    expect(menus[0].embed).toEqual({ url: "/menu", height: 7 * 36 + 8 });
+    expect(menus[0].embed).toEqual({ url: "/menu", height: 9 * 36 + 3 * 9 + 8 });
   });
 });
 
@@ -154,7 +154,7 @@ describe("background: the players' menu", () => {
     const created = () => vi.mocked(OBR.contextMenu.create).mock.calls.filter((c) => c[0].id === PLAYER_MENU_ID).length;
     expect(created()).toBe(0);
     await writeFromElsewhere({ [SETTINGS_KEY]: { playersLight: true } });
-    await writeFromElsewhere({ [SETTINGS_KEY]: { playersLight: true, hideRound: true } });
+    await writeFromElsewhere({ [SETTINGS_KEY]: { playersLight: true, showRound: false } });
     expect(created()).toBe(1);
     const item = vi.mocked(OBR.contextMenu.create).mock.calls[0][0];
     expect(item.icons[0].filter?.roles).toEqual(["PLAYER"]);

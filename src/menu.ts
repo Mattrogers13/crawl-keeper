@@ -10,6 +10,7 @@ import { LIGHTS_KEY, TRACKER_KEY } from "./constants";
 import { toggleInitiative } from "./initiative";
 import { newLightId, parseLights, type Lights } from "./lights";
 import { menuRows, playerMenuRows, type MenuRow, type MenuToken } from "./mapMenu";
+import { changePartyToken } from "./partyMode";
 import { requestLight } from "./playerLights";
 import { parseTracker } from "./tracker";
 import { record } from "./undo";
@@ -27,6 +28,7 @@ const changeLights = async (step: string, fn: (s: Lights, now: number, newId: ()
 const run = async (row: MenuRow) => {
   const a = row.action;
   if (a?.type === "initiative") await toggleInitiative(a.ids);
+  else if (a?.type === "party") await changePartyToken(a.id);
   else if (a?.type === "lights") await changeLights(a.step, a.fn);
   else if (a?.type === "addEffect") await askToAddEffect(a.ids);
   else if (a?.type === "request")
@@ -70,7 +72,14 @@ export const render = async (root: HTMLElement) => {
     });
     return button;
   });
-  root.replaceChildren(...buttons);
+  root.replaceChildren(
+    ...rows.flatMap((row, i) => {
+      if (!row.group) return [buttons[i]];
+      const line = document.createElement("div");
+      line.setAttribute("role", "separator");
+      return [line, buttons[i]];
+    }),
+  );
 };
 
 if (OBR.isAvailable) {
@@ -79,6 +88,7 @@ if (OBR.isAvailable) {
     const theme = await OBR.theme.getTheme().catch(() => null);
     if (theme) {
       document.documentElement.style.setProperty("--text", theme.text.primary);
+      document.documentElement.style.setProperty("--line", theme.mode === "DARK" ? "rgba(255, 255, 255, 0.12)" : "rgba(0, 0, 0, 0.12)");
       document.documentElement.style.setProperty("--hover", theme.mode === "DARK" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)");
       // The icons are white; darkened on a light theme.
       if (theme.mode === "LIGHT") document.body.classList.add("light");

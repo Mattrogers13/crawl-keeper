@@ -342,6 +342,77 @@ describe("tokens, notes, limits", () => {
   });
 });
 
+describe("handing a light to another token", () => {
+  it("keeps the timer, oil and note; only the carrier changes", () => {
+    const t = setup();
+    t.add("torch", "party", "Party", "the long hall");
+    t.advance(20 * MIN);
+    t.do((s, now) => L.moveLight(s, now, "light-1", "bram", "Bram"));
+    expect(t.light(0)).toMatchObject({ tokenId: "bram", carrier: "Bram", note: "the long hall", status: "lit" });
+    expect(t.left(0)).toBe(40 * MIN);
+    t.do((s, now) => L.moveLight(s, now, "light-1", "party", "Party"));
+    expect(t.left(0)).toBe(40 * MIN);
+  });
+
+  it("a paused light stays frozen; a lantern that's out keeps its oil", () => {
+    const t = setup();
+    t.add("lantern", "a", "A");
+    t.advance(20 * MIN);
+    t.do((s, now) => L.pause(s, now));
+    t.do((s, now) => L.moveLight(s, now, "light-1", "b", "B"));
+    expect(t.light(0)).toMatchObject({ tokenId: "b", endsAt: null });
+    expect(t.left(0)).toBe(40 * MIN);
+    t.do((s, now) => L.resume(s, now));
+    t.do((s, now) => L.putOut(s, now, "light-1"));
+    t.do((s, now) => L.moveLight(s, now, "light-1", "c", "C"));
+    expect(t.light(0)).toMatchObject({ tokenId: "c", status: "out", remainingMs: 30 * MIN });
+  });
+
+  it("refuses a destination that holds a lit light, or an out lantern for an out lantern", () => {
+    const t = setup("separate");
+    t.add("torch", "a");
+    t.add("torch", "b");
+    expect(() => L.moveLight(t.s, t.now(), "light-1", "b", "B")).toThrow(L.AlreadyLitError);
+    const u = setup("separate");
+    u.add("lantern", "a");
+    u.add("lantern", "b");
+    u.do((s, now) => L.putOut(s, now, "light-1"));
+    u.do((s, now) => L.putOut(s, now, "light-2"));
+    expect(() => L.moveLight(u.s, u.now(), "light-1", "b", "B")).toThrow(/light out/);
+  });
+
+  it("a spent light can't move; moving to its own token changes nothing; the destination's spent lights go", () => {
+    const t = setup("separate");
+    t.add("torch", "a");
+    t.add("torch", "b");
+    t.advance(61 * MIN);
+    t.do((s, now) => L.settle(s, now));
+    expect(() => L.moveLight(t.s, t.now(), "light-1", "c", "C")).toThrow(/spent/);
+    const u = setup("separate");
+    u.add("torch", "a");
+    u.add("torch", "b");
+    u.do((s, now) => L.putOut(s, now, "light-2"));
+    expect(L.moveLight(u.s, u.now(), "light-1", "a", "A")).toBe(L.settle(u.s, u.now()));
+    u.do((s, now) => L.moveLight(s, now, "light-1", "b", "B"));
+    expect(u.s.lights.map((l) => l.id)).toEqual(["light-1"]);
+  });
+
+  it("a player's light handed on by the GM is no longer theirs", () => {
+    const t = setup();
+    t.add("torch", "a");
+    t.do((s) => ({ ...s, lights: s.lights.map((l) => ({ ...l, by: "player-2" })) }));
+    t.do((s, now) => L.moveLight(s, now, "light-1", "b", "B"));
+    expect(t.light(0)).not.toHaveProperty("by");
+  });
+
+  it("unknown light or empty token throws", () => {
+    const t = setup();
+    t.add("torch", "a");
+    expect(() => L.moveLight(t.s, t.now(), "nope", "b", "B")).toThrow();
+    expect(() => L.moveLight(t.s, t.now(), "light-1", "", "B")).toThrow();
+  });
+});
+
 describe("manual fixes", () => {
   it("a torch burns once: it can't be lit again, only replaced by a new one keeping carrier and note", () => {
     const t = setup();
@@ -366,7 +437,7 @@ describe("manual fixes", () => {
     expect(t.left(0)).toBe(60 * MIN);
   });
 
-  it("setting the time corrects any light; a spent one comes back lit", () => {
+  it("setting the time corrects a burning light; a spent torch stays out, a spent lantern can come back", () => {
     const t = setup();
     t.add("torch");
     t.advance(20 * MIN);
@@ -374,12 +445,28 @@ describe("manual fixes", () => {
     expect(t.left(0)).toBe(55 * MIN);
     t.advance(5 * MIN);
     expect(t.left(0)).toBe(50 * MIN);
-    t.do((s, now) => L.timePasses(s, now, 50 * MIN));
-    t.do((s, now) => L.setRemaining(s, now, "light-1", 12 * MIN));
-    expect(t.light(0)).toMatchObject({ status: "lit", spentAt: null });
-    expect(t.left(0)).toBe(12 * MIN);
     expect(() => t.do((s, now) => L.setRemaining(s, now, "light-1", 61 * MIN))).toThrow(RangeError);
     expect(() => t.do((s, now) => L.setRemaining(s, now, "light-1", 0))).toThrow(RangeError);
+    t.do((s, now) => L.timePasses(s, now, 50 * MIN));
+    expect(() => t.do((s, now) => L.setRemaining(s, now, "light-1", 12 * MIN))).toThrow(/can't be relit/);
+    expect(t.light(0).status).toBe("spent");
+  });
+
+  it("once a torch, spell or campfire is out it's out; dropSpent clears them at the next turn and keeps a dry lantern", () => {
+    const t = setup("separate");
+    t.add("torch", "a");
+    t.add("lantern", "b");
+    t.add("campfire", "c");
+    t.add("lightSpell", "d");
+    t.advance(46 * MIN);
+    t.do((s, now) => L.putOut(s, now, "light-2"));
+    t.do((s, now) => L.putOut(s, now, "light-1"));
+    t.do((s, now) => L.putOut(s, now, "light-4"));
+    expect(t.statuses()).toEqual(["spent", "spent", "lit", "spent"]);
+    expect(() => t.do((s, now) => L.relight(s, now, "light-1"))).toThrow(/burns once/);
+    const dropped = L.dropSpent(t.s);
+    expect(dropped.lights.map((l) => [l.kind, l.status])).toEqual([["lantern", "spent"], ["campfire", "lit"]]);
+    expect(L.dropSpent(dropped)).toBe(dropped);
   });
 
   it("setting the time: a lantern that's out keeps it exactly; a spent light can't light beside a lit one", () => {

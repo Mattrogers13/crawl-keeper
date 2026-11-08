@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import OBR from "@owlbear-rodeo/sdk";
 
 import App from "./App";
-import { MARKER_KEY, SETTINGS_KEY, SKULL_KEY, TRACKER_KEY } from "../constants";
+import { LIGHTS_KEY, MARKER_KEY, SETTINGS_KEY, SKULL_KEY, TRACKER_KEY } from "../constants";
 import { GM_ENTRY, parseTracker } from "../tracker";
 import { obr, setItems, setSceneReady, token, writeFromElsewhere, writeSceneFromElsewhere } from "../test/obrMock";
 
@@ -40,6 +40,230 @@ describe("Tracker (GM)", () => {
     expect(screen.getByText("Round 2")).toBeInTheDocument();
   });
 
+  it("the Party token's row carries a PARTY chip", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("p", { name: "Wagon" })];
+    scene([{ id: "p" }, { id: "a" }, { id: GM_ENTRY }], null, 0, { party: "p" });
+    render(<App />);
+    await screen.findByText("Wagon");
+    expect(within(rowOf("Wagon")).getByText("PARTY")).toBeInTheDocument();
+    expect(within(rowOf("Aria")).queryByText("PARTY")).toBeNull();
+  });
+
+  it("Party | Split: together hides the players and shows the Party token; the players take no turns; undo flips it back", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" }), token("p", { name: "Wagon", visible: false })];
+    scene([{ id: "a" }, { id: "b" }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p" });
+    render(<App />);
+    await screen.findByText("Wagon");
+    expect(screen.getByRole("button", { name: "Split" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Party" }));
+    await waitFor(() => expect(saved()).toMatchObject({ together: true, party: "p" }));
+    await waitFor(() => expect(obr.items.map((i) => [i.id, i.visible])).toEqual([["a", false], ["b", false], ["p", true]]));
+    expect(rowOf("Aria").firstElementChild!.className).toContain("opacity-45");
+    fireEvent.click(screen.getByLabelText("Next turn"));
+    await waitFor(() => expect(saved().current).toBe("p"));
+    fireEvent.click(screen.getByRole("button", { name: "Undo: Next turn" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo: Party together" }));
+    await waitFor(() => expect(saved().together).toBe(false));
+    await waitFor(() => expect(obr.items.map((i) => [i.id, i.visible])).toEqual([["a", true], ["b", true], ["p", false]]));
+  });
+
+  it("Matt's flow: three tokens, Set as party token from the row, then Party, Split, Party", async () => {
+    obr.items = [
+      token("a", { name: "Aria", position: { x: 100, y: 100 } }),
+      token("b", { name: "Borin", position: { x: 300, y: 300 } }),
+      token("p", { name: "Wagon", position: { x: 800, y: 800 } }),
+    ];
+    scene([{ id: "a" }, { id: "b" }, { id: "p" }, { id: GM_ENTRY }]);
+    // A bounds query that never answers (the first build waited on one) can't stall the switch.
+    vi.mocked(OBR.scene.items.getItemBounds).mockImplementation(() => new Promise(() => {}));
+    render(<App />);
+    await pick("Wagon", "Set as party token");
+    await waitFor(() => expect(saved().party).toBe("p"));
+    const at = (id: string) => obr.items.find((i) => i.id === id)!;
+    // Setting it moves and hides nothing; Split is on, the party token sits out.
+    expect(screen.getByRole("button", { name: "Split" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Party" }));
+    await waitFor(() => expect([at("a").visible, at("b").visible, at("p").visible]).toEqual([false, false, true]));
+    expect([at("a").attachedTo, at("b").attachedTo]).toEqual(["p", "p"]);
+    fireEvent.click(screen.getByRole("button", { name: "Split" }));
+    await waitFor(() => expect([at("a").visible, at("b").visible, at("p").visible]).toEqual([true, true, false]));
+    expect([at("a").attachedTo, at("b").attachedTo]).toEqual([undefined, undefined]);
+    // Clearing the party token while together shows the players again.
+    fireEvent.click(screen.getByRole("button", { name: "Party" }));
+    await waitFor(() => expect(at("a").visible).toBe(false));
+    await pick("Wagon", "Clear party token");
+    await waitFor(() => expect(saved().party).toBeNull());
+    await waitFor(() => expect([at("a").visible, at("b").visible]).toEqual([true, true]));
+    expect([at("a").attachedTo, at("b").attachedTo]).toEqual([undefined, undefined]);
+  });
+
+  it("Party: players gather on their side of the Party token (the rally point), attach and hide; Split: they detach and show where they stand", async () => {
+    obr.items = [
+      token("a", { name: "Aria", position: { x: 75, y: 825 } }),
+      token("b", { name: "Borin", position: { x: 1575, y: 825 }, attachedTo: "horse", disableAttachmentBehavior: ["ROTATION"] }),
+      token("p", { name: "Wagon", position: { x: 825, y: 825 }, visible: false }),
+    ];
+    scene([{ id: "a" }, { id: "b" }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p" });
+    render(<App />);
+    await screen.findByText("Wagon");
+    const at = (id: string) => obr.items.find((i) => i.id === id)!;
+    fireEvent.click(screen.getByRole("button", { name: "Party" }));
+    await waitFor(() => expect(at("a").attachedTo).toBe("p"));
+    expect(at("a").position).toEqual({ x: 675, y: 825 });
+    expect(at("b").position).toEqual({ x: 975, y: 825 });
+    expect(at("b").attachedTo).toBe("p");
+    expect(at("b").disableAttachmentBehavior).toEqual(["ROTATION", "SCALE", "DELETE", "LOCKED", "COPY", "VISIBLE"]);
+    expect([at("a").visible, at("b").visible, at("p").visible]).toEqual([false, false, true]);
+    expect(at("p").position).toEqual({ x: 825, y: 825 });
+    expect(saved().prior).toEqual({ a: { to: null, off: null }, b: { to: "horse", off: ["ROTATION"] } });
+    // The GM drags the party; Owlbear carries the attached players along.
+    await setItems(obr.items.map((i) => ({ ...i, position: { x: i.position.x + 3000, y: i.position.y } })));
+    fireEvent.click(screen.getByRole("button", { name: "Split" }));
+    await waitFor(() => expect(at("a").visible).toBe(true));
+    expect(at("a").attachedTo).toBeUndefined();
+    expect(at("a").disableAttachmentBehavior).toBeUndefined();
+    expect(at("b").attachedTo).toBe("horse");
+    expect(at("b").disableAttachmentBehavior).toEqual(["ROTATION"]);
+    expect([at("a").position, at("b").position]).toEqual([{ x: 3675, y: 825 }, { x: 3975, y: 825 }]);
+    expect(at("p").visible).toBe(false);
+  });
+
+  it("clearing the party token while together hands its light back to the carrier, timer and all, and lets the players go", async () => {
+    const torch = { id: "l1", kind: "torch", tokenId: "p", carrier: "Wagon", note: "", status: "lit", remainingMs: 1_800_000, endsAt: Date.now() + 1_800_000, spentAt: null };
+    obr.metadata = { [LIGHTS_KEY]: { lights: [torch] } };
+    obr.items = [
+      token("a", { name: "Aria", attachedTo: "p", visible: false }),
+      token("b", { name: "Borin", attachedTo: "p", visible: false }),
+      token("p", { name: "Wagon" }),
+    ];
+    scene([{ id: "a" }, { id: "b" }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p", together: true, carrier: "b" });
+    render(<App />);
+    await screen.findByText("Wagon");
+    await pick("Wagon", "Clear party token");
+    await waitFor(() => expect(saved().party).toBeNull());
+    const l = (obr.metadata[LIGHTS_KEY] as { lights: { tokenId: string; endsAt: number }[] }).lights[0];
+    expect(l.tokenId).toBe("b");
+    expect(l.endsAt).toBe(torch.endsAt);
+    await waitFor(() => expect(obr.items.filter((i) => i.id !== "p").map((i) => [i.attachedTo, i.visible])).toEqual([[undefined, true], [undefined, true]]));
+    expect(await screen.findByRole("button", { name: "Undo: Clear party token" })).toBeInTheDocument();
+  });
+
+  it("the party token is shown before a light moves onto it (Dynamic Fog draws a light set on a hidden token hidden)", async () => {
+    const torch = { id: "l1", kind: "torch", tokenId: "a", carrier: "Aria", note: "", status: "lit", remainingMs: 3_600_000, endsAt: Date.now() + 3_600_000, spentAt: null };
+    obr.metadata = { [LIGHTS_KEY]: { lights: [torch] } };
+    obr.items = [token("a", { name: "Aria" }), token("p", { name: "Wagon", visible: false })];
+    scene([{ id: "a" }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p" });
+    render(<App />);
+    await screen.findByText("Wagon");
+    const seen: boolean[] = [];
+    const write = vi.mocked(OBR.room.setMetadata);
+    const real = write.getMockImplementation()!;
+    write.mockImplementation(async (update) => {
+      if (LIGHTS_KEY in update) seen.push(obr.items.find((i) => i.id === "p")!.visible);
+      return real(update);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Party" }));
+    await waitFor(() => expect(saved().together).toBe(true));
+    expect((obr.metadata[LIGHTS_KEY] as { lights: { tokenId: string }[] }).lights[0].tokenId).toBe("p");
+    expect(seen).toEqual([true]);
+  });
+
+  it("Dynamic Fog's walls: nobody is pulled through one, and a player the trip carried behind one is moved back on Split", async () => {
+    // A wall just east of the rally point, top to bottom (a local item, as Dynamic Fog builds them).
+    obr.localItems = [{ ...token("w1"), type: "WALL", layer: "FOG", position: { x: 0, y: 0 }, points: [{ x: 900, y: 0 }, { x: 900, y: 2000 }], blocking: true } as never];
+    obr.items = [
+      token("b", { name: "Borin", position: { x: 1575, y: 825 } }),
+      token("p", { name: "Wagon", position: { x: 825, y: 825 }, visible: false }),
+    ];
+    scene([{ id: "b" }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p" });
+    render(<App />);
+    await screen.findByText("Wagon");
+    const at = (id: string) => obr.items.find((i) => i.id === id)!;
+    fireEvent.click(screen.getByRole("button", { name: "Party" }));
+    await waitFor(() => expect(at("b").attachedTo).toBe("p"));
+    expect(at("b").position.x).toBeLessThan(900);
+    // The trip dragged Borin across the wall.
+    await setItems(obr.items.map((i) => (i.id === "b" ? { ...i, position: { x: 1125, y: 825 } } : i)));
+    // Dynamic Fog keeps a light where a token was shown if the move comes
+    // after: Borin is never shown behind the wall, not even for one update.
+    const shownAt: number[] = [];
+    const update = vi.mocked(OBR.scene.items.updateItems);
+    const real = update.getMockImplementation()!;
+    update.mockImplementation(async (...args: Parameters<typeof real>) => {
+      await real(...args);
+      if (at("b").visible) shownAt.push(at("b").position.x);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Split" }));
+    await waitFor(() => expect(at("b").visible).toBe(true));
+    expect(at("b").position.x).toBeLessThan(900);
+    expect(shownAt.every((x) => x < 900)).toBe(true);
+  });
+
+  it("Split lets go a player marked dead (or a monster, or taken off the list) while together", async () => {
+    const off = ["ROTATION", "SCALE", "DELETE", "LOCKED", "COPY", "VISIBLE"] as never;
+    obr.items = [
+      token("a", { name: "Aria", attachedTo: "p", disableAttachmentBehavior: off, visible: false }),
+      token("b", { name: "Borin", attachedTo: "p", disableAttachmentBehavior: off, visible: false }),
+      token("c", { name: "Cleo", attachedTo: "p", disableAttachmentBehavior: off, visible: false }),
+      token("l", { name: "Label", attachedTo: "p", visible: false }),
+      token("p", { name: "Wagon" }),
+    ];
+    scene([{ id: "a" }, { id: "b", dead: true }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p", together: true });
+    render(<App />);
+    await screen.findByText("Wagon");
+    fireEvent.click(screen.getByRole("button", { name: "Split" }));
+    await waitFor(() => expect(saved().together).toBe(false));
+    const at = (id: string) => obr.items.find((i) => i.id === id)!;
+    await waitFor(() => expect(["a", "b", "c"].map((id) => [at(id).attachedTo, at(id).visible])).toEqual([[undefined, true], [undefined, true], [undefined, true]]));
+    // Something the GM attached by hand stays as it was.
+    expect([at("l").attachedTo, at("l").visible]).toEqual(["p", false]);
+  });
+
+  it("clearing the party token while split shows it again (the switch had hidden it)", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("p", { name: "Wagon", visible: false })];
+    scene([{ id: "a" }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p", together: false });
+    render(<App />);
+    await screen.findByText("Wagon");
+    await pick("Wagon", "Clear party token");
+    await waitFor(() => expect(saved().party).toBeNull());
+    await waitFor(() => expect(obr.items.find((i) => i.id === "p")!.visible).toBe(true));
+  });
+
+  it("Combat with the party together splits it in the same step (one undo); with a light, it asks for the carrier first", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" }), token("p", { name: "Wagon" })];
+    scene([{ id: "a", roll: 12 }, { id: "b", roll: 5 }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p", together: true });
+    render(<App />);
+    await screen.findByText("Wagon");
+    fireEvent.click(screen.getByRole("button", { name: "Combat" }));
+    await waitFor(() => expect(saved()).toMatchObject({ phase: "combat", together: false }));
+    expect(await screen.findByRole("button", { name: "Undo: Combat" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Undo: Combat" }));
+    await waitFor(() => expect(saved()).toMatchObject({ phase: "crawl", together: true }));
+  });
+
+  it("Split with a light on the Party token asks who carries it, then moves it with its timer", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" }), token("p", { name: "Wagon" })];
+    obr.metadata = { [LIGHTS_KEY]: { lights: [{ id: "l1", kind: "torch", tokenId: "p", carrier: "Wagon", note: "", status: "lit", remainingMs: 3_600_000, endsAt: Date.now() + 3_600_000, spentAt: null }] } };
+    scene([{ id: "a" }, { id: "b" }, { id: "p" }, { id: GM_ENTRY }], null, 0, { party: "p", together: true });
+    render(<App />);
+    await screen.findByText("Wagon");
+    fireEvent.click(screen.getByRole("button", { name: "Split" }));
+    const ask = await screen.findByRole("dialog", { name: "Who carries the light" });
+    expect(saved().together).toBe(true);
+    // N / B / R don't act behind the question.
+    fireEvent.keyDown(within(ask).getAllByRole("button")[0], { key: "n" });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(saved().current).toBeNull();
+    // Pressing Split again doesn't redraw the question (the "flicker").
+    fireEvent.click(screen.getByRole("button", { name: "Split" }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByRole("dialog", { name: "Who carries the light" })).toBe(ask);
+    fireEvent.click(within(ask).getByRole("button", { name: "Borin" }));
+    await waitFor(() => expect(saved()).toMatchObject({ together: false, carrier: "b" }));
+    expect((obr.metadata[LIGHTS_KEY] as { lights: { tokenId: string }[] }).lights[0].tokenId).toBe("b");
+    expect(obr.items.map((i) => [i.id, i.visible])).toEqual([["a", true], ["b", true], ["p", false]]);
+  });
+
   it("edits rolls and notes; a roll entered sorts the list (clearing one doesn't); Sort by roll still works", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     scene([{ id: "a" }, { id: "b" }, { id: GM_ENTRY }]);
@@ -62,7 +286,7 @@ describe("Tracker (GM)", () => {
     fireEvent.change(aria, { target: { value: "9" } });
     fireEvent.blur(aria);
     await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["a", "b", GM_ENTRY]));
-    fireEvent.click(screen.getByLabelText("Sort by roll"));
+    fireEvent.click(screen.getByRole("button", { name: "Init" }));
     await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["a", "b", GM_ENTRY]));
   });
 
@@ -132,10 +356,10 @@ describe("Tracker (GM)", () => {
   it("settings: the gear opens them, both checkboxes save to the room, back returns", async () => {
     render(<App />);
     fireEvent.click(await screen.findByLabelText("Settings"));
-    fireEvent.click(await screen.findByLabelText("Hide rounds from players", { exact: false }));
-    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ hideRound: true, clearRollsOnCombat: true }));
+    fireEvent.click(await screen.findByLabelText("Show rounds to players", { exact: false }));
+    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ showRound: false, clearRollsOnCombat: true }));
     fireEvent.click(screen.getByLabelText("Clear initiative rolls on combat", { exact: false }));
-    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ hideRound: true, clearRollsOnCombat: false }));
+    await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ showRound: false, clearRollsOnCombat: false }));
     fireEvent.click(screen.getByLabelText("Select the current token", { exact: false }));
     await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ selectOnTurn: false }));
     expect(await screen.findByText(/This map: .* kB tracker/)).toBeInTheDocument();
@@ -226,6 +450,27 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(obr.selection).toEqual(["b"]));
   });
 
+  it("Rename… edits the token's own name in the row: Enter saves it, Escape or no change leaves it", async () => {
+    obr.items = [token("a", { name: "Goblin" })];
+    obr.metadata = { [LIGHTS_KEY]: { lights: [{ id: "l1", kind: "torch", tokenId: "a", carrier: "Goblin", note: "", status: "lit", remainingMs: 3_600_000, endsAt: Date.now() + 3_600_000, spentAt: null }] } };
+    scene([{ id: "a" }, { id: GM_ENTRY }]);
+    render(<App />);
+    await pick("Goblin", "Rename…");
+    const field = await screen.findByLabelText("Rename Goblin");
+    expect(field).toHaveValue("Goblin");
+    fireEvent.keyDown(field, { key: "Escape" });
+    expect(screen.queryByLabelText("Rename Goblin")).not.toBeInTheDocument();
+    expect(obr.items[0].name).toBe("Goblin");
+    await pick("Goblin", "Rename…");
+    const again = await screen.findByLabelText("Rename Goblin");
+    fireEvent.change(again, { target: { value: "  Goblin 2 " } });
+    fireEvent.keyDown(again, { key: "Enter" });
+    await waitFor(() => expect(obr.items[0].name).toBe("Goblin 2"));
+    expect(await screen.findByText("Goblin 2")).toBeInTheDocument();
+    // Its light's carrier name follows (the notices use it).
+    await waitFor(() => expect((obr.metadata[LIGHTS_KEY] as { lights: { carrier: string }[] }).lights[0].carrier).toBe("Goblin 2"));
+  });
+
   it("the ⋯ button opens the same menu; Escape and clicking away close it; none for the GM row", async () => {
     obr.items = [token("a", { name: "Aria" })];
     scene([{ id: "a" }, { id: GM_ENTRY }]);
@@ -236,15 +481,19 @@ describe("Tracker (GM)", () => {
       "Mark as monster",
       "Mark dead",
       "Dying…",
-      "Turn marker off",
       "Show on map",
+      "Rename…",
+      "Set as party token",
       "Add note",
+      "Turn marker off",
       "Add effect…",
       "Give torch",
       "Give lantern",
       "Give Light spell",
       "Remove from initiative",
     ]);
+    // Five groups, a thin line between them: state, the row, effects, lights, leaving.
+    expect(within(menu).getAllByRole("group")).toHaveLength(5);
     expect(within(menu).getByRole("menuitem", { name: "Mark as monster" })).toHaveFocus();
     fireEvent.keyDown(menu, { key: "ArrowDown" });
     expect(within(menu).getByRole("menuitem", { name: "Mark dead" })).toHaveFocus();
@@ -436,7 +685,7 @@ describe("Tracker (GM)", () => {
     fireEvent.click(screen.getByText("GM / Monsters"));
     expect(selected()).toBe(0);
     fireEvent.click(screen.getByText("Aria"));
-    fireEvent.click(screen.getByLabelText("Sort by roll"));
+    fireEvent.click(screen.getByRole("button", { name: "Init" }));
     expect(selected()).toBe(0);
   });
 
@@ -755,11 +1004,16 @@ describe("Tracker (GM)", () => {
       render(<App />);
       const card = await screen.findByRole("region", { name: "Crawling Clock" });
       expect(within(card).getByRole("img", { name: "Players see the Crawling Clock" })).toBeInTheDocument();
-      expect(within(card).getByRole("img", { name: "Players see the rolls" })).toBeInTheDocument();
-      await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "standard", hideClock: true, showDanger: true } });
+      expect(within(card).getByRole("button", { name: "Hide rolls from players" })).toHaveAttribute("aria-pressed", "true");
+      await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "standard", showClock: false, showDanger: true } });
       const standard = await screen.findByRole("region", { name: "Encounter checks" });
       expect(within(standard).getByRole("img", { name: "Players see the danger level" })).toBeInTheDocument();
       expect(within(standard).queryByRole("img", { name: /Players see the (Crawling Clock|rolls)/ })).toBeNull();
+      // The rolls are off here: the eye is muted, and one click shows them (an undo step).
+      fireEvent.click(within(standard).getByRole("button", { name: "Show rolls to players" }));
+      await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ showRolls: true }));
+      expect(await screen.findByRole("button", { name: "Undo: Setting: show rolls" })).toBeInTheDocument();
+      expect(within(standard).getByRole("button", { name: "Hide rolls from players" })).toBeInTheDocument();
     });
 
     it("sits under the turn bar (◀ ▶ never moves), not in the list; not there in Settings", async () => {
@@ -807,23 +1061,22 @@ describe("Tracker (GM)", () => {
       await waitFor(() => expect(saved().crawl.last?.before).toBe(33));
     });
 
-    it("manual: the d6 and R roll a check; ▶ off the GM turn counts a due check made (rolled at the table)", async () => {
+    it("manual: the bar keeps the darkness switch and a small die (no danger level or dial); the die and R roll a check; ▶ off the GM turn counts a due check made", async () => {
       obr.metadata = { [SETTINGS_KEY]: { encounterRolls: false, encounterMode: "clock", autoRoll: true } };
       obr.items = [token("a", { name: "Aria" })];
       scene([{ id: GM_ENTRY }, { id: "a" }], GM_ENTRY, 3, { crawl: { crawlRounds: 3 } });
       render(<App />);
-      // The standard cadence (Unsafe: due in crawl round 3), even with the clock chosen.
       const card = await screen.findByRole("region", { name: "Encounter checks" });
-      expect(card).toHaveTextContent("Check due: roll the d6, here or at the table");
-      expect(within(card).queryByRole("button", { name: "Roll d6" })).not.toBeInTheDocument();
+      expect(card).toHaveTextContent("Manual rolls");
+      expect(within(card).queryByLabelText("Danger level")).not.toBeInTheDocument();
+      expect(within(card).getByRole("button", { name: "Darkness" })).toBeInTheDocument();
       fireEvent.click(screen.getByLabelText("Next turn"));
       await waitFor(() => expect(saved()).toMatchObject({ current: "a", crawl: { lastCheck: 3, last: null } }));
-      expect(card).toHaveTextContent("Manual rolls");
-      // An extra check from the die, any time; R only when one is due.
+      // R rolls only when a check is due; the die any time.
       fireEvent.keyDown(document.body, { key: "r" });
       expect(saved().crawl.last).toBeNull();
       fireEvent.click(within(card).getByRole("button", { name: "Encounter check (d6)" }));
-      await waitFor(() => expect(saved().crawl.last).toMatchObject({ kind: "check" }));
+      await waitFor(() => expect(saved().crawl.last).toMatchObject({ kind: "check", sides: 6 }));
       expect(await screen.findByRole("button", { name: "Undo: Encounter check" })).toBeInTheDocument();
     });
 
@@ -958,7 +1211,7 @@ describe("Tracker (player)", () => {
     expect(screen.getByRole("region", { name: "Crawl status" })).toHaveTextContent("Crawling Clock");
     expect(screen.getByRole("img", { name: "Clock 13 of 20" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Crawling Clock" })).not.toBeInTheDocument();
-    await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "clock", hideClock: true } });
+    await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "clock", showClock: false } });
     expect(screen.queryByRole("region", { name: "Crawl status" })).not.toBeInTheDocument();
     await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "clock", clockDice: 2 } });
     expect(screen.getByRole("img", { name: "Clock 13 of 40" })).toBeInTheDocument();
@@ -999,22 +1252,21 @@ describe("Tracker (player)", () => {
     await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "clock", showRolls: true } });
     expect(screen.getByLabelText("Last roll")).toHaveTextContent("11d6Clock 20 → 9");
     // Hidden clock, rolls shown: the card still shows the roll.
-    await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "clock", showRolls: true, hideClock: true } });
+    await writeFromElsewhere({ [SETTINGS_KEY]: { encounterMode: "clock", showRolls: true, showClock: false } });
     expect(screen.getByRole("region", { name: "Crawl status" })).not.toHaveTextContent("The clock is at");
     expect(screen.getByLabelText("Last roll")).toBeInTheDocument();
   });
 
-  it("never sees the GM's roll in manual mode, even with the rolls shown", async () => {
+  it("manual mode: the GM's die roll shows to players only with Show rolls to players on", async () => {
     obr.role = "PLAYER";
-    obr.metadata = { [SETTINGS_KEY]: { encounterRolls: false, showRolls: true, showDanger: true } };
+    obr.metadata = { [SETTINGS_KEY]: { encounterRolls: false, showRolls: false, showDanger: true } };
     scene([{ id: GM_ENTRY }], GM_ENTRY, 1, {
       crawl: { crawlRounds: 3, lastCheck: 3, last: { kind: "check", dice: [1], sides: 6, encounter: true } },
     });
     render(<App />);
     expect(await screen.findByRole("region", { name: "Crawl status" })).toHaveTextContent("Crawling · unsafe");
     expect(screen.queryByLabelText("Last roll")).not.toBeInTheDocument();
-    // The same roll in Interval mode shows.
-    await writeFromElsewhere({ [SETTINGS_KEY]: { showRolls: true, showDanger: true } });
+    await writeFromElsewhere({ [SETTINGS_KEY]: { encounterRolls: false, showRolls: true, showDanger: true } });
     expect(screen.getByLabelText("Last roll")).toBeInTheDocument();
   });
 
@@ -1056,7 +1308,7 @@ describe("Tracker (player)", () => {
 
   it("hides the round when the GM says so", async () => {
     obr.role = "PLAYER";
-    obr.metadata = { [SETTINGS_KEY]: { hideRound: true } };
+    obr.metadata = { [SETTINGS_KEY]: { showRound: false } };
     scene([{ id: GM_ENTRY }], GM_ENTRY, 4);
     render(<App />);
     expect(await screen.findByText("Crawl")).toBeInTheDocument();
