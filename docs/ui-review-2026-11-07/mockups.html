@@ -150,7 +150,7 @@
       <li><b>Q6</b> Redesign by how often each outcome happens, with a way to move on: see Round 2 below. "Failed · Tamsin dies" marks them dead at once; Undo brings them back. Also: the dying counter ran a round early last session; test after the design stage.</li>
       <li><b>Q7</b> A: no checkboxes on a mouse; Cmd/Shift-click.</li>
       <li><b>Q8</b> Keep today's (three, then "+").</li>
-      <li><b>Q9</b> Build A + C (reclaim space, stack identical monsters) plus auto-scroll to the current turn; B (resize handle) held in reserve if A + C don't work in play.</li>
+      <li><b>Q9</b> Build A + C (reclaim space, stack identical monsters) plus auto-scroll to the current turn. B (the resize grip) already exists at the bottom of the panel.</li>
     </ul>
   </div>
 
@@ -249,7 +249,7 @@
           <div class="row"><span class="av" style="background:#6a7a3a">G</span><span class="nm"><b>Goblin 3</b></span></div>
           <div class="grip" title="Drag to resize"><i></i></div>
         </div>
-        <div class="notes"><div class="plus">Your call how tall, remembered per browser.</div><div class="minus">Unverified: dragging past the panel's bottom edge from inside Owlbear's iframe may lose the pointer. Fallback is a Small / Tall toggle in the header. Owlbear's limits on a short window are unknown too.</div></div>
+        <div class="notes"><div class="plus">Your call how tall, remembered per browser.</div><div class="plus"><b>Correction (2026-11-08): this already exists.</b> The grip at the bottom of the panel (<code>ResizeGrip.tsx</code>, since v0.1) drags the height and remembers it per browser; room-tested in TESTING row 36. Neither the review nor I spotted it.</div></div>
       </div>
       <div class="opt">
         <h3><span class="tag">C</span>Stack identical monsters</h3>
