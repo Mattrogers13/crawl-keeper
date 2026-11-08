@@ -61,7 +61,6 @@ import { effectiveMode, parseSettings } from "../settings";
 import { readLocal, writeLocal } from "../storage";
 import { errorMessage, notify } from "../utils";
 import { changePartyToken, switchParty, type Choice } from "../partyMode";
-import { debug } from "../debugLog";
 import {
   GM_ENTRY,
   gmEquation,
@@ -377,7 +376,6 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
     setAskedByCombat(combat);
     switchParty(together, pick, combat ? { clearRolls: settings.value.clearRollsOnCombat } : undefined)
       .then((choices) => {
-        if (choices) debug("switch", "asking who carries the light", { choices: choices.map((c) => c.name) });
         setCarrierChoices(choices);
         if (!choices) setAskedByCombat(false);
       })

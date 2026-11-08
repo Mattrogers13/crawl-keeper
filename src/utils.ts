@@ -1,5 +1,4 @@
 import OBR from "@owlbear-rodeo/sdk";
-import { debug } from "./debugLog";
 
 // Owlbear's SDK rejects with whatever the host sent (often a plain object with
 // a message), not always an Error.
@@ -24,7 +23,6 @@ export const notify = (
   message: string,
   variant: "DEFAULT" | "ERROR" | "INFO" | "SUCCESS" | "WARNING" = "DEFAULT",
 ) => {
-  debug("notice", `${variant}: ${message}`);
   OBR.notification
     .show(message, variant)
     .catch((err) => console.error(`Notification failed: ${errorMessage(err)}`, message));
