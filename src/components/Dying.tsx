@@ -3,7 +3,7 @@
 // On each turn after the timer was rolled, and on the last turn (the timer
 // runs out: a last chance), the death d20; a 20 rises, and on the last turn
 // anything else dies. Stabilized, Healed and Dead any time.
-import { deathRollDue, statusOf, timerPending, type Effect } from "../effects";
+import { deathRollDue, dyingTurnsLeft, statusOf, timerPending, turnsText, type Effect } from "../effects";
 import type { Tracker } from "../tracker";
 
 // This turn's decision: the d20 rolled, "failed" (rolled at the table, not
@@ -47,8 +47,8 @@ export const DyingLine = (props: {
   const holder = e.holder!;
   const st = statusOf(e, t);
   const last = st.state === "ended";
-  const left = st.state === "active" ? (st.left ?? 0) : 0;
   const pending = timerPending(e);
+  const turns = dyingTurnsLeft(e, t) ?? 0;
   const owes = owesDeathRoll(e, t) && decided === undefined;
   const button = "h-6 rounded-full bg-obr-paper px-2.5 text-[11px] font-medium hover:bg-obr-text/10 disabled:opacity-50";
   return (
@@ -64,7 +64,7 @@ export const DyingLine = (props: {
           ? " is dying · rolls the death timer this turn"
           : last
             ? " is dying · the timer runs out: last chance"
-            : ` is dying · ${left} round${left === 1 ? "" : "s"} left`}
+            : ` is dying · ${turnsText(turns)} left${turns === 1 ? ": the last chance" : ""}`}
         {decidedText(decided) && <span className="font-mono"> · {decidedText(decided)}</span>}
         {!pending && !last && !deathRollDue(e, t) && <span className="text-obr-text-secondary"> · timer rolled this turn</span>}
       </span>
@@ -150,7 +150,7 @@ const DeathCard = (props: {
   const holder = e.holder!;
   const st = statusOf(e, t);
   const last = st.state === "ended";
-  const left = st.state === "active" ? (st.left ?? 0) : 0;
+  const turns = dyingTurnsLeft(e, t) ?? 0;
   const choice = (label: string, hint: string, act: () => void, disabled = false) => (
     <button type="button" aria-label={label} disabled={disabled} className={CHOICE} onClick={act}>
       <span className="font-medium">{label}</span>
@@ -175,7 +175,7 @@ const DeathCard = (props: {
       <p className="text-xs text-obr-text-secondary">
         {last
           ? "The timer is out. Anything but a natural 20 and they die."
-          : `${left} round${left === 1 ? "" : "s"} left · roll a d20 at the table, or here.`}
+          : `${turnsText(turns)} left, this one included · roll a d20 at the table, or here.`}
       </p>
       <button
         type="button"
