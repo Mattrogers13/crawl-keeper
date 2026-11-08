@@ -105,12 +105,12 @@ describe("the death timer (GM)", () => {
     expect(sent()).toEqual([{ event: "healed", name: "Aria" }]);
   });
 
-  it("the last turn (timer out) is a last chance: not a 20 and they die, one undo step", async () => {
+  it("the last turn (timer out) is a last chance: Failed and they die, one undo step", async () => {
     setup([dying], "a", 4);
     const line = await screen.findByRole("group", { name: "Aria dying" });
     expect(line).toHaveTextContent("Aria is dying · the timer runs out: last chance");
     expect(screen.queryByText(/Dying on Aria ends now/)).toBeNull();
-    fireEvent.click(within(line).getByRole("button", { name: "Not a 20" }));
+    fireEvent.click(within(line).getByRole("button", { name: "Failed" }));
     await waitFor(() => expect(tracker().entries[0].dead).toBe(true));
     expect(effects()).toEqual([]);
     expect(sent()).toEqual([{ event: "died", name: "Aria" }]);
@@ -121,23 +121,98 @@ describe("the death timer (GM)", () => {
 });
 
 describe("▶ with a death roll owed", () => {
-  it("asks first: the prompt, the turn stays; a decision there moves it on", async () => {
+  it("asks first: the prompt, the turn stays; Failed (the big button) moves it on", async () => {
     setup([dying], "a", 2);
     fireEvent.click(await screen.findByLabelText("Next turn"));
     const prompt = await screen.findByRole("dialog", { name: "Death roll first" });
     expect(tracker()).toMatchObject({ round: 2, current: "a" });
-    fireEvent.click(within(prompt).getByRole("button", { name: "Not a 20" }));
+    expect(prompt).toHaveTextContent("Aria is dying");
+    // By how often each happens: Failed, Stabilized, Healed, Nat 20, Roll d20; then Skip and Mark dead.
+    expect(within(prompt).getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent)).toEqual([
+      "Close",
+      "Failed · still dying",
+      "Stabilized",
+      "Healed",
+      "Nat 20",
+      "Roll d20",
+      "Skip for now →",
+      "Mark dead",
+    ]);
+    fireEvent.click(within(prompt).getByRole("button", { name: "Failed · still dying" }));
     await waitFor(() => expect(tracker().current).toBe("b"));
     expect(screen.queryByRole("dialog", { name: "Death roll first" })).toBeNull();
     expect(effects()).toMatchObject([{ id: "d1" }]);
   });
 
-  it("the last chance from the prompt: Dead marks them dead and the turn passes on (once)", async () => {
+  it("the last chance from the prompt: Failed · Aria dies marks them dead, the turn passes on (once); Undo brings them back", async () => {
     setup([dying], "a", 4);
     fireEvent.click(await screen.findByLabelText("Next turn"));
-    fireEvent.click(within(await screen.findByRole("dialog", { name: "Death roll first" })).getByRole("button", { name: "Dead" }));
+    const prompt = await screen.findByRole("dialog", { name: "Death roll first" });
+    expect(prompt).toHaveTextContent("Aria: last chance");
+    expect(within(prompt).queryByRole("button", { name: "Mark dead" })).toBeNull();
+    fireEvent.click(within(prompt).getByRole("button", { name: "Failed · Aria dies" }));
     await waitFor(() => expect(tracker().entries[0].dead).toBe(true));
     expect(tracker()).toMatchObject({ round: 4, current: "b" });
+    fireEvent.click(screen.getByRole("button", { name: "Undo: Dead: Aria" }));
+    await waitFor(() => expect(tracker().entries[0].dead).toBe(false));
+    expect(effects()).toMatchObject([{ id: "d1" }]);
+  });
+
+  it("Mark dead from the prompt (before the timer is out)", async () => {
+    setup([dying], "a", 2);
+    fireEvent.click(await screen.findByLabelText("Next turn"));
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "Death roll first" })).getByRole("button", { name: "Mark dead" }));
+    await waitFor(() => expect(tracker().entries[0].dead).toBe(true));
+    expect(tracker()).toMatchObject({ round: 2, current: "b" });
+  });
+
+  it("Skip for now on the last chance: the turn moves on, they stay dying, asked again on their next turn (still a last chance)", async () => {
+    setup([dying], "a", 4);
+    fireEvent.click(await screen.findByLabelText("Next turn"));
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "Death roll first" })).getByRole("button", { name: "Skip for now →" }));
+    await waitFor(() => expect(tracker().current).toBe("b"));
+    expect(tracker().entries[0].dead).toBe(false);
+    // Still dying: the timer's end moves to Aria's next turn (one undo step).
+    await waitFor(() => expect(effects()).toMatchObject([{ id: "d1", end: { round: 5, at: "a" } }]));
+    expect(sent()).toEqual([]);
+    // Borin, GM, Gob, then Aria's turn again: ▶ asks again.
+    for (const at of [GM_ENTRY, "g", "a"]) {
+      fireEvent.click(screen.getByLabelText("Next turn"));
+      await waitFor(() => expect(tracker().current).toBe(at));
+    }
+    fireEvent.click(screen.getByLabelText("Next turn"));
+    expect(await screen.findByRole("dialog", { name: "Death roll first" })).toHaveTextContent("Aria: last chance");
+    expect(tracker().current).toBe("a");
+  });
+
+  it("Skip for now on the last chance: Undo takes back the turn, then the skip", async () => {
+    setup([dying], "a", 4);
+    fireEvent.click(await screen.findByLabelText("Next turn"));
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "Death roll first" })).getByRole("button", { name: "Skip for now →" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo: Next turn" }));
+    await waitFor(() => expect(tracker().current).toBe("a"));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo: Skip: Aria's last chance" }));
+    await waitFor(() => expect(effects()).toMatchObject([{ id: "d1", end: { round: 4, at: "a" } }]));
+  });
+
+  it("Skip for now before the timer is out: nothing written", async () => {
+    setup([dying], "a", 2);
+    fireEvent.click(await screen.findByLabelText("Next turn"));
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "Death roll first" })).getByRole("button", { name: "Skip for now →" }));
+    await waitFor(() => expect(tracker().current).toBe("b"));
+    expect(effects()).toEqual([dying].map((d) => expect.objectContaining({ id: d.id, end: d.end })));
+    expect(screen.getByRole("button", { name: "Undo: Next turn" })).toBeInTheDocument();
+  });
+
+  it("✕ by accident: the turn stays, ▶ opens the prompt again, and the notices line keeps its buttons", async () => {
+    setup([dying], "a", 2);
+    fireEvent.click(await screen.findByLabelText("Next turn"));
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "Death roll first" })).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog", { name: "Death roll first" })).toBeNull();
+    expect(tracker().current).toBe("a");
+    expect(within(screen.getByRole("group", { name: "Aria dying" })).getByRole("button", { name: "Failed" })).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Next turn"));
+    expect(await screen.findByRole("dialog", { name: "Death roll first" })).toBeInTheDocument();
   });
 
   it("no death roll owed (the turn the timer was rolled): ▶ just moves on", async () => {
