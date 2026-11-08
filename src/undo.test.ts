@@ -32,6 +32,15 @@ describe("undo", () => {
     expect(loadHistory().undo.map((s) => s.scene)).toEqual([id, id]);
   });
 
+  it("two steps recorded at once on a map with no id yet share one id (neither is skipped as another map's)", async () => {
+    await Promise.all([
+      record("A", [{ store: "scene", key: TRACKER_KEY, before: tracker("a"), after: tracker(GM_ENTRY) }]),
+      record("B", [{ store: "scene", key: TRACKER_KEY, before: tracker(GM_ENTRY), after: tracker("a") }]),
+    ]);
+    const id = obr.sceneMetadata[SCENE_ID_KEY];
+    expect(loadHistory().undo.map((s) => s.scene)).toEqual([id, id]);
+  });
+
   it("lights: undo and redo put back only the lights the step changed, keeping a player's lit since", async () => {
     const torch = (id: string, tokenId: string, status = "lit") => ({ id, kind: "torch", tokenId, status, remainingMs: 60 * 60_000, endsAt: status === "lit" ? Date.now() + 3_600_000 : null });
     const before = { lights: [torch("old", "npc", "spent")] };

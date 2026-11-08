@@ -346,6 +346,15 @@ export const hideDeath = (s: Effects, show: boolean): Effects =>
 export const timerOutOnTurn = (s: Effects, t: Tracker): string | null =>
   s.effects.find((e) => e.icon === "dying" && e.holder !== null && e.holder === t.current && statusOf(e, t).state === "ended")?.holder ?? null;
 
+// Skip for now on the last chance (▶'s prompt): the timer's end moves to
+// the holder's next turn, so they're still dying and asked again then (an
+// ended timer is gone once its turn passes).
+export const lastChanceLater = (s: Effects, t: Tracker, holder: string): Effects => {
+  const d = dyingOf(s, holder);
+  if (!d || statusOf(d, t).state !== "ended") return s;
+  return { ...s, effects: s.effects.map((e) => (e === d ? { ...e, end: { round: t.round + 1, at: holder } } : e)) };
+};
+
 export const stopDying = (s: Effects, holder: string): Effects => {
   const d = dyingOf(s, holder);
   return d ? without(s, new Set([d.id])) : s;
