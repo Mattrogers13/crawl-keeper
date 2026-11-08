@@ -4,6 +4,9 @@ import {
   crawlDie,
   cadence,
   checkMade,
+  darkNow,
+  flipDark,
+  forgetFlip,
   clockLeft,
   crawlRoundStarted,
   crawlRoundUndone,
@@ -251,5 +254,29 @@ describe("cryptoRand", () => {
       expect(r).toBeGreaterThanOrEqual(0);
       expect(r).toBeLessThan(1);
     }
+  });
+
+  it("darkness: the map's switch, or the lights while following; the GM's flip holds until they change", () => {
+    const c = crawl({ dark: true });
+    expect(darkNow(c, false, false)).toBe(true);
+    expect(darkNow(c, true, false)).toBe(false);
+    expect(darkNow(c, true, true)).toBe(true);
+    // Not following: the map's own switch.
+    expect(flipDark(c, false, true)).toMatchObject({ dark: false, darkOverride: null });
+    // Following, dark: flip to Torchlit; it holds while the lights stay dark.
+    const lit = flipDark(crawl(), true, true);
+    expect(lit.darkOverride).toEqual({ dark: false, whenDark: true });
+    expect(darkNow(lit, true, true)).toBe(false);
+    expect(forgetFlip(lit, true, true)).toBe(lit);
+    // Flipping back to the lights' own verdict clears it.
+    expect(flipDark(lit, true, true).darkOverride).toBeNull();
+    // The lights change (a torch is lit), or stop deciding: forgotten.
+    expect(darkNow(lit, true, false)).toBe(false);
+    expect(forgetFlip(lit, true, false).darkOverride).toBeNull();
+    expect(forgetFlip(lit, false, true).darkOverride).toBeNull();
+    expect(forgetFlip(crawl(), true, true)).toEqual(crawl());
+    // Stored and read back; junk dropped.
+    expect(parseCrawl(JSON.parse(JSON.stringify(lit))).darkOverride).toEqual({ dark: false, whenDark: true });
+    expect(parseCrawl({ darkOverride: { dark: "no", whenDark: true } }).darkOverride).toBeNull();
   });
 });

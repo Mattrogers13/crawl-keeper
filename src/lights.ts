@@ -79,9 +79,14 @@ export type Lights = {
   paused: boolean;
   lightingRule: LightingRule;
   lights: Light[];
+  // The last lights burned out or were put out and were let go when the turn
+  // moved on (dropSpent): still total darkness, though none is tracked, until
+  // one is lit. Only with no lights (parse drops it otherwise). Matt,
+  // 2026-11-08: the switch went back to Torchlit once the spent torches left.
+  wentOut: boolean;
 };
 
-export const emptyLights = (): Lights => ({ paused: false, lightingRule: "rideAlong", lights: [] });
+export const emptyLights = (): Lights => ({ paused: false, lightingRule: "rideAlong", lights: [], wentOut: false });
 
 // --- Reading -------------------------------------------------------------
 
@@ -94,17 +99,19 @@ export const low = (l: Light, now: number) => l.status === "lit" && remaining(l,
 export const burnedOut = (l: Light, now: number) => l.status === "spent" || (l.status === "lit" && remaining(l, now) === 0);
 
 // "none" when no lights are tracked (the GM isn't using them, so nothing is
-// implied), "lit" while one shines, "dark" otherwise.
+// implied), "lit" while one shines, "dark" otherwise (the last ones went
+// out and were let go too).
 export const lightStatus = (s: Lights, now: number): "none" | "lit" | "dark" =>
-  s.lights.length === 0 ? "none" : s.lights.some((l) => shining(l, now)) ? "lit" : "dark";
+  s.lights.length === 0 ? (s.wentOut ? "dark" : "none") : s.lights.some((l) => shining(l, now)) ? "lit" : "dark";
 
 // Total darkness (p. 84), the toolkit's way: with Follow light on and lights
 // tracked, the lights decide (none shining = dark); otherwise the map's own
 // switch, so a room not using lights is never darkened.
 export const isDark = (followLight: boolean, s: Lights, now: number, manual: boolean) =>
-  followLight && s.lights.length > 0 ? lightStatus(s, now) === "dark" : manual;
-// The map's switch is overruled: following lights that are tracked.
-export const followingLights = (followLight: boolean, s: Lights) => followLight && s.lights.length > 0;
+  followingLights(followLight, s) ? lightStatus(s, now) === "dark" : manual;
+// The lights decide darkness (the GM can still flip it by hand: crawl.ts
+// darkNow): Follow light on, and lights tracked or the last ones gone out.
+export const followingLights = (followLight: boolean, s: Lights) => followLight && (s.lights.length > 0 || s.wentOut);
 
 export const shiningCount = (s: Lights, now: number) => s.lights.filter((l) => shining(l, now)).length;
 
@@ -271,7 +278,7 @@ export const renew = (state: Lights, now: number, newId: () => string, id: strin
 // to be refilled. Same object when none.
 export const dropSpent = (s: Lights): Lights => {
   const lights = s.lights.filter((l) => l.status !== "spent" || l.kind === "lantern");
-  return lights.length === s.lights.length ? s : { ...s, lights };
+  return lights.length === s.lights.length ? s : { ...s, lights, wentOut: lights.length === 0 };
 };
 
 export const putOut = (state: Lights, now: number, id: string): Lights => {
@@ -320,7 +327,8 @@ export const removeLight = (state: Lights, now: number, id: string): Lights => {
 };
 
 // Every light gone (the end of a session); the two rules and Pause stay.
-export const removeAll = (s: Lights): Lights => (s.lights.length === 0 ? s : { ...s, lights: [] });
+// The GM stops tracking lights: the map's own switch decides again.
+export const removeAll = (s: Lights): Lights => (s.lights.length === 0 && !s.wentOut ? s : { ...s, lights: [], wentOut: false });
 
 export const editNote = (state: Lights, now: number, id: string, note: string): Lights => {
   const s = settle(state, now);
@@ -493,5 +501,6 @@ export const parseLights = (raw: unknown): Lights => {
       if (s.lights.length >= MAX_LIGHTS) break;
     }
   }
+  s.wentOut = raw.wentOut === true && s.lights.length === 0;
   return s;
 };
