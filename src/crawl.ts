@@ -25,9 +25,11 @@
 // the front die empties, then the second; the same omen and encounter rules
 // on the total.
 //
-// Manual (Matt, 2026-10-26): no clock and no auto roll. The card says when a
-// check is due on the standard cadence; the GM rolls its d6 or one at the
-// table, and a due check counts as made when ▶ leaves the GM's turn.
+// Manual (Matt, 2026-10-26; reminder 2026-11-08): no clock, no auto roll and
+// no danger level. Every `every` crawl rounds (Settings, default 3: Unsafe's
+// cadence; every round in darkness, p. 84) the card pulses on the GM's turn
+// as a reminder; the GM rolls its die or one at the table, and the reminder
+// counts as answered when ▶ leaves the GM's turn.
 
 export type Danger = "unsafe" | "risky" | "deadly";
 export type EncounterMode = "standard" | "clock" | "manual";
@@ -145,12 +147,13 @@ export const replayRand = (values: number[], sides: number): Rand => {
 
 export const crawlDie = (dark: boolean) => (dark ? 8 : 6);
 
-// Crawl rounds between standard checks: every round in darkness.
-export const cadence = (c: Crawl, dark: boolean) => (dark ? 1 : CADENCE[c.danger]);
+// Crawl rounds between checks: the danger level's, or `every` (Manual's
+// reminder, Settings); every round in darkness.
+export const cadence = (c: Crawl, dark: boolean, every?: number) => (dark ? 1 : (every ?? CADENCE[c.danger]));
 
 // Is a check (standard or manual) or a clock roll due in this crawl round?
-export const due = (c: Crawl, mode: EncounterMode, dark: boolean) =>
-  c.crawlRounds > 0 && c.crawlRounds - c.lastCheck >= (mode === "clock" ? 1 : cadence(c, dark));
+export const due = (c: Crawl, mode: EncounterMode, dark: boolean, every?: number) =>
+  c.crawlRounds > 0 && c.crawlRounds - c.lastCheck >= (mode === "clock" ? 1 : cadence(c, dark, every));
 
 // Crawl rounds until the next standard check (0 = due now).
 export const roundsToCheck = (c: Crawl, dark: boolean) => Math.max(0, cadence(c, dark) - (c.crawlRounds - c.lastCheck));
@@ -159,11 +162,11 @@ export const roundsToCheck = (c: Crawl, dark: boolean) => Math.max(0, cadence(c,
 // check; an extra one (a loud noise, p. 112: "The GM might also check for an
 // encounter if the characters create a loud disturbance") leaves the schedule
 // alone.
-export const rollCheck = (c: Crawl, rand: Rand, dark = false): Crawl => {
+export const rollCheck = (c: Crawl, rand: Rand, dark = false, every?: number): Crawl => {
   const d = rollDie(6, rand);
   return {
     ...c,
-    lastCheck: due(c, "standard", dark) ? c.crawlRounds : c.lastCheck,
+    lastCheck: due(c, "standard", dark, every) ? c.crawlRounds : c.lastCheck,
     last: { kind: "check", dice: [d], sides: 6, before: c.clock, after: c.clock, encounter: d === 1 },
   };
 };
@@ -200,12 +203,14 @@ export const lastFor = (c: Crawl, mode: EncounterMode): CrawlRoll | null =>
   c.last && c.last.kind === (mode === "clock" ? "clock" : "check") ? c.last : null;
 
 // The card's roll button (and the R hotkey): the mode's roll (manual: a check).
-export const rollFor = (mode: EncounterMode, start = CLOCK_DIE, dark = false) => (c: Crawl, rand: Rand) =>
-  mode === "clock" ? rollClock(c, rand, start, dark) : rollCheck(c, rand, dark);
+// `every`: Manual's reminder cadence.
+export const rollFor = (mode: EncounterMode, start = CLOCK_DIE, dark = false, every?: number) => (c: Crawl, rand: Rand) =>
+  mode === "clock" ? rollClock(c, rand, start, dark) : rollCheck(c, rand, dark, every);
 
-// Manual: the GM may have rolled at the table. A due check counts as made
-// (nothing to undo: no result was recorded).
-export const checkMade = (c: Crawl, dark = false): Crawl => (due(c, "manual", dark) ? { ...c, lastCheck: c.crawlRounds } : c);
+// Manual: the GM may have rolled at the table. A due reminder counts as
+// answered (nothing to undo: no result was recorded).
+export const checkMade = (c: Crawl, dark = false, every?: number): Crawl =>
+  due(c, "manual", dark, every) ? { ...c, lastCheck: c.crawlRounds } : c;
 
 // Entering a new dangerous place: a fresh clock (sheet: "The clock begins at
 // 20 when the party enters a dangerous location"; full for either size). That and the clock's own

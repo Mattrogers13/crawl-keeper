@@ -280,8 +280,8 @@ export const nextWithAutoRoll = (t: Tracker, mode: EncounterMode, rand: Rand, st
 
 // Encounter rolls off: the GM rolls at the table, so ▶ off the GM / Monsters
 // turn in a crawl round counts a due check as made (◀ back keeps it made).
-export const nextAfterManualCheck = (t: Tracker, dark = false): Tracker =>
-  next(t.phase === "crawl" && t.current === GM_ENTRY ? updateCrawl(t, (c) => checkMade(c, dark)) : t);
+export const nextAfterManualCheck = (t: Tracker, dark = false, every?: number): Tracker =>
+  next(t.phase === "crawl" && t.current === GM_ENTRY ? updateCrawl(t, (c) => checkMade(c, dark, every)) : t);
 
 // A change to this map's crawl (crawl.ts); the same object when nothing changed.
 export const updateCrawl = (t: Tracker, fn: (c: Crawl) => Crawl): Tracker => {
