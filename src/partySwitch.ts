@@ -5,7 +5,7 @@
 // (tracker.ts); this adds the lights, which move with their timers
 // (moveLight, lights.ts).
 import { moveLight, settle, type Lights } from "./lights";
-import { GM_ENTRY, setTogether, type Tracker } from "./tracker";
+import { partyMembers, setTogether, type Tracker } from "./tracker";
 
 export type Switch =
   // Done: the new tracker and lights; `stayed` lights couldn't move (the
@@ -18,8 +18,7 @@ export type Switch =
 const holds = (s: Lights, id: string) => s.lights.filter((l) => l.tokenId === id && (l.status === "lit" || l.status === "out"));
 
 // The living player entries that can carry the party's light.
-export const carriers = (t: Tracker): string[] =>
-  t.entries.filter((e) => e.id !== GM_ENTRY && !e.monster && !e.dead && e.id !== t.party).map((e) => e.id);
+export const carriers = partyMembers;
 
 // `pick`: the carrier chosen for a split (else the remembered one). `nameOf`
 // is a token's name for the light's carrier label.

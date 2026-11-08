@@ -161,6 +161,8 @@ const partyRow = (t: Tracker, tokens: MenuToken[]): MenuRow => {
   const one = tokens.length === 1 && carries(tokens[0]) ? tokens[0] : null;
   if (!one) return { ...base, label: "Set as party token", enabled: false, title: "Select one character token", action: null };
   const clearing = t.party === one.id;
+  if (t.entries.some((e) => e.id === one.id && e.monster))
+    return { ...base, label: "Set as party token", enabled: false, title: "A monster can't be the party token", action: null };
   return { ...base, label: clearing ? "Clear party token" : "Set as party token", enabled: true, action: { type: "party", id: one.id } };
 };
 

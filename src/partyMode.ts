@@ -127,7 +127,7 @@ export const switchParty = async (together: boolean, pick?: string, combat?: { c
     { store: "scene" as const, key: TRACKER_KEY, before: scene[TRACKER_KEY], after: next },
   ]);
   // The turn ring (the party's tokens again: already in place).
-  await afterChange(tracker, next, settings);
+  await afterChange(tracker, next, settings, true);
   if (plan.stayed > 0) notify(`${plan.stayed} light${plan.stayed === 1 ? "" : "s"} stayed put: that token already burns one.`, "WARNING");
   return null;
 };
@@ -158,7 +158,11 @@ export const changePartyToken = async (id: string | null) => {
     }
   }
   const next = setParty(base, target);
-  if (target !== null && next.party !== target) return notify(`Initiative is full (${MAX_ENTRIES} rows): the party token wasn't set.`, "WARNING");
+  if (target !== null && next.party !== target)
+    return notify(
+      tracker.entries.some((e) => e.id === target && e.monster) ? "A monster can't be the party token: mark it as a player first." : `Initiative is full (${MAX_ENTRIES} rows): the party token wasn't set.`,
+      "WARNING",
+    );
   if (next === tracker && newLights === lights) return;
   // Tokens first, lights after (see switchParty).
   await syncParty(tracker, next).catch((err) => notify(`Couldn't let the party's tokens go: ${errorMessage(err)}`, "WARNING"));
@@ -179,6 +183,6 @@ export const changePartyToken = async (id: string | null) => {
     ...(lightsChanged ? [{ store: "room" as const, key: LIGHTS_KEY, before: lights, after: newLights }] : []),
     { store: "scene" as const, key: TRACKER_KEY, before: scene[TRACKER_KEY], after: next },
   ]);
-  await afterChange(tracker, next, settings);
+  await afterChange(tracker, next, settings, true);
   if (stayed > 0) notify(`${stayed} light${stayed === 1 ? "" : "s"} stayed put: that token already burns one.`, "WARNING");
 };

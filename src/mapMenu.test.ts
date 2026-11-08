@@ -67,6 +67,11 @@ describe("the map menu's rows", () => {
     expect(apply(none, [tok("f", "PROP")], 4).lights).toMatchObject([{ kind: "lightSpell", tokenId: "f", carrier: "F", status: "lit" }]);
   });
 
+  it("a monster can't be set as the party token", () => {
+    const tm = parseTracker({ entries: [{ id: "m", monster: true }] });
+    expect(menuRows(tm, none, [tok("m")], NOW)[8]).toMatchObject({ enabled: false, title: "A monster can't be the party token" });
+  });
+
   it("a player's menu still lights character tokens only", () => {
     const rows = playerMenuRows(t, none, [tok("f", "PROP")], NOW, "me");
     expect(rows.every((r) => !r.enabled && r.title === "Party tokens only")).toBe(true);

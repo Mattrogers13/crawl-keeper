@@ -114,7 +114,7 @@ const apply = async (step: Step, side: "before" | "after"): Promise<"ok" | "othe
   const settingsBefore = parseSettings(room[SETTINGS_KEY]);
   const settings = SETTINGS_KEY in updates.room ? parseSettings(updates.room[SETTINGS_KEY]) : settingsBefore;
   if (scene && TRACKER_KEY in updates.scene) {
-    await afterChange(parseTracker(scene[TRACKER_KEY]), parseTracker(updates.scene[TRACKER_KEY]), settings);
+    await afterChange(parseTracker(scene[TRACKER_KEY]), parseTracker(updates.scene[TRACKER_KEY]), settings, true);
   }
   if (settings.showMarker !== settingsBefore.showMarker) await syncTurnFromScene(settings);
   return "ok";
