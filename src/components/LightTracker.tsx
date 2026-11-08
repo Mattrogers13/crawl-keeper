@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 
-import Confirm from "./Confirm";
+import { LINK } from "./Confirm";
 import InfoPopup from "./InfoPopup";
 import { FOCUS } from "./CrawlBar";
 import Loading from "./Loading";
@@ -81,7 +81,7 @@ const LightTracker = ({ names }: { names: Map<string, string> }) => {
         type="button"
         disabled={!anyLit}
         className={`h-9 rounded-[10px] bg-[#b3392b] font-medium text-white disabled:opacity-40 ${FOCUS}`}
-        onClick={() => change("Put lights out", putAllOut, { toast: true })}
+        onClick={() => change("Put lights out", putAllOut)}
       >
         Put lights out
       </button>
@@ -91,12 +91,9 @@ const LightTracker = ({ names }: { names: Map<string, string> }) => {
       ))}
       {s.lights.length > 0 && (
         <div className="-mt-1">
-          <Confirm
-            label="Remove all lights"
-            question={`Remove all ${s.lights.length} lights?`}
-            action="Remove"
-            onConfirm={() => change("Remove all lights", removeAll, { toast: true })}
-          />
+          <button type="button" className={LINK} onClick={() => change("Remove all lights", removeAll)}>
+            Remove all lights
+          </button>
         </div>
       )}
 
@@ -224,7 +221,7 @@ const LightCard = (props: { light: Light; name: string; now: number; paused: boo
   const full = kind.minutes * 60_000;
   const lantern = l.kind === "lantern";
   const state = out ? (lantern ? "empty" : "spent") : !lit ? "out · oil kept" : props.paused ? "paused" : kind.range;
-  const on = (what: string, fn: Parameters<LightChange>[1], opts?: { toast?: boolean }) => () => change(`${what} ${label}`, fn, opts);
+  const on = (what: string, fn: Parameters<LightChange>[1]) => () => change(`${what} ${label}`, fn);
 
   return (
     <article
@@ -290,7 +287,7 @@ const LightCard = (props: { light: Light; name: string; now: number; paused: boo
           )}
           {lantern && !out && <Small onClick={on("Refill", (s, t) => refillOil(s, t, l.id))}>Refill oil</Small>}
           <Small onClick={() => setEditing(true)}>Edit</Small>
-          <Small onClick={on("Remove", (s, t) => removeLight(s, t, l.id), { toast: true })}>Remove</Small>
+          <Small onClick={on("Remove", (s, t) => removeLight(s, t, l.id))}>Remove</Small>
         </div>
       )}
     </article>

@@ -2,6 +2,16 @@
 
 Versions follow semver; the same number is in `package.json` and `public/manifest.json`.
 
+## Unreleased
+
+- The round count is never cut off: the tracker's header shows the key without the "Crawl Keeper" text (Owlbear's toolbar already names it). Settings, the Light Tracker and the log keep their titles.
+- Pause: ❚❚ in the header while the lights run; paused, a slim amber "Lights paused · Resume" bar across the top replaces it (it was a red bar plus an amber ▶).
+- Reset rounds, Remove monsters, Reset clock and Remove all lights no longer ask first: each runs at once, and the Undo bar under the list names it. Reset all and Clear log still ask (Undo can't bring the log back).
+- Undo bar: Undo still names its step; Redo is a round icon whose tooltip names it. The "Done: … Undo" pop-up is gone: it repeated the bar.
+- Settings, the Light Tracker and the log keep a gap between their cards and the scrollbar.
+- Manual rolls: a reminder instead of a hidden schedule. Every few crawl rounds (Settings → Remind me every, 1 to 10, default 3; every round in darkness) the card pulses on the GM's turn; it stops when you roll or move on. The Settings hint no longer mentions a danger level.
+- The empty tracker and the how-to page name the real menu path: right-click → Crawl Keeper → Add to initiative.
+
 ## v0.6.0 (2026-11-07)
 
 - Party token and Party | Split (after the first table session): right-click one character token → Crawl Keeper → Set as party token, or use a row's menu (it is tracked if it isn't yet; the same item clears it). A Party | Split switch then sits under the turn bar. Party: the party token takes the turns, at the highest-rolled player's roll and place, and the players sit out (their rows dim). Split: the reverse. Switching keeps the round and the turn in progress. The light goes with it: coming together, the players' lights move to the party token; splitting, the party token's light goes to a carrier you pick once in a "Who carries the light?" dialog (the switch remembers). One undo step for the lot. A token's own Dynamic Fog light stays on that token.

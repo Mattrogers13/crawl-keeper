@@ -178,7 +178,7 @@ describe("the Light Tracker", () => {
     expect(await screen.findByText(/No lights yet/)).toBeInTheDocument();
   });
 
-  it("Put lights out spends the torches, offering Undo in a toast", async () => {
+  it("Put lights out spends the torches; the bar's Undo brings them back", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     obr.metadata = { [LIGHTS_KEY]: { lightingRule: "separate", lights: [lit("l1", "a"), lit("l2", "b", "lightSpell")] } };
     scene(["a", "b"]);
@@ -186,7 +186,7 @@ describe("the Light Tracker", () => {
     await open();
     fireEvent.click(screen.getByRole("button", { name: "Put lights out" }));
     await waitFor(() => expect(saved().lights.map((l) => l.status)).toEqual(["spent", "spent"]));
-    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo: Put lights out" }));
     await waitFor(() => expect(saved().lights.map((l) => l.status)).toEqual(["lit", "lit"]));
   });
 
@@ -195,10 +195,12 @@ describe("the Light Tracker", () => {
     obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a")] } };
     scene(["a"]);
     render(<App />);
-    // Main page: Pause in the header.
+    // Main page: Pause in the header; paused, the bar resumes and ❚❚ goes
+    // (one control at a time).
     fireEvent.click(await screen.findByRole("button", { name: "Pause lights" }));
     await waitFor(() => expect(saved().paused).toBe(true));
-    expect(screen.getByRole("button", { name: "Resume lights" })).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByRole("button", { name: "Lights paused. Resume" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pause lights" })).not.toBeInTheDocument();
     await open();
     expect(screen.queryByText(/joins that timer/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "How lights work" }));
@@ -208,31 +210,34 @@ describe("the Light Tracker", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("Paused: a red bar across the top that resumes on a click; Remove works on a lit light too", async () => {
+  it("Paused: a slim amber bar across the top that resumes on a click; Remove works on a lit light too", async () => {
     obr.items = [token("a", { name: "Aria" })];
     obr.metadata = { [LIGHTS_KEY]: { paused: true, lights: [{ ...lit("l1", "a"), endsAt: null }] } };
     scene(["a"]);
     render(<App />);
-    const bar = await screen.findByRole("button", { name: "Paused. Resume lights" });
-    expect(bar).toHaveTextContent("Paused");
+    const bar = await screen.findByRole("button", { name: "Lights paused. Resume" });
+    expect(bar).toHaveTextContent("Lights paused");
+    expect(bar.className).toContain("amber");
+    expect(bar.className).not.toContain("red");
     fireEvent.click(bar);
     await waitFor(() => expect(saved().paused).toBe(false));
-    expect(screen.queryByRole("button", { name: "Paused. Resume lights" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Lights paused. Resume" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Pause lights" })).toBeInTheDocument();
     await open();
     fireEvent.click(within(card("Torch · Aria")).getByRole("button", { name: "Remove" }));
     await waitFor(() => expect(saved().lights).toHaveLength(0));
   });
 
-  it("Remove all lights asks first, then offers Undo", async () => {
+  it("Remove all lights runs at once (no confirm); the bar's Undo brings them back", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a"), lit("l2", "b", "lightSpell")] } };
     scene(["a", "b"]);
     render(<App />);
     await open();
     fireEvent.click(screen.getByRole("button", { name: "Remove all lights" }));
-    fireEvent.click(within(screen.getByRole("alertdialog", { name: "Remove all 2 lights?" })).getByRole("button", { name: "Remove" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     await waitFor(() => expect(saved().lights).toHaveLength(0));
-    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo: Remove all lights" }));
     await waitFor(() => expect(saved().lights).toHaveLength(2));
   });
 

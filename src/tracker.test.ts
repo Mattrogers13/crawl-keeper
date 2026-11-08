@@ -670,9 +670,12 @@ describe("parseSettings", () => {
       effectIcons: true,
       showDeath: true,
       dicePlus: true,
+      remindEvery: 3,
     });
-    const off = { encounterRolls: false, encounterMode: "clock", clockDice: 2, showClock: false, showDanger: true, autoRoll: true, showRolls: true, followLight: false, showRound: false, clearRollsOnCombat: false, showMarker: false, selectOnTurn: false, showLights: false, playersLight: true, effectIcons: false, showDeath: false, dicePlus: false };
+    const off = { encounterRolls: false, encounterMode: "clock", clockDice: 2, showClock: false, showDanger: true, autoRoll: true, showRolls: true, followLight: false, showRound: false, clearRollsOnCombat: false, showMarker: false, selectOnTurn: false, showLights: false, playersLight: true, effectIcons: false, showDeath: false, dicePlus: false, remindEvery: 7 };
     expect(parseSettings(off)).toEqual(off);
+    // The reminder's cadence: 1 to 10 whole rounds, else the default.
+    for (const bad of [0, 11, 2.5, "4", null]) expect(parseSettings({ remindEvery: bad }).remindEvery).toBe(3);
     // Rooms saved while Table order existed keep working.
     expect(parseSettings({ orderMode: "table", showRound: "no", clearRollsOnCombat: "no", showMarker: 0 })).toEqual(DEFAULT_SETTINGS);
     // Rooms saved with the old hide switches keep their choice.

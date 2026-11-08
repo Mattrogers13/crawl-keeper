@@ -65,12 +65,12 @@ const ensureSceneId = async (): Promise<string> => {
 
 // Record a GM action once it's saved. A failure here only loses the undo
 // step, never the action.
-export const record = async (label: string, changes: Change[], opts: { toast?: boolean } = {}) => {
+export const record = async (label: string, changes: Change[]) => {
   const real = changes.filter((c) => JSON.stringify(c.before) !== JSON.stringify(c.after));
   if (real.length === 0) return;
   try {
     const scene = real.some((c) => c.store === "scene") ? await ensureSceneId() : null;
-    const step: Step = { id: crypto.randomUUID(), label, scene, changes: real, toast: opts.toast === true };
+    const step: Step = { id: crypto.randomUUID(), label, scene, changes: real };
     saveHistory(pushStep(loadHistory(), step));
   } catch (err) {
     console.error(`Couldn't record "${label}" for undo: ${errorMessage(err)}`);

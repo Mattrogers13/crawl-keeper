@@ -1,8 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import App from "./App";
-import { TOAST_MS } from "./UndoBar";
 import { SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import { GM_ENTRY, parseTracker } from "../tracker";
 import { record } from "../undo";
@@ -25,6 +24,19 @@ describe("the GM's undo in the panel", () => {
     await waitFor(() => expect(saved()).toMatchObject({ current: "a", round: 1 }));
   });
 
+  it("Undo names its step on the button; Redo is an icon whose tooltip names it", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    scene([{ id: "a" }, { id: GM_ENTRY }]);
+    render(<App />);
+    fireEvent.click(await screen.findByLabelText("Next turn"));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo: Next turn" }));
+    const redo = await screen.findByRole("button", { name: "Redo: Next turn" });
+    expect(redo).toHaveTextContent(/^$/);
+    expect(redo).toHaveAttribute("title", "Redo: Next turn (⇧⌘Z)");
+    fireEvent.click(redo);
+    expect(await screen.findByRole("button", { name: "Undo: Next turn" })).toHaveTextContent("Undo: Next turn");
+  });
+
   it("Cmd+Z undoes and Cmd+Shift+Z redoes, but not while typing in a field", async () => {
     obr.items = [token("a", { name: "Aria" })];
     scene([{ id: "a" }, { id: GM_ENTRY }]);
@@ -43,49 +55,16 @@ describe("the GM's undo in the panel", () => {
     await waitFor(() => expect(saved().current).toBe("a"));
   });
 
-  it("a bigger action offers Undo in a toast for 8 seconds; the next step dismisses it", async () => {
+  it("no toast: a bigger action names itself in the bar, which undoes it", async () => {
     obr.items = [token("a", { name: "Aria" }), token("m", { name: "Goblin" })];
     scene([{ id: "a" }, { id: GM_ENTRY }, { id: "m", monster: true }]);
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "Remove monsters" }));
-    fireEvent.click(screen.getByText("Remove"));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
-    await waitFor(() => expect(saved().entries.map((e) => e.id)).toContain("m"));
+    const undoIt = await screen.findByRole("button", { name: "Undo: Remove monsters" });
+    expect(screen.queryByText(/Done:/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
-  });
-
-  it("the toast goes after 8 seconds", async () => {
-    obr.items = [token("m", { name: "Goblin" })];
-    scene([{ id: GM_ENTRY }, { id: "m", monster: true }]);
-    render(<App />);
-    fireEvent.click(await screen.findByRole("button", { name: "Remove monsters" }));
-    // No waitFor / findBy while the clock is fake: Testing Library then
-    // drives Jest's timers, which Vitest doesn't have, and its polling stalls
-    // (it failed on CI). Flush promises by hand instead.
-    vi.useFakeTimers();
-    try {
-      fireEvent.click(screen.getByText("Remove"));
-      const toastUndo = () => screen.queryByRole("button", { name: "Undo" });
-      for (let i = 0; i < 20 && !toastUndo(); i++) {
-        await act(async () => {
-          await vi.advanceTimersByTimeAsync(0);
-        });
-      }
-      expect(toastUndo()).toBeInTheDocument();
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(TOAST_MS - 500);
-      });
-      expect(toastUndo()).toBeInTheDocument();
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(1000);
-      });
-      expect(toastUndo()).not.toBeInTheDocument();
-      // The step itself stays in the bar.
-      expect(screen.getByRole("button", { name: "Undo: Remove monsters" })).toBeInTheDocument();
-    } finally {
-      vi.useRealTimers();
-    }
+    fireEvent.click(undoIt);
+    await waitFor(() => expect(saved().entries.map((e) => e.id)).toContain("m"));
   });
 
   it("works from Settings too: a setting is a step", async () => {
