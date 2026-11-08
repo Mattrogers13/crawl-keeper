@@ -111,6 +111,22 @@
   .frame { border: 2px dashed #555a72; border-radius: 12px; padding: 6px; }
   .cap { font-size: 12px; color: var(--text2); text-align: center; margin-top: 4px; }
   .scale { transform-origin: top left; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 #bb99ff00; border-color: var(--line); } 50% { box-shadow: 0 0 0 4px #bb99ff55; border-color: var(--primary); } }
+  .pulse { animation: pulse 2.2s ease-in-out infinite; }
+  .decided { background: #1f3a2e; border: 1px solid #2f6b4f; border-radius: 10px; padding: 10px 14px; margin: 16px 0 0; font-size: 14px; }
+  .decided li { margin: 2px 0; }
+  .round2 { border-top: 2px solid var(--primary); }
+  .tl { display: flex; gap: 4px; margin-top: 8px; font-size: 11px; }
+  .tl div { flex: 1; text-align: center; background: var(--deep); border-radius: 6px; padding: 4px 0; color: var(--text2); }
+  .tl .p { outline: 2px solid var(--primary); color: var(--text); }
+  .bigbtn { display: block; text-align: center; background: var(--primary); color: #000; border-radius: 10px; padding: 9px 0; font-weight: 700; font-size: 14px; margin: 8px 0 6px; }
+  .bigbtn.red { background: #b23a2b; color: #fff; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+  .grid2 span { text-align: center; background: #34385a; border-radius: 8px; padding: 6px 0; font-weight: 600; font-size: 12px; }
+  .grid2 small { display: block; font-weight: 400; color: var(--text2); font-size: 10px; }
+  .foot { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); padding-top: 8px; margin-top: 4px; font-size: 12px; }
+  .grip { height: 14px; display: grid; place-items: center; cursor: ns-resize; margin: 6px -12px -12px; background: #2b3049; }
+  .grip i { width: 36px; height: 4px; border-radius: 4px; background: var(--text3); }
   @media (max-width: 700px) { .opt { max-width: none; } .panel { max-width: none; } }
 </style>
 </head>
@@ -121,6 +137,144 @@
   <nav>
     <a href="#q1">1 Pause</a><a href="#q2">2 Confirms</a><a href="#q3">3 Undo bar</a><a href="#q4">4 Time passes</a><a href="#q5">5 Manual mode</a><a href="#q6">6 Dying line</a><a href="#q7">7 Checkboxes</a><a href="#q8">8 Effect icons</a><a href="#q9">9 Panel height</a>
   </nav>
+  <nav><a href="#r5" style="border-color:var(--primary)">Round 2: Q5 pulse</a><a href="#r6" style="border-color:var(--primary)">Round 2: Q6 death prompt</a><a href="#r9" style="border-color:var(--primary)">Round 2: Q9 long monster lists</a></nav>
+
+  <div class="decided">
+    <b>Decided (Matt, 2026-11-08)</b>
+    <ul style="margin:6px 0 0;padding-left:20px">
+      <li><b>Q1</b> B: ❚❚ while running, slim banner while paused. Trial in amber; may switch to red after playing with it.</li>
+      <li><b>Q2</b> A: drop the confirms on Reset rounds, Remove monsters, Reset clock and Remove all lights; Undo covers them.</li>
+      <li><b>Q3</b> Try A (Undo named, Redo icon) first; leaning B.</li>
+      <li><b>Q4</b> A: the Light Tracker opens the same Time passes sheet.</li>
+      <li><b>Q5</b> B (no due logic, copy fixed), plus a reminder pulse: see Round 2 below.</li>
+      <li><b>Q6</b> Redesign by how often each outcome happens, with a way to move on: see Round 2 below. Also: the dying counter ran a round early last session; test after the design stage.</li>
+      <li><b>Q7</b> A: no checkboxes on a mouse; Cmd/Shift-click.</li>
+      <li><b>Q8</b> Keep today's (three, then "+").</li>
+      <li><b>Q9</b> The real problem is a long monster list: A plus three more options below.</li>
+    </ul>
+  </div>
+
+  <!-- Round 2: Q5 -->
+  <section id="r5" class="round2">
+    <h2><small>Q5 · Round 2</small>Manual mode with a reminder pulse</h2>
+    <p class="q">No due count and no danger level. On the GM / Monsters turn in a crawl round the card's outline pulses softly as a "did you roll?" nudge. It stops as soon as you roll the die or move the turn on, and comes back on the GM turn of the following rounds. Never in combat.</p>
+    <div class="opts">
+      <div class="opt">
+        <h3><span class="tag">GM turn</span>Pulsing (live animation)</h3>
+        <div class="panel">
+          <div class="card pulse" style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b>Manual rolls</b> <span class="chip ghost">🕯 Torchlit</span><div class="small muted">Your turn: roll for an encounter if it's time</div></div><div class="die">ROLL</div></div>
+          <div class="row cur"><span class="av" style="background:#5a4a8a">☗</span><span class="nm"><b>GM / Monsters</b></span><span class="init">14</span></div>
+        </div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag now">Players' turns</span>Quiet</h3>
+        <div class="panel">
+          <div class="card" style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b>Manual rolls</b> <span class="chip ghost">🕯 Torchlit</span></div><div class="die">ROLL</div></div>
+          <div class="row cur"><span class="av" style="background:#c95b4c">A</span><span class="nm"><b>Aria</b></span><span class="init">17</span></div>
+        </div>
+      </div>
+      <div class="opt" style="max-width:none;flex-basis:100%">
+        <h3>When it pulses</h3>
+        <div class="tl"><div>R1 Aria</div><div class="p">R1 GM ✦</div><div>R2 Aria</div><div class="p">R2 GM ✦</div><div>R3 Aria</div><div class="p">R3 GM ✦</div><div>Combat</div></div>
+        <div class="notes"><div class="plus">A gentle nudge, never a blocker; nothing is counted or written.</div><div class="minus">Every GM turn means it pulses most of the time you're on your own turn. The alternative is every N rounds (a "remind every" picker in Settings), which brings back a small piece of the cadence.</div></div>
+      </div>
+    </div>
+    <p class="lean"><b>Question:</b> every GM turn, or every N rounds? (Respects prefers-reduced-motion either way: a steady outline instead of the pulse.)</p>
+  </section>
+
+  <!-- Round 2: Q6 -->
+  <section id="r6" class="round2">
+    <h2><small>Q6 · Round 2</small>Death prompt, ordered by how often it happens</h2>
+    <p class="q">Rules (p. 89): each turn the dying character rolls a d20; a natural 20 rises with 1 HP, so 19 in 20 rolls fail. An ally's DC 15 INT check stabilizes; healing ends it. So: Failed is the big button, Stabilized and Healed next, Nat 20 after, Dead tucked away. Today ▶ keeps reopening the prompt until something is picked, which is the freeze. <b>Skip for now</b> moves the turn on with no decision.</p>
+    <div class="opts">
+      <div class="opt">
+        <h3><span class="tag">▶ prompt</span>A normal dying turn</h3>
+        <div class="panel">
+          <div style="display:flex;justify-content:space-between"><b>💔 Tamsin is dying</b><span class="muted">✕</span></div>
+          <div class="small muted">2 rounds left · roll a d20 at the table, or here</div>
+          <span class="bigbtn">Failed · still dying</span>
+          <div class="grid2"><span>Stabilized<small>ally's INT check</small></span><span>Healed<small>back on their feet</small></span></div>
+          <div class="grid2"><span>Nat 20<small>rises with 1 HP</small></span><span>🎲 Roll d20<small>roll it for me</small></span></div>
+          <div class="foot"><span class="muted">Skip for now →</span><span style="color:var(--redtext)">Mark dead</span></div>
+        </div>
+        <div class="notes"><div class="plus">The usual answer is one big click.</div><div class="plus">Skip for now: the turn moves on, the timer keeps running, they're still dying next turn.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">▶ prompt</span>The timer's last turn</h3>
+        <div class="panel">
+          <div style="display:flex;justify-content:space-between"><b>💔 Tamsin: last chance</b><span class="muted">✕</span></div>
+          <div class="small muted">The timer is out. Anything but a 20 and they die.</div>
+          <span class="bigbtn red">Failed · Tamsin dies</span>
+          <div class="grid2"><span>Stabilized<small>ally's INT check</small></span><span>Healed<small>back on their feet</small></span></div>
+          <div class="grid2"><span>Nat 20<small>rises with 1 HP</small></span><span>🎲 Roll d20<small>roll it for me</small></span></div>
+          <div class="foot"><span class="muted">Skip for now →</span><span></span></div>
+        </div>
+        <div class="notes"><div class="plus">Skip works here too, so a lost roll never freezes the game; they stay on "last chance" until you decide.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">Notices</span>The line on their turn</h3>
+        <div class="panel">
+          <div class="dying" style="display:flex;align-items:center;gap:6px"><p style="margin:0;flex:1">💔 <b>Tamsin</b> dying · 2 left</p><span class="chip">Failed</span><span class="chip ghost">Decide…</span></div>
+          <div class="row cur"><span class="av" style="background:#7a6a3a">T</span><span class="nm"><b>Tamsin</b><i>Dying · 2 rnd</i></span><span class="init">9</span></div>
+        </div>
+        <div class="notes"><div class="plus">One line, not two: Decide… opens the same prompt.</div></div>
+      </div>
+    </div>
+    <p class="lean"><b>If something's clicked by accident:</b> ✕ changes nothing; the notices line stays and ▶ or Decide… brings the prompt back. Skip for now is the Next-turn undo step, so Undo returns to their turn with the prompt. Failed, Stabilized, Healed, Nat 20 and Dead are already undo steps. <b>Open:</b> the counter running a round early, which we'll test after the design stage.</p>
+  </section>
+
+  <!-- Round 2: Q9 -->
+  <section id="r9" class="round2">
+    <h2><small>Q9 · Round 2</small>Long monster lists: four options</h2>
+    <p class="q">Found while checking: the SDK lets the extension resize its own panel (<code>OBR.action.setHeight</code>, <code>ActionApi.ts:29</code>), so a resize control is possible even though Owlbear's popover has no resize handle. Foundry's answer to big fights is grouping: modules like Combat Tracker Groups and Group Initiative put identical creatures under one toggle and one roll. Owlbear's own Initiative Tracker and Pretty Sordid just scroll.</p>
+    <div class="opts">
+      <div class="opt">
+        <h3><span class="tag">A</span>Stay at 600, reclaim space</h3>
+        <div class="panel">
+          <div class="row cur"><span class="av" style="background:#5a4a8a">☗</span><span class="nm"><b>GM / Monsters</b></span><span class="init">14</span></div>
+          <div class="lbl">⌄ Monsters · 7</div>
+          <div class="row"><span class="av" style="background:#6a7a3a">G</span><span class="nm"><b>Goblin</b></span></div>
+          <div class="row"><span class="av" style="background:#6a7a3a">G</span><span class="nm"><b>Goblin 2</b></span></div>
+          <div class="row dim"><span class="nm"><i>…5 more, scroll</i></span></div>
+        </div>
+        <div class="notes"><div class="plus">The top-5 layout fixes give about two to three more rows.</div><div class="minus">Seven-plus monsters still scroll.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">B</span>Resize handle on the panel</h3>
+        <div class="panel">
+          <div class="row cur"><span class="av" style="background:#5a4a8a">☗</span><span class="nm"><b>GM / Monsters</b></span><span class="init">14</span></div>
+          <div class="lbl">⌄ Monsters · 7</div>
+          <div class="row"><span class="av" style="background:#6a7a3a">G</span><span class="nm"><b>Goblin</b></span></div>
+          <div class="row"><span class="av" style="background:#6a7a3a">G</span><span class="nm"><b>Goblin 2</b></span></div>
+          <div class="row"><span class="av" style="background:#6a7a3a">G</span><span class="nm"><b>Goblin 3</b></span></div>
+          <div class="grip" title="Drag to resize"><i></i></div>
+        </div>
+        <div class="notes"><div class="plus">Your call how tall, remembered per browser.</div><div class="minus">Unverified: dragging past the panel's bottom edge from inside Owlbear's iframe may lose the pointer. Fallback is a Small / Tall toggle in the header. Owlbear's limits on a short window are unknown too.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">C</span>Stack identical monsters</h3>
+        <div class="panel">
+          <div class="row cur"><span class="av" style="background:#5a4a8a">☗</span><span class="nm"><b>GM / Monsters</b></span><span class="init">14</span></div>
+          <div class="lbl">⌄ Monsters · 7</div>
+          <div class="row"><span class="av" style="background:#6a7a3a">G</span><span class="nm"><b>Goblin ×4</b><i>1 dead · 1 paralyzed</i></span><span class="muted">›</span></div>
+          <div class="row"><span class="av" style="background:#555">W</span><span class="nm"><b>Wolf ×2</b></span><span class="muted">›</span></div>
+          <div class="row"><span class="av" style="background:#8a3a3a">O</span><span class="nm"><b>Ogre</b></span></div>
+        </div>
+        <div class="notes"><div class="plus">Seven monsters in three rows; › opens a stack to act on one goblin.</div><div class="minus">Needs a rule for "identical" (same name stem? same image?). An effect or Dead on one goblin has to show on the stack's line.</div></div>
+      </div>
+      <div class="opt">
+        <h3><span class="tag">D</span>Fold the monsters off-turn</h3>
+        <div class="panel">
+          <div class="row"><span class="av" style="background:#c95b4c">A</span><span class="nm"><b>Aria</b></span><span class="init">17</span></div>
+          <div class="row"><span class="av" style="background:#5a4a8a">☗</span><span class="nm"><b>GM / Monsters</b></span><span class="init">14</span></div>
+          <div class="lbl">› Monsters · 7 · Goblin paralyzed</div>
+          <div class="row cur"><span class="av" style="background:#4c7ac9">B</span><span class="nm"><b>Borin</b></span><span class="init">12</span></div>
+        </div>
+        <div class="notes"><div class="plus">Builds on today's fold, which you close by hand (remembered) and which opens only on a monster's combat turn. D makes it automatic: closed off-turn with a summary of what's going on, open on the GM's turn.</div><div class="minus">Doesn't help on the GM's turn, when the list is longest.</div></div>
+      </div>
+    </div>
+    <p class="lean"><b>My lean: A + C</b>, with B only if a room test shows the drag works. C is what other VTTs settled on for big fights, and it fixes the GM turn, where D doesn't. These can combine; also cheap and worth doing under any option: auto-scroll the current turn into view.</p>
+  </section>
 
   <!-- Q1 -->
   <section id="q1">
