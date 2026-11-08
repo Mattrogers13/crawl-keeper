@@ -46,7 +46,9 @@ export const describe = (e: Effect, t: Tracker, holder?: string) => {
       : e.kind === "focus"
         ? "while focusing"
         : e.kind === "until"
-          ? "until removed"
+          ? e.icon === "dying"
+            ? "the timer is rolled on their turn"
+            : "until removed"
           : `${st.state === "active" ? st.left : 0} of ${e.rounds} rounds left${e.dice ? ` (${e.dice})` : ""}`;
   const hint = e.icon ? CONDITIONS[e.icon].hint : undefined;
   return [holder ? `${e.name} on ${holder}` : e.name, time, e.hidden ? "hidden from players" : "", hint ?? ""].filter(Boolean).join(" · ");
