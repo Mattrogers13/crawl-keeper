@@ -467,6 +467,28 @@ describe("manual fixes", () => {
     const dropped = L.dropSpent(t.s);
     expect(dropped.lights.map((l) => [l.kind, l.status])).toEqual([["lantern", "spent"], ["campfire", "lit"]]);
     expect(L.dropSpent(dropped)).toBe(dropped);
+    expect(dropped.wentOut).toBe(false);
+  });
+
+  it("the last lights let go leave darkness behind (wentOut) until one is lit; Remove all lights hands darkness back to the map's switch", () => {
+    const t = setup();
+    t.add("torch", "a");
+    t.do((s, now) => L.putAllOut(s, now));
+    const gone = L.dropSpent(t.s);
+    expect(gone).toMatchObject({ lights: [], wentOut: true });
+    expect(L.lightStatus(gone, Date.now())).toBe("dark");
+    expect(L.followingLights(true, gone)).toBe(true);
+    expect(L.followingLights(false, gone)).toBe(false);
+    expect(L.isDark(true, gone, Date.now(), false)).toBe(true);
+    // Saved and read back: kept with no lights, dropped once there are some.
+    expect(L.parseLights(JSON.parse(JSON.stringify(gone))).wentOut).toBe(true);
+    expect(L.parseLights({ wentOut: true, lights: [{ id: "x", kind: "torch", tokenId: "a", carrier: "A", status: "lit", remainingMs: 1000, endsAt: Date.now() + 1000 }] }).wentOut).toBe(false);
+    expect(L.parseLights({ wentOut: "yes" }).wentOut).toBe(false);
+    // Remove all lights: nothing tracked, the map's switch again.
+    const cleared = L.removeAll(gone);
+    expect(cleared).toMatchObject({ lights: [], wentOut: false });
+    expect(L.lightStatus(cleared, Date.now())).toBe("none");
+    expect(L.removeAll(cleared)).toBe(cleared);
   });
 
   it("setting the time: a lantern that's out keeps it exactly; a spent light can't light beside a lit one", () => {

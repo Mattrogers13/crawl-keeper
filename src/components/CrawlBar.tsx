@@ -17,7 +17,6 @@ import {
   rollFor,
   roundsToCheck,
   setDanger,
-  setDark,
   type Crawl,
   type CrawlRoll,
   type Danger,
@@ -32,9 +31,9 @@ import {
 // and the die light up when a roll is due; the die can always be rolled (an
 // extra check when the GM wants one). Manual: the same d6 check, or the GM
 // rolls at the table; no auto roll. `start` is the clock's size.
-// `dark`: total darkness (isDark in lights.ts): a check every crawl round,
-// a d8 crawling die. `following`: the lights decide it, so the map's switch
-// is locked.
+// `dark`: total darkness (darkNow in crawl.ts): a check every crawl round,
+// a d8 crawling die. `following`: the lights decide it; the switch still
+// flips it, until the lights next change.
 const CrawlBar = (props: {
   crawl: Crawl;
   mode: EncounterMode;
@@ -44,6 +43,8 @@ const CrawlBar = (props: {
   gmTurn: boolean;
   dark: boolean;
   following: boolean;
+  // The darkness switch (Tracker's: the map's own, or a flip over the lights).
+  flipDark: () => void;
   change: Change<Crawl>;
   // What players see of this card (Settings → What players see): a small
   // green eye on each (Matt, 2026-11-06).
@@ -86,7 +87,7 @@ const CrawlBar = (props: {
         <TorchToggle
           dark={dark}
           following={props.following}
-          onClick={() => change(crawl.dark ? "Torchlit" : "Darkness", (c) => setDark(c, !c.dark))}
+          onClick={props.flipDark}
         />
         <div className="relative ml-auto flex items-center gap-1.5">
           <RollsEye shown={seen.rolls} toggle={props.toggleRolls} />
@@ -169,7 +170,7 @@ const CrawlBar = (props: {
         <TorchToggle
           dark={dark}
           following={props.following}
-          onClick={() => change(crawl.dark ? "Torchlit" : "Darkness", (c) => setDark(c, !c.dark))}
+          onClick={props.flipDark}
         />
         {clock && (
           <button type="button" className={LINK} onClick={resetTheClock}>
@@ -267,15 +268,14 @@ const TorchToggle = (props: { dark: boolean; following: boolean; onClick: () => 
     type="button"
     aria-label="Darkness"
     aria-pressed={props.dark}
-    disabled={props.following}
     title={
       props.following
-        ? "Following the Light Tracker. Turn off Follow light in Settings to set this by hand."
+        ? "Following the Light Tracker: Darkness when the last light goes out. Click to set it by hand until a light is lit or goes out."
         : "Darkness (p. 84): DIS, a check every crawl round, a d8 crawling die"
     }
     className={`flex h-7 items-center gap-1.5 rounded-full pr-3 pl-2 text-xs font-medium ${FOCUS} ${
       props.dark ? "bg-obr-text/10 text-obr-text-secondary" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-    } ${props.following ? "cursor-default" : ""}`}
+    }`}
     onClick={props.onClick}
   >
     <TorchIcon lit={!props.dark} />
