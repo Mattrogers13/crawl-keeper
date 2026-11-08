@@ -165,7 +165,7 @@ const Settings = (props: { openLog?: () => void }) => {
       <Group title="Darkness (p. 84)">
         <Toggle
           label="Follow light"
-          hint="No light shining means darkness: DIS on the party's rows, a check every crawl round, a d8 crawling die. With no lights tracked, or off, set it yourself."
+          hint="No light shining means darkness, also once the last torches are let go: DIS on the party's rows, a check every crawl round, a d8 crawling die. With no lights tracked, or off, set it yourself."
           checked={settings.value.followLight}
           onChange={(followLight) => set({ followLight })}
         />
@@ -173,7 +173,7 @@ const Settings = (props: { openLog?: () => void }) => {
             the map's tracker doc, which only the tracker writes. */}
         <p className="px-4 py-3 text-xs text-obr-text-secondary">
           <span className="font-medium text-obr-text">Darkness by hand:</span> the Torchlit / Darkness switch on the crawl card, for each map.
-          {settings.value.followLight && " Locked while there are lights to follow."}
+          {settings.value.followLight && " While following the lights it still flips; your choice holds until a light is lit or goes out."}
         </p>
       </Group>
 
@@ -223,12 +223,15 @@ const Settings = (props: { openLog?: () => void }) => {
             onChange={(showClock) => set({ showClock })}
           />
         ) : (
-          <Toggle
-            label="Show the danger level to players"
-            hint="Unsafe, Risky or Deadly while crawling. The book leaves it to the GM."
-            checked={settings.value.showDanger}
-            onChange={(showDanger) => set({ showDanger })}
-          />
+          // Manual has no danger level (2026-11-07): nothing to show.
+          rolls && (
+            <Toggle
+              label="Show the danger level to players"
+              hint="Unsafe, Risky or Deadly while crawling. The book leaves it to the GM."
+              checked={settings.value.showDanger}
+              onChange={(showDanger) => set({ showDanger })}
+            />
+          )
         )}
       </Group>
 

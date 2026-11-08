@@ -5,7 +5,7 @@ import App from "./App";
 import { LIGHTS_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import { GM_ENTRY } from "../tracker";
 import { MINUTE, parseLights, remaining } from "../lights";
-import { obr, setItems, token } from "../test/obrMock";
+import { obr, setItems, token, writeFromElsewhere } from "../test/obrMock";
 
 const T0 = Date.parse("2026-10-31T20:00:00Z");
 const saved = () => parseLights(obr.metadata[LIGHTS_KEY]);
@@ -442,7 +442,7 @@ describe("the strip, badges and DIS", () => {
     await waitFor(() => expect(screen.queryByRole("region", { name: "Notices" })).not.toBeInTheDocument());
   });
 
-  it("darkness by the lights: a check every crawl round, the danger level kept, the card's switch locked", async () => {
+  it("darkness by the lights: a check every crawl round, the danger level kept; the switch still flips it until the lights change", async () => {
     obr.items = [token("a", { name: "Aria" })];
     obr.metadata = { [LIGHTS_KEY]: { lights: [{ ...lit("l1", "a"), status: "spent", endsAt: null, remainingMs: 0 }] } };
     scene(["a"]);
@@ -452,9 +452,46 @@ describe("the strip, badges and DIS", () => {
     expect(card).toHaveTextContent("Every crawl round");
     expect(within(card).getByLabelText("Danger level")).toHaveValue("unsafe");
     const toggle = within(card).getByRole("button", { name: /Darkness/ });
-    expect(toggle).toBeDisabled();
+    expect(toggle).toBeEnabled();
     expect(toggle).toHaveTextContent("(following light)");
     expect(toggle).toHaveAttribute("aria-pressed", "true");
+    // The GM flips it by hand: Torchlit, an undo step; the lights' verdict is kept to fall back on.
+    fireEvent.click(toggle);
+    await waitFor(() => expect(toggle).toHaveAttribute("aria-pressed", "false"));
+    expect(obr.sceneMetadata[TRACKER_KEY]).toMatchObject({ crawl: { darkOverride: { dark: false, whenDark: true } } });
+    expect(card).toHaveTextContent("Every 3 rounds");
+    fireEvent.click(screen.getByRole("button", { name: "Undo: Torchlit" }));
+    await waitFor(() => expect(toggle).toHaveAttribute("aria-pressed", "true"));
+    // Flipped again, then a light is lit: the lights decide again (lit), and
+    // when it goes out, Darkness, the old flip forgotten.
+    fireEvent.click(toggle);
+    await waitFor(() => expect(toggle).toHaveAttribute("aria-pressed", "false"));
+    await writeFromElsewhere({ [LIGHTS_KEY]: { lights: [lit("l2", "a")] } });
+    await waitFor(() => expect(toggle).toHaveAttribute("aria-pressed", "false"));
+    await writeFromElsewhere({ [LIGHTS_KEY]: { lights: [{ ...lit("l2", "a"), status: "spent", endsAt: null, remainingMs: 0 }] } });
+    await waitFor(() => expect(toggle).toHaveAttribute("aria-pressed", "true"));
+  });
+
+  it("all lights out, then the turn moves on and the spent torches are let go: still Darkness (Matt, 2026-11-08)", async () => {
+    obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
+    obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a")] } };
+    scene(["a", "b"]);
+    render(<App />);
+    const card = await screen.findByRole("region", { name: "Encounter checks" });
+    expect(within(card).getByRole("button", { name: /Darkness/ })).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(screen.getByLabelText("Light Tracker"));
+    fireEvent.click(await screen.findByRole("button", { name: "Put lights out" }));
+    await waitFor(() => expect(saved().lights[0].status).toBe("spent"));
+    fireEvent.click(screen.getByLabelText("Back to tracker"));
+    fireEvent.click(await screen.findByLabelText("Next turn"));
+    fireEvent.click(screen.getByLabelText("Next turn"));
+    await waitFor(() => expect(saved()).toMatchObject({ lights: [], wentOut: true }));
+    const toggle = within(screen.getByRole("region", { name: "Encounter checks" })).getByRole("button", { name: /Darkness/ });
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(strip()).toHaveTextContent("Darkness · DIS");
+    // A new torch: Torchlit again.
+    await writeFromElsewhere({ [LIGHTS_KEY]: { lights: [lit("l2", "b")] } });
+    await waitFor(() => expect(toggle).toHaveAttribute("aria-pressed", "false"));
   });
 
   it("no lights tracked: the card's switch sets darkness by hand, as an undo step", async () => {

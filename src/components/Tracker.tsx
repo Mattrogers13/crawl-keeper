@@ -21,7 +21,7 @@ import DyingSheet from "./DyingSheet";
 import Notices from "./Notices";
 import TimeSheet from "./TimeSheet";
 import CrawlBar, { ClockDial, FOCUS, PlayerRoll } from "./CrawlBar";
-import { clockLeft, clockStart, crawlDie, cryptoRand, due, lastFor, replayRand, rollFor } from "../crawl";
+import { clockLeft, clockStart, crawlDie, cryptoRand, darkNow, due, flipDark, forgetFlip, lastFor, replayRand, rollFor } from "../crawl";
 import { dicePlusActive, rollDice, rollExploding, setDicePlusEnabled, type RollTarget } from "../diceRoller";
 import { ChevronIcon, HourglassIcon, PlayIcon } from "./icons";
 import Loading from "./Loading";
@@ -215,6 +215,26 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
     });
   }, [effectsReady, items, effectsValue, writeEffects]);
 
+  // The GM's flip of the darkness switch over the lights lasts until they
+  // change (a light lit, or the last one out): then it's forgotten, so it
+  // can't come back if they return to how they were (automatic, not an undo
+  // step). Panel closed through both changes: it stays (rare).
+  const lightsDark = lightStatus === "dark";
+  const followingNow = followingLights(settings.value.followLight, lights.lights);
+  const lastUnflip = useRef("");
+  useEffect(() => {
+    if (!gmReady) return;
+    const unflipped = forgetFlip(docValue.crawl, followingNow, lightsDark);
+    if (unflipped === docValue.crawl) return;
+    const next = { ...docValue, crawl: unflipped };
+    const json = JSON.stringify(next);
+    if (json === lastUnflip.current) return;
+    lastUnflip.current = json;
+    void writeDoc(next).then((saved) => {
+      if (saved) lastUnflip.current = "";
+    });
+  }, [gmReady, docValue, writeDoc, followingNow, lightsDark]);
+
   // The map's right-click Add effect… (addEffectHandoff.ts): the tokens
   // waiting when the tracker mounts (the panel was closed), or sent now (it
   // was open). The stored handoff wins so it's taken once; the message's ids
@@ -343,8 +363,8 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   // Total darkness (p. 84; isDark in lights.ts): the lights when Follow
   // light is on and lights are tracked, else this map's switch. Disadvantage
   // on living players' rows, a check every crawl round, a d8 crawling die.
-  const following = followingLights(settings.value.followLight, lights.lights);
-  const dark = following ? lightStatus === "dark" : tracker.crawl.dark;
+  const following = followingNow;
+  const dark = darkNow(tracker.crawl, following, lightsDark);
   // Players see the lights unless the GM turns that off (their own stay in
   // their Light Tracker view, PlayerLights.tsx).
   const seeLights = gm || settings.value.showLights;
@@ -421,7 +441,8 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   const every = mode === "manual" ? settings.value.remindEvery : undefined;
   // Players see the Crawling Clock unless the GM hides it; the GM sees it on the card.
   const showClock = !gm && mode === "clock" && settings.value.showClock;
-  const showDanger = !gm && !combat && mode !== "clock" && settings.value.showDanger;
+  // Standard checks only: Manual has no danger level.
+  const showDanger = !gm && !combat && mode === "standard" && settings.value.showDanger;
   // Manual: the GM's rolls stay the GM's.
   const playerRoll = !gm && settings.value.showRolls ? lastFor(tracker.crawl, mode) : null;
   // The encounter roll (the card's die, R, the auto roll): here, or Dice+
@@ -687,13 +708,14 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           gmTurn={tracker.current === GM_ENTRY}
           dark={dark}
           following={following}
+          flipDark={() => change(dark ? "Torchlit" : "Darkness", (t) => updateCrawl(t, (c) => flipDark(c, following, lightsDark)))}
           change={(label, fn, opts) => change(label, (t) => updateCrawl(t, fn), opts)}
           roll={rollEncounter}
           rolling={rolling}
           toggleRolls={toggleRolls}
           seen={{
             clock: mode === "clock" && settings.value.showClock,
-            danger: mode !== "clock" && settings.value.showDanger,
+            danger: mode === "standard" && settings.value.showDanger,
             rolls: settings.value.showRolls,
           }}
         />

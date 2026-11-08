@@ -64,11 +64,17 @@ export type CrawlRoll = {
   encounter: boolean;
 };
 
+// The GM flipped the darkness switch while the lights decide: it holds while
+// the lights stay as they were (`whenDark`), until one is lit or the last
+// goes out (Matt, 2026-11-08: following, and the switch still works).
+export type DarkOverride = { dark: boolean; whenDark: boolean };
+
 type CrawlCore = {
   danger: Danger;
   // The GM's own darkness switch for this map: in charge unless Follow light
   // is on and lights are tracked (isDark in lights.ts).
   dark: boolean;
+  darkOverride: DarkOverride | null;
   clock: number;
   // Crawl rounds started on this map, and the count at the last check or
   // clock roll (combat rounds don't count, p. 112). lastCheck can run ahead of
@@ -85,6 +91,7 @@ export type Crawl = CrawlCore;
 export const emptyCrawl = (): Crawl => ({
   danger: "unsafe",
   dark: false,
+  darkOverride: null,
   clock: CLOCK_FULL,
   crawlRounds: 0,
   lastCheck: 0,
@@ -118,6 +125,10 @@ export const parseCrawl = (raw: unknown): Crawl => {
   return {
     danger: parseDanger(raw.danger),
     dark: raw.dark === true,
+    darkOverride:
+      isObject(raw.darkOverride) && typeof raw.darkOverride.dark === "boolean" && typeof raw.darkOverride.whenDark === "boolean"
+        ? { dark: raw.darkOverride.dark, whenDark: raw.darkOverride.whenDark }
+        : null,
     clock: parseClock(raw.clock),
     crawlRounds,
     lastCheck: ahead(crawlRounds, parseCount(raw.lastCheck)),
@@ -222,6 +233,24 @@ export const resetClock = (c: Crawl): Crawl =>
 export const setDanger = (c: Crawl, danger: Danger): Crawl => (c.danger === danger ? c : { ...c, danger });
 
 export const setDark = (c: Crawl, dark: boolean): Crawl => (c.dark === dark ? c : { ...c, dark });
+
+// Darkness now: the map's switch, or while following the lights
+// (`lightsDark`: none shining) theirs, unless the GM flipped it since they
+// last changed.
+export const darkNow = (c: Crawl, following: boolean, lightsDark: boolean) =>
+  !following ? c.dark : c.darkOverride && c.darkOverride.whenDark === lightsDark ? c.darkOverride.dark : lightsDark;
+
+// The switch: the map's own, or while following, a flip that holds until
+// the lights change (flipping back to theirs clears it).
+// The flip, once the lights changed under it (or they no longer decide): gone.
+export const forgetFlip = (c: Crawl, following: boolean, lightsDark: boolean): Crawl =>
+  c.darkOverride && (!following || c.darkOverride.whenDark !== lightsDark) ? { ...c, darkOverride: null } : c;
+
+export const flipDark = (c: Crawl, following: boolean, lightsDark: boolean): Crawl => {
+  if (!following) return { ...c, dark: !c.dark };
+  const want = !darkNow(c, following, lightsDark);
+  return { ...c, darkOverride: want === lightsDark ? null : { dark: want, whenDark: lightsDark } };
+};
 
 // A new crawl round started (▶ wrapped while crawling), or ◀ went back over
 // one. Reset rounds starts the count over.

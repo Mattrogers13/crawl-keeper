@@ -10,6 +10,8 @@ Versions follow semver; the same number is in `package.json` and `public/manifes
 - Undo bar: Undo still names its step; Redo is a round icon whose tooltip names it. The "Done: … Undo" pop-up is gone: it repeated the bar.
 - Settings, the Light Tracker and the log keep a gap between their cards and the scrollbar.
 - Manual rolls: a reminder instead of a hidden schedule. Every few crawl rounds (Settings → Remind me every, 1 to 10, default 3; every round in darkness) the card pulses on the GM's turn; it stops when you roll or move on. The Settings hint no longer mentions a danger level.
+- Darkness follows the lights all the way: after Put lights out (or the last torch burning out), the switch stays at Darkness when the spent torches leave their rows on the next turn; before, it fell back to Torchlit. And the switch still works while following the lights: your flip holds until a light is lit or goes out.
+- Manual rolls: no "Show the danger level to players" setting (Manual has no danger level), and players see none.
 - The empty tracker and the how-to page name the real menu path: right-click → Crawl Keeper → Add to initiative.
 
 ## v0.6.0 (2026-11-07)

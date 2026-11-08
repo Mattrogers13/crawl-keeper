@@ -1146,7 +1146,8 @@ describe("Tracker (GM)", () => {
       expect(screen.getByRole("radio", { name: "Manual" })).toBeChecked();
       expect(screen.queryByRole("switch", { name: /Roll automatically/ })).not.toBeInTheDocument();
       expect(screen.queryByRole("switch", { name: /Show the rolls/ })).not.toBeInTheDocument();
-      expect(screen.getByRole("switch", { name: /Show the danger level/ })).toBeInTheDocument();
+      // Manual has no danger level: nothing to show players.
+      expect(screen.queryByRole("switch", { name: /Show the danger level/ })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("radio", { name: "Interval" }));
       await waitFor(() => expect(obr.metadata[SETTINGS_KEY]).toMatchObject({ encounterRolls: true, encounterMode: "standard" }));
       // One undo step, named for the method.
@@ -1311,17 +1312,19 @@ describe("Tracker (player)", () => {
     expect(screen.getByLabelText("Last roll")).toBeInTheDocument();
   });
 
-  it("manual mode: the GM's die roll shows to players only with Show rolls to players on", async () => {
+  it("manual mode: no danger level for players (Manual has none); the GM's die roll shows only with Show rolls to players on", async () => {
     obr.role = "PLAYER";
     obr.metadata = { [SETTINGS_KEY]: { encounterRolls: false, showRolls: false, showDanger: true } };
     scene([{ id: GM_ENTRY }], GM_ENTRY, 1, {
       crawl: { crawlRounds: 3, lastCheck: 3, last: { kind: "check", dice: [1], sides: 6, encounter: true } },
     });
     render(<App />);
-    expect(await screen.findByRole("region", { name: "Crawl status" })).toHaveTextContent("Crawling · unsafe");
-    expect(screen.queryByLabelText("Last roll")).not.toBeInTheDocument();
+    await screen.findByText("GM / Monsters");
+    expect(screen.queryByRole("region", { name: "Crawl status" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/unsafe/i)).not.toBeInTheDocument();
     await writeFromElsewhere({ [SETTINGS_KEY]: { encounterRolls: false, showRolls: true, showDanger: true } });
     expect(screen.getByLabelText("Last roll")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Crawl status" })).not.toHaveTextContent(/unsafe/i);
   });
 
   it("sees no turn-marker dots", async () => {
