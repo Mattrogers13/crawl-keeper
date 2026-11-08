@@ -60,10 +60,16 @@ describe("the map menu's rows", () => {
     expect(after.lights).toMatchObject([{ id: "lan", status: "lit", remainingMs: 30 * MINUTE }]);
   });
 
-  it("a prop: Add effect and a campfire; initiative and the carried lights are off", () => {
+  it("a prop: Add effect and every light (a torch in a sconce, a glowing rune); initiative is off", () => {
     const rows = menuRows(t, none, [tok("f", "PROP")], NOW);
-    expect(rows.map((r) => r.enabled)).toEqual([false, true, false, false, false, true, false, false, false]);
+    expect(rows.map((r) => r.enabled)).toEqual([false, true, true, true, true, true, false, false, false]);
     expect(rows[0].title).toBe("Character tokens only");
+    expect(apply(none, [tok("f", "PROP")], 4).lights).toMatchObject([{ kind: "lightSpell", tokenId: "f", carrier: "F", status: "lit" }]);
+  });
+
+  it("a player's menu still lights character tokens only", () => {
+    const rows = playerMenuRows(t, none, [tok("f", "PROP")], NOW, "me");
+    expect(rows.every((r) => !r.enabled && r.title === "Party tokens only")).toBe(true);
   });
 
   it("several tokens: each one lit, skipping those already holding it; Put out lights for the lit ones", () => {

@@ -107,7 +107,8 @@ const Homepage = () => {
         <Steps>
           <li>
             Give a token a light: right-click it on the map → <b>Crawl Keeper</b> → Light torch, Light lantern, Cast Light
-            or Light campfire, or use a row's menu. One lit light per token. With Dynamic Fog on, the token casts it: near
+            or Light campfire, or use a row's menu. The GM can light any of them on a prop too (a torch in a sconce);
+            its time shows in the Light Tracker. One lit light per token. With Dynamic Fog on, the token casts it: near
             (30 ft), a lantern double near (60 ft). Every party token without one keeps 3 ft of dim light.
           </li>
           <li>

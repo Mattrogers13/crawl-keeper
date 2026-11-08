@@ -54,8 +54,10 @@ export const PLAYER_MENU_GROUPS = 1;
 export const menuHeight = (rows: number, lines: number) => rows * 36 + lines * 9 + 8;
 const startsGroup = (row: MenuRow): MenuRow => ({ ...row, group: true });
 
-// Torch, lantern and Light spell are carried (character tokens); a campfire
-// goes on any token, a prop included.
+// Torch, lantern and Light spell are carried: a player lights them on
+// character tokens only. The GM lights any of the four on any token, a prop
+// included (Matt, 2026-11-07: a torch in a sconce, a glowing rune); a prop
+// has no row, so its time shows in the Light Tracker only.
 const CARRIED: LightKind[] = ["torch", "lantern", "lightSpell"];
 const carries = (t: MenuToken) => t.layer === "CHARACTER" || t.layer === "MOUNT";
 const lower = (kind: LightKind) => (kind === "lightSpell" ? "Light spell" : LIGHT_KINDS[kind].label.toLowerCase());
@@ -83,11 +85,11 @@ const initiativeRow = (t: Tracker, tokens: MenuToken[]): MenuRow => {
 // Light `kind` on each token: one already lit with another light swaps
 // (put out, light this one); a lantern that's out goes back on with its
 // oil; one already holding this kind lit is skipped.
+// `tokens`: the ones that may hold it (the players' menu passes only theirs).
 const lightRow = (s: Lights, tokens: MenuToken[], kind: LightKind): MenuRow => {
-  const allowed = kind === "campfire" ? tokens : tokens.filter(carries);
-  const todo = allowed.filter((x) => litOn(s, x.id)?.kind !== kind);
+  const todo = tokens.filter((x) => litOn(s, x.id)?.kind !== kind);
   const base = { icon: ICON[kind], label: verb(kind) };
-  if (allowed.length === 0) return { ...base, enabled: false, title: "Character tokens only", action: null };
+  if (tokens.length === 0) return { ...base, enabled: false, title: "Select a token", action: null };
   if (todo.length === 0) return { ...base, enabled: false, title: `${LIGHT_KINDS[kind].label} already lit`, action: null };
   // swapLight puts out what's lit and relights a waiting lantern.
   const fn = (st: Lights, at: number, newId: () => string) =>
