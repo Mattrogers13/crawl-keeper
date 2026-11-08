@@ -45,3 +45,27 @@ body {
   -webkit-appearance: none;
   margin: 0;
 }
+
+/* Manual rolls' reminder (CrawlBar): a soft pulse of an outline around the
+   card (outline, not box-shadow: Tailwind's ring is a box-shadow). Reduced
+   motion: the outline, steady. */
+@keyframes ck-remind {
+  0%,
+  100% {
+    outline-color: color-mix(in srgb, var(--obr-primary) 0%, transparent);
+  }
+  50% {
+    outline-color: color-mix(in srgb, var(--obr-primary) 45%, transparent);
+  }
+}
+.ck-remind {
+  outline: 3px solid transparent;
+  outline-offset: 1px;
+  animation: ck-remind 2.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ck-remind {
+    animation: none;
+    outline-color: color-mix(in srgb, var(--obr-primary) 35%, transparent);
+  }
+}

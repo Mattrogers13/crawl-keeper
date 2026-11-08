@@ -25,6 +25,19 @@ describe("the GM's undo in the panel", () => {
     await waitFor(() => expect(saved()).toMatchObject({ current: "a", round: 1 }));
   });
 
+  it("Undo names its step on the button; Redo is an icon whose tooltip names it", async () => {
+    obr.items = [token("a", { name: "Aria" })];
+    scene([{ id: "a" }, { id: GM_ENTRY }]);
+    render(<App />);
+    fireEvent.click(await screen.findByLabelText("Next turn"));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo: Next turn" }));
+    const redo = await screen.findByRole("button", { name: "Redo: Next turn" });
+    expect(redo).toHaveTextContent(/^$/);
+    expect(redo).toHaveAttribute("title", "Redo: Next turn (⇧⌘Z)");
+    fireEvent.click(redo);
+    expect(await screen.findByRole("button", { name: "Undo: Next turn" })).toHaveTextContent("Undo: Next turn");
+  });
+
   it("Cmd+Z undoes and Cmd+Shift+Z redoes, but not while typing in a field", async () => {
     obr.items = [token("a", { name: "Aria" })];
     scene([{ id: "a" }, { id: GM_ENTRY }]);
@@ -48,7 +61,6 @@ describe("the GM's undo in the panel", () => {
     scene([{ id: "a" }, { id: GM_ENTRY }, { id: "m", monster: true }]);
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "Remove monsters" }));
-    fireEvent.click(screen.getByText("Remove"));
     await waitFor(() => expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     await waitFor(() => expect(saved().entries.map((e) => e.id)).toContain("m"));
@@ -59,13 +71,13 @@ describe("the GM's undo in the panel", () => {
     obr.items = [token("m", { name: "Goblin" })];
     scene([{ id: GM_ENTRY }, { id: "m", monster: true }]);
     render(<App />);
-    fireEvent.click(await screen.findByRole("button", { name: "Remove monsters" }));
+    const removeMonsters = await screen.findByRole("button", { name: "Remove monsters" });
     // No waitFor / findBy while the clock is fake: Testing Library then
     // drives Jest's timers, which Vitest doesn't have, and its polling stalls
     // (it failed on CI). Flush promises by hand instead.
     vi.useFakeTimers();
     try {
-      fireEvent.click(screen.getByText("Remove"));
+      fireEvent.click(removeMonsters);
       const toastUndo = () => screen.queryByRole("button", { name: "Undo" });
       for (let i = 0; i < 20 && !toastUndo(); i++) {
         await act(async () => {

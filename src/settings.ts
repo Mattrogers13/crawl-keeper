@@ -2,6 +2,7 @@
 // Later PRs add fields; parse keeps unknown or malformed fields at defaults.
 
 import type { ClockDice, EncounterMode } from "./crawl";
+import { intIn } from "./parse";
 
 export type Settings = {
   // Crawl Keeper rolls encounters; off, the GM rolls at the table and the
@@ -46,7 +47,12 @@ export type Settings = {
   // Players see the death timer: the Dying line and icon, its notices and
   // the death rolls (p. 89 has it in the open). Off: the GM's alone.
   showDeath: boolean;
+  // Manual rolls: the card pulses on the GM's turn every this many crawl
+  // rounds, a reminder to roll (1 to 10; default 3, Unsafe's cadence).
+  remindEvery: number;
 };
+
+export const REMIND_MAX = 10;
 
 export const DEFAULT_SETTINGS: Settings = {
   encounterRolls: true,
@@ -66,6 +72,7 @@ export const DEFAULT_SETTINGS: Settings = {
   effectIcons: true,
   dicePlus: true,
   showDeath: true,
+  remindEvery: 3,
 };
 
 export const parseSettings = (raw: unknown): Settings => {
@@ -88,6 +95,7 @@ export const parseSettings = (raw: unknown): Settings => {
     dicePlus: r.dicePlus !== false,
     showDeath: r.showDeath !== false,
     effectIcons: r.effectIcons !== false,
+    remindEvery: intIn(r.remindEvery, 1, REMIND_MAX) ?? DEFAULT_SETTINGS.remindEvery,
   };
 };
 

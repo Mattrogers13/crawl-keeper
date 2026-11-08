@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 
-import Confirm from "./Confirm";
+import { LINK } from "./Confirm";
 import InfoPopup from "./InfoPopup";
 import { FOCUS } from "./CrawlBar";
 import Loading from "./Loading";
@@ -91,12 +91,9 @@ const LightTracker = ({ names }: { names: Map<string, string> }) => {
       ))}
       {s.lights.length > 0 && (
         <div className="-mt-1">
-          <Confirm
-            label="Remove all lights"
-            question={`Remove all ${s.lights.length} lights?`}
-            action="Remove"
-            onConfirm={() => change("Remove all lights", removeAll, { toast: true })}
-          />
+          <button type="button" className={LINK} onClick={() => change("Remove all lights", removeAll, { toast: true })}>
+            Remove all lights
+          </button>
         </div>
       )}
 

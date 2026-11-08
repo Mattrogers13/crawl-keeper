@@ -14,7 +14,7 @@ import { resetAll } from "../resetAll";
 import { readLog } from "../sessionLog";
 import { record } from "../undo";
 import { errorMessage } from "../utils";
-import { parseSettings, type Settings as SettingsDoc } from "../settings";
+import { REMIND_MAX, parseSettings, type Settings as SettingsDoc } from "../settings";
 
 // The GM's settings (room metadata, so they follow the party across maps),
 // grouped into cards like Owlbear's own settings: a segmented pill for the
@@ -36,6 +36,7 @@ const SETTING_LABELS: Partial<Record<keyof SettingsDoc, string>> = {
   effectIcons: "effect icons",
   dicePlus: "roll with Dice+",
   showDeath: "show the death timer",
+  remindEvery: "remind every",
 };
 
 // The four ways to run encounters, as the web toolkit shows them: one choice
@@ -52,8 +53,7 @@ const METHOD_HINTS: Record<Method, string> = {
   interval: "Core rules: a d6 every few crawl rounds by danger level; an encounter on a 1 (p. 112).",
   clock1: "A d20 clock from 20 that the crawling die wears down each crawl round; an encounter at 0.",
   clock2: "The same clock from 40, worn down one d20 at a time; an encounter when both are empty.",
-  manual:
-    "No clock and no auto roll. The card shows the danger level and lights up on your turn when a check is due; roll its d6 or one at the table. A due check counts as made when you move on.",
+  manual: "No clock, no danger level and no auto roll: roll at the table, or tap the card's die. The card pulses on your turn as a reminder.",
 };
 
 // openLog: the Session log view (Panel's).
@@ -125,6 +125,24 @@ const Settings = (props: { openLog?: () => void }) => {
             onChange={(m) => set(METHODS[m])}
           />
           <p className="text-xs text-obr-text-secondary">{METHOD_HINTS[method]}</p>
+          {method === "manual" && (
+            <label className="flex items-center gap-2 text-sm">
+              Remind me every
+              <select
+                value={settings.value.remindEvery}
+                onChange={(e) => set({ remindEvery: Number(e.target.value) })}
+                className="h-8 cursor-pointer rounded-lg bg-obr-paper px-2 text-sm font-semibold hover:bg-obr-text/10"
+              >
+                {Array.from({ length: REMIND_MAX }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n} className="bg-obr-paper text-obr-text">
+                    {n}
+                  </option>
+                ))}
+              </select>
+              {settings.value.remindEvery === 1 ? "crawl round" : "crawl rounds"}
+              <span className="text-xs text-obr-text-secondary">(every round in darkness)</span>
+            </label>
+          )}
           {clock && (
             <details className="rounded-lg bg-obr-paper px-3 py-2">
               <summary className="cursor-pointer font-medium">Crawling Clock rules</summary>

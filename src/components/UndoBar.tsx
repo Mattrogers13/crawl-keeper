@@ -65,9 +65,10 @@ const UndoBar = () => {
           <UndoIcon />
           <span className="truncate">{lastUndo ? `Undo: ${lastUndo.label}` : "Undo"}</span>
         </StepButton>
-        <StepButton label={lastRedo && `Redo: ${lastRedo.label}`} idle="Nothing to redo" hint="⇧⌘Z" onClick={() => void redo()}>
+        {/* Redo is rare (only right after an Undo): an icon, its tooltip
+            names the step (UI review, Matt, 2026-11-08: trying this first). */}
+        <StepButton label={lastRedo && `Redo: ${lastRedo.label}`} idle="Nothing to redo" hint="⇧⌘Z" onClick={() => void redo()} icon>
           <UndoIcon redo />
-          <span className="truncate">{lastRedo ? `Redo: ${lastRedo.label}` : "Redo"}</span>
         </StepButton>
       </div>
       {toast && lastUndo && (
@@ -95,13 +96,13 @@ const UndoBar = () => {
 
 // A pill like the turn bar's buttons, so it reads as a button; faded and
 // disabled when there's nothing to undo or redo.
-const StepButton = (props: { label: string | undefined; idle: string; hint: string; onClick: () => void; children: ReactNode }) => (
+const StepButton = (props: { label: string | undefined; idle: string; hint: string; onClick: () => void; icon?: boolean; children: ReactNode }) => (
   <button
     type="button"
     aria-label={props.label ?? props.idle}
     title={props.label ? `${props.label} (${props.hint})` : undefined}
     disabled={!props.label}
-    className={`flex h-8 min-w-0 items-center gap-1.5 rounded-full bg-obr-bg px-3 font-medium text-obr-text ring-1 ring-obr-text/15 ring-inset enabled:hover:bg-obr-text/10 disabled:opacity-40 ${FOCUS}`}
+    className={`flex h-8 items-center justify-center gap-1.5 rounded-full bg-obr-bg ${props.icon ? "w-8 shrink-0" : "min-w-0 px-3"} font-medium text-obr-text ring-1 ring-obr-text/15 ring-inset enabled:hover:bg-obr-text/10 disabled:opacity-40 ${FOCUS}`}
     onClick={props.onClick}
   >
     {props.children}
