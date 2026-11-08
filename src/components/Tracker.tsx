@@ -85,11 +85,10 @@ import {
 } from "../tracker";
 
 // A GM edit to the tracker: a pure change, saved, and an undo step named
-// `label` ("Undo: Next turn"); `toast` offers Undo for a few seconds after
-// bigger actions.
+// `label` ("Undo: Next turn").
 // `effects`: a change to this map's effects in the same write and undo step
 // (Mark dead ends focus, Reset rounds keeps rounds left).
-export type ChangeOpts = { toast?: boolean; effects?: (e: Effects, before: TrackerDoc, after: TrackerDoc) => Effects };
+export type ChangeOpts = { effects?: (e: Effects, before: TrackerDoc, after: TrackerDoc) => Effects };
 export type Change<T = TrackerDoc> = (label: string, fn: (t: T) => T, opts?: ChangeOpts) => void;
 
 // No lights (players: the notices tell the GM's lights only).
@@ -299,7 +298,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
         : doc.write(updated, effectsAfter !== effectsBefore ? { [EFFECTS_KEY]: effectsAfter } : undefined);
     void write.then((saved) => {
       if (!saved) return;
-      void record(label, steps, opts);
+      void record(label, steps);
       if (updated !== before) return afterChange(tracker, updated, settings.value);
     });
   };
@@ -611,10 +610,10 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
         />
       )}
       {/* Under the turn bar, where they're easy to find. No confirms: each
-          is an undo step with an Undo toast. */}
+          is an undo step the Undo bar names. */}
       {gm && (
         <div className="-mt-1 flex shrink-0 flex-wrap items-center gap-x-3">
-          <button type="button" className={LINK} onClick={() => change("Reset rounds", resetRounds, { toast: true, effects: resetEffectRounds })}>
+          <button type="button" className={LINK} onClick={() => change("Reset rounds", resetRounds, { effects: resetEffectRounds })}>
             Reset rounds
           </button>
           {/* A free-standing effect (a row's own: its menu). */}
@@ -623,7 +622,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           </button>
           {/* After a fight: clear the monsters out (kept until then, so a fight can resume). */}
           {!combat && tracker.entries.some((e) => e.monster) && (
-            <button type="button" className={LINK} onClick={() => change("Remove monsters", removeMonsters, { toast: true })}>
+            <button type="button" className={LINK} onClick={() => change("Remove monsters", removeMonsters)}>
               Remove monsters
             </button>
           )}

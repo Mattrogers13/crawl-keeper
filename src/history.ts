@@ -19,8 +19,6 @@ export type Step = {
   // map can't be applied.
   scene: string | null;
   changes: Change[];
-  // A bigger action: the panel offers Undo in a toast for a few seconds.
-  toast: boolean;
 };
 export type History = { undo: Step[]; redo: Step[] };
 
@@ -60,7 +58,6 @@ const parseStep = (raw: unknown): Step | null => {
     label: raw.label.slice(0, 60),
     scene: typeof raw.scene === "string" ? raw.scene : null,
     changes: changes as Change[],
-    toast: raw.toast === true,
   };
 };
 

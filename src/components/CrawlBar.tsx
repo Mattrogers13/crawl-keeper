@@ -56,8 +56,8 @@ const CrawlBar = (props: {
 }) => {
   const seen = props.seen ?? { clock: false, danger: false, rolls: false };
   const { crawl, mode, start, dark, change } = props;
-  // No confirm: an undo step with an Undo toast.
-  const resetTheClock = () => change("Reset clock", resetClock, { toast: true });
+  // No confirm: an undo step (the Undo bar names it).
+  const resetTheClock = () => change("Reset clock", resetClock);
   const clock = mode === "clock";
   const manual = mode === "manual";
   const isDue = due(crawl, mode, dark, props.every);

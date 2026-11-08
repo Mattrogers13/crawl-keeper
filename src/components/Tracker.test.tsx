@@ -382,7 +382,7 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(saved().entries.map((e) => e.id)).toEqual(["b", GM_ENTRY]));
   });
 
-  it("resets the rounds at once, no confirm; the toast's Undo brings them back", async () => {
+  it("resets the rounds at once, no confirm; the bar's Undo brings them back", async () => {
     obr.items = [token("a", { name: "Aria" })];
     scene([{ id: "a", roll: 7 }, { id: GM_ENTRY }], "a", 5);
     render(<App />);
@@ -391,7 +391,7 @@ describe("Tracker (GM)", () => {
     await waitFor(() => expect(saved()).toMatchObject({ current: null, round: 0 }));
     expect(saved().entries[0].roll).toBe(7);
     expect(screen.getByText("Not started")).toBeInTheDocument();
-    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo: Reset rounds" }));
     await waitFor(() => expect(saved()).toMatchObject({ current: "a", round: 5 }));
   });
 
@@ -993,7 +993,7 @@ describe("Tracker (GM)", () => {
       // Full for either size (a 1d20 clock reads it as 20).
       await waitFor(() => expect(saved().crawl.clock).toBe(40));
       expect(within(card).getByRole("img", { name: "Clock 20 of 20" })).toBeInTheDocument();
-      fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Undo: Reset clock" }));
       await waitFor(() => expect(saved().crawl.clock).toBe(7));
       fireEvent.contextMenu(within(card).getByTitle("Right-click to reset the clock"));
       await waitFor(() => expect(saved().crawl.clock).toBe(40));

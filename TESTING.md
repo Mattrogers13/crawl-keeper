@@ -103,7 +103,7 @@ Note-test-0123456789-abcdefghij-klmnopqrst-uvwxyz-ABCDEFGHIJ-KLMNOPQRST-UVWXYZ-0
 | 46 | GM: Mark dead on a token, hide it, show it, Mark alive; mark another dead and Remove from initiative | A skull badge over the token's centre, hidden with it for the player; gone when alive or removed | 2026-11-06 |
 | 47 | Player: their own token's turn (a token they placed), then someone else's | "Your turn, <name>" strip, then none | 2026-11-06 |
 | 49 | GM: Settings → Show rolls to players, and the eye by the die (click it both ways); roll in each mode, manual too | The player's card shows the die and its result (with the clock hidden too); off: no roll |  |
-| 50 | GM: Reset rounds / Remove monsters | Under the turn bar, above the list; each runs at once with an Undo toast (no confirm since 2026-11-08) | |
+| 50 | GM: Reset rounds / Remove monsters | Under the turn bar, above the list; each runs at once (no confirm since 2026-11-08); "Undo: Reset rounds" in the bar brings it back | |
 | 48 | Any view, both themes | No broken styles or missing portraits (the new CSP); browser console has no CSP errors | 2026-11-06 |
 
 ### New: Follow Torchlight (Torchlight installed too)
@@ -125,9 +125,9 @@ Rows 51–55 retired (Matt, 2026-10-31): the Torchlight merge (v0.3) replaces Fo
 |---|---|---|---|
 | 57 | GM: ▶, then "Undo: Next turn", Redo; Cmd+Z, Shift+Cmd+Z (not while typing in a note) | The bar names the step; the turn and ring go back and forward | 2026-11-06 |
 | 58 | GM: close the panel, right-click a token → Add / Remove Initiative, reopen | "Undo: Add to initiative" in the bar; Undo takes it out | 2026-11-06 |
-| 59 | GM: Remove monsters (or Reset rounds, Reset clock) | A "Done: …" toast with Undo just above the bar, never over it, gone after 8 s; its Undo brings them back | 2026-11-06 |
+| 59 | GM: Remove monsters (or Reset rounds, Reset clock, Reset all) | No "Done: …" pop-up (removed 2026-11-08); the bar's "Undo: Remove monsters" brings them back | |
 | 60 | GM: a step on map A, open map B, Undo | "… on another map. Skipped."; map B unchanged | 2026-11-06 |
-| 61 | Player: the panel | No Undo bar or toast | 2026-11-06 |
+| 61 | Player: the panel | No Undo bar | 2026-11-06 |
 | 62 | GM: Settings → Manual; ▶ to the GM turn when a check is due; roll the small d6 (then in Darkness, a d8); ▶ past it once without rolling | The bar shows only Manual rolls, the darkness switch and the die (no danger level or dial); the d6 rolls a check; ▶ counts a due check made. Player (Show the danger level on): "Crawling · <danger>"; the roll only with Show rolls to players on |  |
 | 63 | GM: Settings → Clock 2d20; roll until the clock passes 20 and 0 | Starts at 40, worn down one d20 at a time; the omen and the encounter on the last die; the overflow carries into a fresh 40. Player: "Crawling Clock", "The clock is at N" of 40 | 2026-11-06 |
 | 64 | GM: Settings at a short and a tall panel height; pick each of Interval / Clock 1d20 / Clock 2d20 / Manual | Cards like the web toolkit (Encounters, Darkness, Players' lights, What players see, Turns and combat, About, Session); one scrollbar only; each choice is one undo step | 2026-11-06 |
@@ -142,7 +142,7 @@ Torchlight uninstalled. Dynamic Fog on for rows 72–74. Rows 66–76 sum up the
 | 66 | GM: a row's menu → Give torch; the same menu again; the flame beside the gear | A counting badge on the row; the menu reads "Put out the torch, light the lantern"; the Light Tracker lists "Torch · <name>" | 2026-11-06 |
 | 67 | GM, Light Tracker: Time passes `10m` (and `abc`); click a time, type `31:00`; Pause and resume; switch Ride along / Separate and light a second token | Lit lights lose 10 min, `abc` is explained; the time is corrected; times freeze while paused; Ride along matches the first timer, Separate starts a full hour. Everyone gets "Time passes: 10 minutes." | 2026-11-06 |
 | 68 | GM: put out a torch in the Light Tracker (a row's badge only opens it); a lantern at 0:40 left, put out, light again | The torch is spent; the lantern keeps 0:30 and lights again from there |  |
-| 69 | GM: Put lights out, then the toast's Undo; Undo / Redo a light change | All out, the notices card says "Darkness · DIS"; Undo brings them back; each step names itself |  |
+| 69 | GM: Put lights out, then the bar's Undo; Undo / Redo a light change | All out, the notices card says "Darkness · DIS"; Undo brings them back; each step names itself |  |
 | 70 | GM: every light out, Follow light on; Interval, then a clock mode; light one again | "Darkness · DIS" in the notices card, a check every crawl round, the switch reads "Darkness" (tooltip: following light) and is locked, DIS on living players' rows (player sees it too), the danger level unchanged; clocks roll a d8; one light clears it all |  |
 | 71 | GM: Remove all lights, press the card's switch; then Settings → Follow light off, light and put out a light | The switch unlocks and darkens by hand; with Follow light off, lights never darken the map | 2026-11-06 |
 | 72 | GM: right-click a party token → Crawl Keeper → Light torch, Light lantern, Put out; a token outside initiative; a prop; several tokens at once | 30 ft light, then 60 ft (the torch spent), then back to 3 ft; badge icons on the token; no row added for the outside token; a prop offers every light (a campfire puts no icon on it); each selected token lit; Undo moves the map light back | |
@@ -226,6 +226,7 @@ Torchlight uninstalled. Dynamic Fog on for rows 72–74. Rows 66–76 sum up the
 | 130 | GM: right-click a prop (a sconce, a rune) → Crawl Keeper → Light torch, then Cast Light on another; the Light Tracker. Player: right-click the same prop | Each prop glows (torch 30 ft) with its badge; no row is added; the time shows in the Light Tracker only; the player's menu is off there (Party tokens only) | 2026-11-07 |
 | 131 | GM and player: open the right-click Crawl Keeper menu | Thin lines between the groups (GM: initiative and effects, the four lights, Put out and Hand light to…, the party token; player: above Put out); nothing cut off at the bottom | |
 | 132 | GM: a long round count (Round 12) with lights tracked, in Crawl and Combat; open Settings and the Light Tracker | The header shows the key and the whole "Crawl · Round 12" (no "Crawl Keeper" text); Settings and the Light Tracker keep their titles | |
-| 133 | GM: Reset clock (link and right-click the clock), Remove all lights | Each runs at once, no confirm; the toast's Undo brings it back | |
+| 133 | GM: Reset clock (link and right-click the clock), Remove all lights | Each runs at once, no confirm; the bar's Undo brings it back | |
 | 134 | GM: ▶, Undo; hover the round Redo | Undo names the step; Redo is an icon, its tooltip "Redo: Next turn (⇧⌘Z)"; it redoes | |
 | 135 | GM: Settings → Manual → Remind me every 2; ▶ through four crawl rounds, rolling once and skipping once; then Darkness | The card pulses (soft purple outline, "Time for an encounter roll?") on the GM turn every 2nd crawl round, never on a player's turn or in combat; a roll or ▶ stops it; in Darkness every round. Reduced motion (macOS setting): a steady outline | |
+| 136 | GM: Light Tracker with three or more lights, Settings, Session log (long enough to scroll) | A clear gap between the cards and the scrollbar; nothing under it | |

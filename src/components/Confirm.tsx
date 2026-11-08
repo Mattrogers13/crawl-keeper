@@ -4,8 +4,8 @@ import { useState } from "react";
 export const LINK = "py-1.5 text-xs text-obr-text-secondary underline hover:text-obr-text";
 
 // A link that asks before doing something Undo can't bring back (Clear log,
-// Reset all). What Undo covers runs at once with an Undo toast instead
-// (Matt, 2026-11-08, reversing the 2026-10-16 confirms). `asking` /
+// Reset all). What Undo covers runs at once instead; the Undo bar names the
+// step (Matt, 2026-11-08, reversing the 2026-10-16 confirms). `asking` /
 // `setAsking` let a caller open it another way too (e.g. a right-click).
 const Confirm = (props: {
   label: string;

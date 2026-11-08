@@ -67,5 +67,5 @@ const reset = async () => {
   }
   changes.push({ store: "room", key: LIGHTS_KEY, before: lightsBefore, after: lightsAfter });
   if (tracker) await afterChange(tracker.before, tracker.after, parseSettings(room[SETTINGS_KEY]));
-  await record("Reset all", changes, { toast: true });
+  await record("Reset all", changes);
 };
