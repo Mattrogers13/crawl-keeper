@@ -19,6 +19,8 @@ export type DeathActions = {
   dead: (holder: string) => void;
   // Marked dying, timer not rolled: open the Dying sheet to roll it.
   timer: (holder: string) => void;
+  // The big prompt again (closed with ✕).
+  prompt: (holder: string) => void;
   rolling: boolean;
 };
 
@@ -40,7 +42,6 @@ export const DyingLine = (props: {
   name: string;
   decided: DeathDecision | undefined;
   actions: DeathActions | null;
-  big?: boolean;
 }) => {
   const { effect: e, tracker: t, name, decided, actions } = props;
   const holder = e.holder!;
@@ -49,18 +50,14 @@ export const DyingLine = (props: {
   const left = st.state === "active" ? (st.left ?? 0) : 0;
   const pending = timerPending(e);
   const owes = owesDeathRoll(e, t) && decided === undefined;
-  const button = props.big
-    ? "h-9 rounded-full bg-obr-paper px-4 text-sm font-medium hover:bg-obr-text/10 disabled:opacity-50"
-    : "h-6 rounded-full bg-obr-paper px-2.5 text-[11px] font-medium hover:bg-obr-text/10 disabled:opacity-50";
+  const button = "h-6 rounded-full bg-obr-paper px-2.5 text-[11px] font-medium hover:bg-obr-text/10 disabled:opacity-50";
   return (
     <div
       role="group"
       aria-label={`${name} dying`}
-      className={`flex flex-wrap items-center gap-x-1.5 gap-y-1 rounded-[10px] bg-red-600/15 text-red-800 dark:text-red-200 ${
-        props.big ? "gap-y-2 p-3 text-sm" : "min-h-7 px-1.5 py-1"
-      }`}
+      className="flex min-h-7 flex-wrap items-center gap-x-1.5 gap-y-1 rounded-[10px] bg-red-600/15 px-1.5 py-1 text-red-800 dark:text-red-200"
     >
-      <img src="/img/effect-dying.webp" alt="" aria-hidden className={`${props.big ? "h-6 w-6" : "h-4 w-4"} shrink-0 rounded-full`} />
+      <img src="/img/effect-dying.webp" alt="" aria-hidden className="h-4 w-4 shrink-0 rounded-full" />
       <span className="min-w-0 flex-1">
         <span className="font-semibold">{name}</span>
         {pending
@@ -72,40 +69,34 @@ export const DyingLine = (props: {
         {!pending && !last && !deathRollDue(e, t) && <span className="text-obr-text-secondary"> · timer rolled this turn</span>}
       </span>
       {actions && (
-        <span className={`flex flex-wrap gap-1 ${props.big ? "w-full" : ""}`}>
-          {pending && decided === undefined && (
-            <button type="button" className={button} title="1d4 + CON rounds, at least 1 (p. 89)" onClick={() => actions.timer(holder)}>
-              Roll the timer
+        <span className="flex flex-wrap gap-1">
+          {/* This turn's decision is the big prompt's (it opens on the turn); here, a way back to it. */}
+          {(pending || owes) && decided === undefined ? (
+            <button
+              type="button"
+              className={`${button.replace("bg-obr-paper", "bg-obr-primary").replace("hover:bg-obr-text/10", "hover:opacity-90")} text-obr-primary-contrast`}
+              title={pending ? "1d4 + CON rounds, at least 1 (p. 89)" : "Failed, Stabilized, Healed, a natural 20 (p. 89)"}
+              onClick={() => (pending ? actions.timer(holder) : actions.prompt(holder))}
+            >
+              {pending ? "Roll the timer" : "Death roll…"}
             </button>
-          )}
-          {owes && (
-            <button type="button" className={button} title={last ? "Rolled at the table, not a 20: the timer is out, they die" : "Rolled at the table, not a 20: still dying"} onClick={() => actions.failed(holder)}>
-              Failed
-            </button>
-          )}
-          <button type="button" className={button} title="DC 15 INT first aid (p. 89): no longer dying, still unconscious" onClick={() => actions.stabilized(holder)}>
-            Stabilized
-          </button>
-          <button type="button" className={button} onClick={() => actions.healed(holder)}>
-            Healed
-          </button>
-          {owes && (
+          ) : (
             <>
-              <button type="button" className={button} title="Rolled a natural 20 at the table: rises with 1 HP" onClick={() => actions.nat20(holder)}>
-                Nat 20
+              <button type="button" className={button} title="DC 15 INT first aid (p. 89): no longer dying, still unconscious" onClick={() => actions.stabilized(holder)}>
+                Stabilized
               </button>
-              <button type="button" disabled={actions.rolling} className={button} onClick={() => actions.roll(holder)}>
-                {actions.rolling ? "Rolling…" : "Roll d20"}
+              <button type="button" className={button} onClick={() => actions.healed(holder)}>
+                Healed
+              </button>
+              <button
+                type="button"
+                className={`${button.replace("bg-obr-paper", "bg-red-700").replace("hover:bg-obr-text/10", "hover:bg-red-600")} text-white`}
+                onClick={() => actions.dead(holder)}
+              >
+                Dead
               </button>
             </>
           )}
-          <button
-            type="button"
-            className={`${button.replace("bg-obr-paper", "bg-red-700").replace("hover:bg-obr-text/10", "hover:bg-red-600")} text-white`}
-            onClick={() => actions.dead(holder)}
-          >
-            Dead
-          </button>
         </span>
       )}
     </div>
@@ -128,7 +119,7 @@ export const DeathPrompt = (props: {
   <section
     role="dialog"
     aria-label="Death roll first"
-    className="flex min-h-full flex-col gap-4 bg-obr-paper px-1 pt-1 pb-2 text-sm"
+    className="flex min-h-full flex-col gap-3 bg-obr-paper px-1 pt-1 pb-2 text-sm"
     onKeyDown={(ev) => ev.key === "Escape" && props.close()}
   >
     {props.dying.map((e) => (
@@ -145,7 +136,7 @@ export const DeathPrompt = (props: {
   </section>
 );
 
-const CHOICE = "flex flex-col items-start rounded-xl bg-obr-bg px-3 py-2 text-left hover:bg-obr-text/10 disabled:opacity-50";
+const CHOICE = "flex flex-col items-start rounded-xl bg-obr-bg px-3 py-1.5 text-left hover:bg-obr-text/10 disabled:opacity-50";
 
 const DeathCard = (props: {
   effect: Effect;
@@ -184,13 +175,13 @@ const DeathCard = (props: {
       <p className="text-xs text-obr-text-secondary">
         {last
           ? "The timer is out. Anything but a natural 20 and they die."
-          : `${left} round${left === 1 ? "" : "s"} left · roll a d20 at the table, or here. A natural 20 rises with 1 HP.`}
+          : `${left} round${left === 1 ? "" : "s"} left · roll a d20 at the table, or here.`}
       </p>
       <button
         type="button"
         aria-label={last ? `Failed · ${name} dies` : "Failed · still dying"}
         title="Rolled at the table, not a 20"
-        className={`h-12 w-full rounded-xl text-base font-semibold ${last ? "bg-red-700 text-white hover:bg-red-600" : "bg-obr-primary text-obr-primary-contrast hover:opacity-90"}`}
+        className={`h-11 w-full shrink-0 rounded-xl text-base font-semibold ${last ? "bg-red-700 text-white hover:bg-red-600" : "bg-obr-primary text-obr-primary-contrast hover:opacity-90"}`}
         onClick={() => actions.failed(holder)}
       >
         {last ? `Failed · ${name} dies` : "Failed · still dying"}
@@ -201,7 +192,7 @@ const DeathCard = (props: {
         {choice("Nat 20", "rises with 1 HP", () => actions.nat20(holder))}
         {choice(actions.rolling ? "Rolling…" : "Roll d20", "roll it for me", () => actions.roll(holder), actions.rolling)}
       </div>
-      <div className="flex items-center justify-between pt-1">
+      <div className="flex items-center justify-between">
         <button
           type="button"
           title="Move the turn on without deciding: the timer keeps running; they're asked again on their next turn"

@@ -110,7 +110,10 @@ describe("the death timer (GM)", () => {
     setup([dying], "a", 2);
     const line = await screen.findByRole("group", { name: "Aria dying" });
     expect(line).toHaveTextContent("Aria is dying · 2 rounds left");
-    fireEvent.click(within(line).getByRole("button", { name: "Roll d20" }));
+    // The turn's decision opens by itself as the big prompt; the line keeps a way back to it.
+    const prompt = await screen.findByRole("dialog", { name: "Death roll first" });
+    expect(within(line).getAllByRole("button").map((b) => b.textContent)).toEqual(["Death roll…"]);
+    fireEvent.click(within(prompt).getByRole("button", { name: "Roll d20" }));
     await waitFor(() => expect(effects()).toEqual([]));
     expect(sent()).toEqual([
       { event: "rolled", name: "Aria", value: 20 },
@@ -141,7 +144,7 @@ describe("the death timer (GM)", () => {
     const line = await screen.findByRole("group", { name: "Aria dying" });
     expect(line).toHaveTextContent("Aria is dying · the timer runs out: last chance");
     expect(screen.queryByText(/Dying on Aria ends now/)).toBeNull();
-    fireEvent.click(within(line).getByRole("button", { name: "Failed" }));
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "Death roll first" })).getByRole("button", { name: "Failed · Aria dies" }));
     await waitFor(() => expect(tracker().entries[0].dead).toBe(true));
     expect(effects()).toEqual([]);
     expect(sent()).toEqual([{ event: "died", name: "Aria" }]);
@@ -235,15 +238,28 @@ describe("▶ with a death roll owed", () => {
     expect(screen.getByRole("button", { name: "Undo: Next turn" })).toBeInTheDocument();
   });
 
-  it("✕ by accident: the turn stays, ▶ opens the prompt again, and the notices line keeps its buttons", async () => {
+  it("✕ by accident: the turn stays and it stays closed; ▶ or the notices' Death roll… opens it again", async () => {
     setup([dying], "a", 2);
-    fireEvent.click(await screen.findByLabelText("Next turn"));
     fireEvent.click(within(await screen.findByRole("dialog", { name: "Death roll first" })).getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("dialog", { name: "Death roll first" })).toBeNull();
     expect(tracker().current).toBe("a");
-    expect(within(screen.getByRole("group", { name: "Aria dying" })).getByRole("button", { name: "Failed" })).toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole("group", { name: "Aria dying" })).getByRole("button", { name: "Death roll…" }));
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "Death roll first" })).getByRole("button", { name: "Close" }));
     fireEvent.click(screen.getByLabelText("Next turn"));
     expect(await screen.findByRole("dialog", { name: "Death roll first" })).toBeInTheDocument();
+    expect(tracker().current).toBe("a");
+  });
+
+  it("the prompt opens by itself when ▶ brings the turn to them (once per turn)", async () => {
+    setup([dying], GM_ENTRY, 1);
+    await rowName("Aria");
+    expect(screen.queryByRole("dialog", { name: "Death roll first" })).toBeNull();
+    fireEvent.click(screen.getByLabelText("Next turn")); // GM / Monsters → Gob → Aria (round 2)
+    await waitFor(() => expect(tracker().current).toBe("g"));
+    expect(screen.queryByRole("dialog", { name: "Death roll first" })).toBeNull();
+    fireEvent.click(screen.getByLabelText("Next turn"));
+    await waitFor(() => expect(tracker().current).toBe("a"));
+    expect(await screen.findByRole("dialog", { name: "Death roll first" })).toHaveTextContent("Aria is dying");
   });
 
   it("no death roll owed (the turn the timer was rolled): ▶ just moves on", async () => {
@@ -259,7 +275,7 @@ describe("the death timer kept from players (Settings)", () => {
     setup([dying], "a", 2);
     const line = await screen.findByRole("button", { name: /^Dying · .*hidden from players/ });
     expect(line).toHaveClass("border-dashed");
-    fireEvent.click(within(await screen.findByRole("group", { name: "Aria dying" })).getByRole("button", { name: "Healed" }));
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "Death roll first" })).getByRole("button", { name: "Healed" }));
     await waitFor(() => expect(destinations()).toEqual(["LOCAL"]));
   });
 

@@ -167,6 +167,27 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
     setTimerFromNext(fromNext);
     setDyingFor(id);
   };
+  // A dying character's turn opens its decision at once (the big prompt, or
+  // the timer sheet when it's still to roll), once per turn: ✕ closes it,
+  // ▶ or the notices' button opens it again. Also when the panel opens on
+  // such a turn.
+  const promptedTurn = useRef<string | null>(null);
+  useEffect(() => {
+    if (role !== "GM" || !doc.loaded || !effectsDoc.loaded) return;
+    const t = doc.value;
+    const turn = `${t.round}:${t.current}`;
+    if (promptedTurn.current === turn) return;
+    promptedTurn.current = turn;
+    const owed = effectsDoc.value.effects.find((e) => owesTimer(e, t) || owesDeathRoll(e, t));
+    if (!owed || deathDone[deathKey(owed.holder!, t)] !== undefined) return;
+    if (owesTimer(owed, t)) openDying(owed.holder!, true);
+    else {
+      setAdding(null);
+      setTiming(false);
+      setDyingFor(null);
+      setDeathPrompt(true);
+    }
+  }, [role, doc.loaded, effectsDoc.loaded, doc.value, effectsDoc.value, deathDone]);
   // Focus checks the GM called for now (damage, distraction): this panel only.
   const [checkNow, setCheckNow] = useState<string[]>([]);
   // The monsters folded under the GM row: this viewer's choice, remembered
@@ -514,7 +535,13 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   const rollDeathD20 = () => rollDice({ count: 1, sides: 20, label: "Death d20", target: deathTarget }).then((d) => d[0]);
   const deathActions: DeathActions = {
     rolling: deathRolling,
-    timer: (h) => openDying(h),
+    timer: (h) => openDying(h, true),
+    prompt: () => {
+      setAdding(null);
+      setTiming(false);
+      setDyingFor(null);
+      setDeathPrompt(true);
+    },
     roll: (h) => {
       if (deathRolling) return;
       const last = lastChance(h);
