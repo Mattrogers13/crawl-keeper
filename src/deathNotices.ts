@@ -1,5 +1,5 @@
 // The death timer's events (p. 89; docs/effects.md step 5): the GM's panel
-// sends one when a character starts dying, rolls the death d20, rises, is
+// sends one when a character starts dying, rolls the timer, rolls the death d20, rises, is
 // stabilized or healed, or dies. Every client's background page shows it and
 // writes it to its session log, so players hear the rolls with or without
 // Dice+. Like Time passes, a structured message (no free text but the
@@ -16,7 +16,7 @@ export const DYING_CHANNEL = `${ID}/dying`;
 export type DeathEvent =
   | { event: "started"; name: string; rounds: number; d4: number | null; con: number | null }
   | { event: "rolled"; name: string; value: number }
-  | { event: "rises" | "stabilized" | "healed" | "died"; name: string };
+  | { event: "down" | "rises" | "stabilized" | "healed" | "died"; name: string };
 
 const NAME_MAX = 64;
 const int = (v: unknown, lo: number, hi: number) => (typeof v === "number" && Number.isInteger(v) && v >= lo && v <= hi ? v : null);
@@ -35,6 +35,7 @@ export const parseDeathEvent = (raw: unknown): DeathEvent | null => {
       const value = int(r.value, 1, 20);
       return value === null ? null : { event: "rolled", name, value };
     }
+    case "down":
     case "rises":
     case "stabilized":
     case "healed":
@@ -51,8 +52,10 @@ export const deathMessage = (e: DeathEvent): string => {
   switch (e.event) {
     case "started": {
       const how = e.d4 !== null && e.con !== null ? ` (d4 ${e.d4} ${signed(e.con)} CON)` : "";
-      return `${e.name} is dying: dies in ${e.rounds} round${e.rounds === 1 ? "" : "s"}${how}.`;
+      return `${e.name}'s death timer: dies in ${e.rounds} round${e.rounds === 1 ? "" : "s"}${how}.`;
     }
+    case "down":
+      return `${e.name} is dying (0 HP): the death timer is rolled on their turn.`;
     case "rolled":
       return e.value === 20 ? `${e.name} rolls a natural 20 on the death d20!` : `${e.name} rolls ${e.value} on the death d20.`;
     case "rises":

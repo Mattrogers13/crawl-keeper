@@ -71,9 +71,9 @@ describe("rolling with Dice+", () => {
     const requests = setup([[7]], { showDeath: false }, "a");
     obr.sceneMetadata[EFFECTS_KEY] = { effects: [{ id: "d1", name: "Dying", icon: "dying", kind: "rounds", holder: "a", rounds: 3, end: { round: 5, at: "a" } }] };
     await ready();
-    const line = await screen.findByRole("group", { name: "Aria dying" });
-    fireEvent.click(within(line).getByRole("button", { name: "Roll d20" }));
-    await waitFor(() => expect(line).toHaveTextContent("d20 7"));
+    // Aria's turn: the death prompt opens by itself.
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "Death roll first" })).getByRole("button", { name: "Roll d20" }));
+    await waitFor(() => expect(requests).toHaveLength(1));
     expect(requests[0]).toMatchObject({ rollTarget: "gm_only", diceNotation: "1d20 # Death d20" });
   });
 

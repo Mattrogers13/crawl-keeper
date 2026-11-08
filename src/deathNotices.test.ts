@@ -18,8 +18,10 @@ describe("death notices", () => {
   });
 
   it("says what happened", () => {
-    expect(deathMessage({ event: "started", name: "Aria", rounds: 3, d4: 2, con: 1 })).toBe("Aria is dying: dies in 3 rounds (d4 2 + 1 CON).");
-    expect(deathMessage({ event: "started", name: "Aria", rounds: 1, d4: null, con: null })).toBe("Aria is dying: dies in 1 round.");
+    expect(deathMessage({ event: "started", name: "Aria", rounds: 3, d4: 2, con: 1 })).toBe("Aria's death timer: dies in 3 rounds (d4 2 + 1 CON).");
+    expect(deathMessage({ event: "started", name: "Aria", rounds: 1, d4: null, con: null })).toBe("Aria's death timer: dies in 1 round.");
+    expect(deathMessage({ event: "down", name: "Aria" })).toBe("Aria is dying (0 HP): the death timer is rolled on their turn.");
+    expect(parseDeathEvent({ event: "down", name: "Aria" })).toEqual({ event: "down", name: "Aria" });
     expect(deathMessage({ event: "rolled", name: "Aria", value: 20 })).toBe("Aria rolls a natural 20 on the death d20!");
     expect(deathMessage({ event: "died", name: "Aria" })).toBe("Aria died.");
   });

@@ -319,20 +319,39 @@ export const canDie = (s: Effects, t: Tracker, holder: string) => {
   return !!entry && holder !== GM_ENTRY && !entry.monster && !entry.dead && !dyingOf(settle(s, t), holder);
 };
 
-// The timer counts from the turn it's rolled on: on the holder's own turn
-// that's now; otherwise their next turn is the rolling turn (one more). On
-// the rolling turn N rounds are left; it ends at the start of their turn N
-// rounds later, so they get N - 1 d20s.
-export const startDying = (state: Effects, t: Tracker, newId: () => string, holder: string, rounds: number): Effects => {
+// Two steps, like the book (p. 89): at 0 HP the character is dying at once
+// (`markDying`: the line and the token's icon, no timer yet); on their turn
+// they roll 1d4 + CON (`startDying`). A dying effect with kind "until" is
+// that first step: the timer isn't rolled.
+export const timerPending = (e: Effect) => e.icon === "dying" && e.kind === "until";
+
+const withoutUnconscious = (s: Effects, holder: string) => s.effects.filter((e) => !(e.icon === "unconscious" && e.holder === holder));
+
+export const markDying = (state: Effects, t: Tracker, newId: () => string, holder: string): Effects => {
   const s = settle(state, t);
   if (!canDie(s, t, holder)) throw new TypeError("Only a living player token that isn't dying can start dying");
-  if (!Number.isInteger(rounds) || rounds < 1 || rounds > ROUNDS_MAX) throw new RangeError(`1 to ${ROUNDS_MAX} rounds`);
   if (s.effects.length + 1 > MAX_EFFECTS) throw new RangeError(`Up to ${MAX_EFFECTS} effects on a map; remove one first`);
-  const end = endFor(t, holder, t.current === holder ? rounds : rounds + 1);
-  const dying: Effect = { id: newId(), name: "Dying", icon: "dying", holder, kind: "rounds", rounds, end, dice: null, endsWith: null, hidden: false };
+  const dying: Effect = { id: newId(), name: "Dying", icon: "dying", holder, kind: "until", rounds: 0, end: null, dice: null, endsWith: null, hidden: false };
   // Dying again after being stabilized: Unconscious goes (dying is unconscious too; they don't stack).
-  const rest = s.effects.filter((e) => !(e.icon === "unconscious" && e.holder === holder));
-  return { ...s, effects: [...rest, dying] };
+  return { ...s, effects: [...withoutUnconscious(s, holder), dying] };
+};
+
+// The timer, rolled. It counts from the turn it's rolled on: on the
+// holder's own turn that's now; otherwise their next turn is the rolling
+// turn (one more). On the rolling turn N rounds are left; it ends at the
+// start of their turn N rounds later (the last chance). Marked dying
+// already: the same effect gets its timer.
+export const startDying = (state: Effects, t: Tracker, newId: () => string, holder: string, rounds: number): Effects => {
+  const s = settle(state, t);
+  const pending = s.effects.find((e) => timerPending(e) && e.holder === holder) ?? null;
+  if (!pending && !canDie(s, t, holder)) throw new TypeError("Only a living player token that isn't dying can start dying");
+  if (!Number.isInteger(rounds) || rounds < 1 || rounds > ROUNDS_MAX) throw new RangeError(`1 to ${ROUNDS_MAX} rounds`);
+  if (!pending && s.effects.length + 1 > MAX_EFFECTS) throw new RangeError(`Up to ${MAX_EFFECTS} effects on a map; remove one first`);
+  const end = endFor(t, holder, t.current === holder ? rounds : rounds + 1);
+  const timed = { kind: "rounds" as const, rounds, end };
+  if (pending) return { ...s, effects: s.effects.map((e) => (e === pending ? { ...e, ...timed } : e)) };
+  const dying: Effect = { id: newId(), name: "Dying", icon: "dying", holder, ...timed, dice: null, endsWith: null, hidden: false };
+  return { ...s, effects: [...withoutUnconscious(s, holder), dying] };
 };
 
 // The GM keeps the death timer to themselves (Settings → What players see):
@@ -345,6 +364,15 @@ export const hideDeath = (s: Effects, show: boolean): Effects =>
 // The timer ran out at the start of this turn: whose (null: nobody's).
 export const timerOutOnTurn = (s: Effects, t: Tracker): string | null =>
   s.effects.find((e) => e.icon === "dying" && e.holder !== null && e.holder === t.current && statusOf(e, t).state === "ended")?.holder ?? null;
+
+// Skip for now on the last chance (▶'s prompt): the timer's end moves to
+// the holder's next turn, so they're still dying and asked again then (an
+// ended timer is gone once its turn passes).
+export const lastChanceLater = (s: Effects, t: Tracker, holder: string): Effects => {
+  const d = dyingOf(s, holder);
+  if (!d || statusOf(d, t).state !== "ended") return s;
+  return { ...s, effects: s.effects.map((e) => (e === d ? { ...e, end: { round: t.round + 1, at: holder } } : e)) };
+};
 
 export const stopDying = (s: Effects, holder: string): Effects => {
   const d = dyingOf(s, holder);
@@ -365,6 +393,18 @@ export const deathRollDue = (e: Effect, t: Tracker) => {
   const st = statusOf(e, t);
   return st.state === "active" && st.left !== null && st.left < e.rounds;
 };
+
+// What the dying line counts (Matt, 2026-11-08): the holder's turns with a
+// death d20 still to come, the last chance included and this turn too while
+// its roll is owed. A timer of 7 reads "7 turns" after it's rolled and "1
+// turn" once only the last chance is left. Null: not counting (the timer
+// not rolled, or out).
+export const dyingTurnsLeft = (e: Effect, t: Tracker): number | null => {
+  const st = statusOf(e, t);
+  if (e.icon !== "dying" || st.state !== "active" || st.left === null) return null;
+  return st.left + (deathRollDue(e, t) ? 1 : 0);
+};
+export const turnsText = (n: number) => `${n} turn${n === 1 ? "" : "s"}`;
 
 // Undo / redo of one step (undo.ts): put back only the effects the step
 // changed, over the doc as it is now. Parsing afterwards drops what no

@@ -15,7 +15,7 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 
 import { onAddEffect, takeHandoff } from "../addEffectHandoff";
 import { AddEffect, RowEffects, type EffectsChange } from "./Effects";
-import { DeathPrompt, deathKey, owesDeathRoll, type DeathActions, type DeathDecision } from "./Dying";
+import { DeathPrompt, deathKey, owesDeathRoll, owesTimer, type DeathActions, type DeathDecision } from "./Dying";
 import DyingSheet from "./DyingSheet";
 import Notices from "./Notices";
 import TimeSheet from "./TimeSheet";
@@ -38,6 +38,8 @@ import {
   settle,
   shown as shownEffects,
   stopDying,
+  lastChanceLater,
+  markDying,
   hideDeath,
   newEffectId,
   stabilize,
@@ -134,7 +136,8 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   // The Dying sheet, for this row (row menu → Dying…).
   const [dyingFor, setDyingFor] = useState<string | null>(null);
   // The death timer (p. 89): this turn's decision per dying character (the
-  // d20, or "table"), and the prompt ▶ opens when one is owed.
+  // d20, failed, skipped or other; `DeathDecision`), and the prompt ▶ opens
+  // when one is owed.
   const [deathDone, setDeathDone] = useState<Record<string, DeathDecision>>({});
   const [deathPrompt, setDeathPrompt] = useState(false);
   const [deathRolling, setDeathRolling] = useState(false);
@@ -155,11 +158,36 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
     }
     setAdding(ids);
   };
-  const openDying = (id: string) => {
+  // `fromNext`: ▶ opened it for the timer owed this turn; rolled, the turn moves on.
+  const [timerFromNext, setTimerFromNext] = useState(false);
+  const openDying = (id: string, fromNext = false) => {
     setAdding(null);
     setTiming(false);
+    setDeathPrompt(false);
+    setTimerFromNext(fromNext);
     setDyingFor(id);
   };
+  // A dying character's turn opens its decision at once (the big prompt, or
+  // the timer sheet when it's still to roll), once per turn: ✕ closes it,
+  // ▶ or the notices' button opens it again. Also when the panel opens on
+  // such a turn.
+  const promptedTurn = useRef<string | null>(null);
+  useEffect(() => {
+    if (role !== "GM" || !doc.loaded || !effectsDoc.loaded) return;
+    const t = doc.value;
+    const turn = `${t.round}:${t.current}`;
+    if (promptedTurn.current === turn) return;
+    promptedTurn.current = turn;
+    const owed = effectsDoc.value.effects.find((e) => owesTimer(e, t) || owesDeathRoll(e, t));
+    if (!owed || deathDone[deathKey(owed.holder!, t)] !== undefined) return;
+    if (owesTimer(owed, t)) openDying(owed.holder!, true);
+    else {
+      setAdding(null);
+      setTiming(false);
+      setDyingFor(null);
+      setDeathPrompt(true);
+    }
+  }, [role, doc.loaded, effectsDoc.loaded, doc.value, effectsDoc.value, deathDone]);
   // Focus checks the GM called for now (damage, distraction): this panel only.
   const [checkNow, setCheckNow] = useState<string[]>([]);
   // The monsters folded under the GM row: this viewer's choice, remembered
@@ -507,6 +535,13 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   const rollDeathD20 = () => rollDice({ count: 1, sides: 20, label: "Death d20", target: deathTarget }).then((d) => d[0]);
   const deathActions: DeathActions = {
     rolling: deathRolling,
+    timer: (h) => openDying(h, true),
+    prompt: () => {
+      setAdding(null);
+      setTiming(false);
+      setDyingFor(null);
+      setDeathPrompt(true);
+    },
     roll: (h) => {
       if (deathRolling) return;
       const last = lastChance(h);
@@ -524,20 +559,20 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
       decide(h, 20);
       live(h, "Rises", (s) => stopDying(s, h), "rises");
     },
-    notTwenty: (h) => {
-      decide(h, "table");
+    failed: (h) => {
+      decide(h, "failed");
       if (lastChance(h)) die(h);
     },
     stabilized: (h) => {
-      decide(h, "table");
+      decide(h, "other");
       live(h, "Stabilized", (s, t) => stabilize(s, t, newEffectId, h), "stabilized");
     },
     healed: (h) => {
-      decide(h, "table");
+      decide(h, "other");
       live(h, "Healed", (s) => stopDying(s, h), "healed");
     },
     dead: (h) => {
-      decide(h, "table");
+      decide(h, "other");
       die(h);
     },
   };
@@ -549,11 +584,29 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
     setDeathPrompt(false);
     if (moveOnAfter) setMoveOn(`${tracker.round}:${tracker.current}`);
   };
+  // Skip for now: undecided this turn; on the last chance they stay dying
+  // until their next turn (one undo step).
+  const skipDeath = (h: string) => {
+    decide(h, "skip");
+    if (lastChance(h)) liveChangeEffects(`Skip: ${nameOf(h)}'s last chance`, (s, t) => lastChanceLater(s, t, h));
+  };
+  // Row menu → Dying…: on their own turn the timer is rolled now; otherwise
+  // they're marked dying and roll it on their turn (p. 89).
+  const dyingFromMenu = (h: string) => {
+    if (tracker.current === h) return openDying(h);
+    try {
+      liveChangeEffects(`Dying: ${nameOf(h)}`, (s, t) => markDying(s, t, newEffectId, h));
+    } catch (err) {
+      notify(errorMessage(err), "WARNING");
+      return;
+    }
+    void sayDeath({ event: "down", name: nameOf(h) });
+  };
   const promptActions: DeathActions = {
     ...deathActions,
     roll: (h) => fromPrompt(h, deathActions.roll, true),
     nat20: (h) => fromPrompt(h, deathActions.nat20, true),
-    notTwenty: (h) => fromPrompt(h, deathActions.notTwenty, !lastChance(h)),
+    failed: (h) => fromPrompt(h, deathActions.failed, !lastChance(h)),
     stabilized: (h) => fromPrompt(h, deathActions.stabilized, true),
     healed: (h) => fromPrompt(h, deathActions.healed, true),
     dead: (h) => fromPrompt(h, deathActions.dead, false),
@@ -562,9 +615,11 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
 
   // A dying character's turn owes the death d20 (their last turn too):
   // ▶ asks for the decision first, then moves on.
-  const owedDeath = () => effects.effects.find((e) => owesDeathRoll(e, tracker) && deathDone[deathKey(e.holder!, tracker)] === undefined) ?? null;
+  const owedDeath = () =>
+    effects.effects.find((e) => (owesDeathRoll(e, tracker) || owesTimer(e, tracker)) && deathDone[deathKey(e.holder!, tracker)] === undefined) ?? null;
   const goNext = () => {
-    if (owedDeath()) return setDeathPrompt(true);
+    const owed = owedDeath();
+    if (owed) return owesTimer(owed, tracker) ? openDying(owed.holder!, true) : setDeathPrompt(true);
     const moved = next(tracker);
     change("Next turn", advance);
     if (deferRoll && moved.phase === "crawl" && moved.current === GM_ENTRY && due(moved.crawl, mode, dark)) rollEncounter(mode === "clock" ? "Crawling die" : "Encounter check");
@@ -759,8 +814,8 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
               dying={effects.effects.filter((e) => owesDeathRoll(e, tracker))}
               tracker={tracker}
               names={names}
-              deathDone={deathDone}
               actions={promptActions}
+              skip={(h) => fromPrompt(h, skipDeath, true)}
               close={() => setDeathPrompt(false)}
             />
           ) : adding ? (
@@ -772,6 +827,21 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
               name={names.get(dyingFor) ?? "A character"}
               change={liveChangeEffects}
               close={() => setDyingFor(null)}
+              done={() => {
+                setDyingFor(null);
+                if (!timerFromNext) return;
+                decide(dyingFor, "other");
+                setMoveOn(`${tracker.round}:${tracker.current}`);
+              }}
+              skip={
+                timerFromNext
+                  ? () => {
+                      setDyingFor(null);
+                      decide(dyingFor, "skip");
+                      setMoveOn(`${tracker.round}:${tracker.current}`);
+                    }
+                  : undefined
+              }
               rollD4={() => rollDice({ count: 1, sides: 4, label: "Death timer", target: deathTarget }).then((d) => d[0])}
             />
           ) : (
@@ -908,7 +978,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           rename={setRenaming}
           party={tracker.party}
           setParty={(id) => void changePartyToken(id).catch((err) => notify(`Couldn't change the party token: ${errorMessage(err)}`, "ERROR"))}
-          startDying={openDying}
+          startDying={dyingFromMenu}
           checkFocus={(id) => setCheckNow((c) => (c.includes(id) ? c : [...c, id]))}
         />
       )}

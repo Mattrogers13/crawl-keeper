@@ -55,13 +55,19 @@ const readSceneId = (metadata: Metadata) => {
 // The open map's id, written the first time it's needed. (A duplicated map
 // copies its metadata, id included; an undo step could then apply to the
 // copy. Rare, and it only restores the GM's own earlier value.)
-const ensureSceneId = async (): Promise<string> => {
-  const existing = readSceneId(await OBR.scene.getMetadata());
-  if (existing) return existing;
-  const id = crypto.randomUUID();
-  await OBR.scene.setMetadata({ [SCENE_ID_KEY]: id });
-  return id;
-};
+// Steps recorded at once (Skip, then ▶) share one lookup: each writing its
+// own id would leave the first step tagged with an id the map no longer has.
+let pendingSceneId: Promise<string> | null = null;
+const ensureSceneId = (): Promise<string> =>
+  (pendingSceneId ??= (async () => {
+    const existing = readSceneId(await OBR.scene.getMetadata());
+    if (existing) return existing;
+    const id = crypto.randomUUID();
+    await OBR.scene.setMetadata({ [SCENE_ID_KEY]: id });
+    return id;
+  })().finally(() => {
+    pendingSceneId = null;
+  }));
 
 // Record a GM action once it's saved. A failure here only loses the undo
 // step, never the action.
