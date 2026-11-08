@@ -1,6 +1,8 @@
-// The GM's Dying sheet, over the list (row menu → Dying…): a character at 0
-// HP rolls 1d4 + CON (at least 1) for their death timer (p. 89), or the
-// table rolled and the GM types it. One undo step; everyone hears it.
+// The GM's Dying sheet, over the list: on the dying character's turn they
+// roll 1d4 + CON (at least 1) for their death timer (p. 89), or the table
+// rolled and the GM types it. Opened by ▶ (or the notices' Roll the timer)
+// when they were marked dying off their turn, or by row menu → Dying… on
+// their own turn. One undo step; everyone hears it.
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { FOCUS } from "./CrawlBar";
@@ -20,7 +22,17 @@ const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "0");
 export type RollD4 = () => Promise<number>;
 const localD4: RollD4 = async () => rollDie(4, cryptoRand);
 
-const DyingSheet = (props: { holder: string; name: string; change: EffectsChange; close: () => void; rollD4?: RollD4 }) => {
+const DyingSheet = (props: {
+  holder: string;
+  name: string;
+  change: EffectsChange;
+  close: () => void;
+  // Rolled (else `close`); from ▶ the turn then moves on.
+  done?: () => void;
+  // From ▶: move on without the timer (asked again on their next turn).
+  skip?: () => void;
+  rollD4?: RollD4;
+}) => {
   const { holder, name } = props;
   const [con, setCon] = useState(() => {
     const n = Number(readSession(conKey(holder)));
@@ -42,7 +54,7 @@ const DyingSheet = (props: { holder: string; name: string; change: EffectsChange
     }
     writeSession(conKey(holder), String(con));
     void sayDeath({ event: "started", name, rounds, d4, con: d4 === null ? null : con });
-    props.close();
+    (props.done ?? props.close)();
   };
   const roll = async () => {
     setBusy(true);
@@ -70,7 +82,7 @@ const DyingSheet = (props: { holder: string; name: string; change: EffectsChange
     >
       <div className="flex items-center gap-2">
         <img src="/img/effect-dying.webp" alt="" aria-hidden className="h-5 w-5 rounded-full" />
-        <span className="flex-1 font-medium">{name} is dying (0 HP)</span>
+        <span className="flex-1 font-medium">{name} is dying (0 HP): the death timer</span>
         <button type="button" aria-label="Close" className="rounded-md p-1 text-obr-text-secondary hover:bg-obr-text/10" onClick={props.close}>
           ✕
         </button>
@@ -125,7 +137,19 @@ const DyingSheet = (props: { holder: string; name: string; change: EffectsChange
           {error}
         </p>
       )}
-      <div className="mt-auto flex justify-end">
+      <div className="mt-auto flex items-center justify-between">
+        {props.skip ? (
+          <button
+            type="button"
+            title="Move the turn on without the timer: they're asked again on their next turn"
+            className="h-8 rounded-full px-3 text-xs font-medium text-obr-text-secondary hover:bg-obr-text/10 hover:text-obr-text"
+            onClick={props.skip}
+          >
+            Skip for now →
+          </button>
+        ) : (
+          <span />
+        )}
         <button type="button" className="h-8 rounded-full bg-obr-bg px-4 text-xs font-medium hover:bg-obr-text/10" onClick={props.close}>
           Cancel
         </button>

@@ -3,7 +3,7 @@
 // On each turn after the timer was rolled, and on the last turn (the timer
 // runs out: a last chance), the death d20; a 20 rises, and on the last turn
 // anything else dies. Stabilized, Healed and Dead any time.
-import { deathRollDue, statusOf, type Effect } from "../effects";
+import { deathRollDue, statusOf, timerPending, type Effect } from "../effects";
 import type { Tracker } from "../tracker";
 
 // This turn's decision: the d20 rolled, "failed" (rolled at the table, not
@@ -17,6 +17,8 @@ export type DeathActions = {
   stabilized: (holder: string) => void;
   healed: (holder: string) => void;
   dead: (holder: string) => void;
+  // Marked dying, timer not rolled: open the Dying sheet to roll it.
+  timer: (holder: string) => void;
   rolling: boolean;
 };
 
@@ -26,6 +28,9 @@ const decidedText = (d: DeathDecision | undefined) => (typeof d === "number" ? `
 export const deathKey = (holder: string, t: Tracker) => `${holder}@${t.round}:${t.current}`;
 
 // Does this turn owe a death d20 (a turn after the rolling turn, or the last)?
+// Marked dying off their turn: this turn rolls the timer (p. 89).
+export const owesTimer = (e: Effect, t: Tracker) => timerPending(e) && e.holder !== null && e.holder === t.current;
+
 export const owesDeathRoll = (e: Effect, t: Tracker) =>
   e.icon === "dying" && e.holder !== null && e.holder === t.current && (deathRollDue(e, t) || statusOf(e, t).state === "ended");
 
@@ -42,6 +47,7 @@ export const DyingLine = (props: {
   const st = statusOf(e, t);
   const last = st.state === "ended";
   const left = st.state === "active" ? (st.left ?? 0) : 0;
+  const pending = timerPending(e);
   const owes = owesDeathRoll(e, t) && decided === undefined;
   const button = props.big
     ? "h-9 rounded-full bg-obr-paper px-4 text-sm font-medium hover:bg-obr-text/10 disabled:opacity-50"
@@ -57,12 +63,21 @@ export const DyingLine = (props: {
       <img src="/img/effect-dying.webp" alt="" aria-hidden className={`${props.big ? "h-6 w-6" : "h-4 w-4"} shrink-0 rounded-full`} />
       <span className="min-w-0 flex-1">
         <span className="font-semibold">{name}</span>
-        {last ? " is dying · the timer runs out: last chance" : ` is dying · ${left} round${left === 1 ? "" : "s"} left`}
+        {pending
+          ? " is dying · rolls the death timer this turn"
+          : last
+            ? " is dying · the timer runs out: last chance"
+            : ` is dying · ${left} round${left === 1 ? "" : "s"} left`}
         {decidedText(decided) && <span className="font-mono"> · {decidedText(decided)}</span>}
-        {!last && !deathRollDue(e, t) && <span className="text-obr-text-secondary"> · timer rolled this turn</span>}
+        {!pending && !last && !deathRollDue(e, t) && <span className="text-obr-text-secondary"> · timer rolled this turn</span>}
       </span>
       {actions && (
         <span className={`flex flex-wrap gap-1 ${props.big ? "w-full" : ""}`}>
+          {pending && decided === undefined && (
+            <button type="button" className={button} title="1d4 + CON rounds, at least 1 (p. 89)" onClick={() => actions.timer(holder)}>
+              Roll the timer
+            </button>
+          )}
           {owes && (
             <button type="button" className={button} title={last ? "Rolled at the table, not a 20: the timer is out, they die" : "Rolled at the table, not a 20: still dying"} onClick={() => actions.failed(holder)}>
               Failed

@@ -46,32 +46,63 @@ const setup = (fx: object[] = [], current: string | null = "a", round = 1) => {
 const dying = { id: "d1", name: "Dying", icon: "dying", kind: "rounds", holder: "a", rounds: 3, end: { round: 4, at: "a" } };
 
 describe("the death timer (GM)", () => {
-  it("row menu → Dying…: player rows only; the sheet sets the timer, one undo step, everyone told", async () => {
+  it("row menu → Dying… off their turn: marked dying now (one undo step, everyone told), the timer waits for their turn", async () => {
     setup([], "b");
     expect((await menu("Gob")).queryByRole("menuitem", { name: "Dying…" })).toBeNull();
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     fireEvent.click((await menu("Aria")).getByRole("menuitem", { name: "Dying…" }));
-    const sheet = screen.getByRole("form", { name: "Dying" });
-    fireEvent.click(within(sheet).getByRole("button", { name: "+2" }));
-    expect(within(sheet).getByRole("button", { name: "Roll 1d4 + 2 CON" })).toBeInTheDocument();
-    fireEvent.change(within(sheet).getByLabelText("Rounds"), { target: { value: "3" } });
-    fireEvent.click(within(sheet).getByRole("button", { name: "Set" }));
-    await waitFor(() => expect(effects()).toMatchObject([{ name: "Dying", icon: "dying", holder: "a", rounds: 3 }]));
+    await waitFor(() => expect(effects()).toMatchObject([{ name: "Dying", icon: "dying", holder: "a", kind: "until" }]));
     expect(screen.queryByRole("form", { name: "Dying" })).toBeNull();
-    expect(sent()).toEqual([{ event: "started", name: "Aria", rounds: 3, d4: null, con: null }]);
+    expect(sent()).toEqual([{ event: "down", name: "Aria" }]);
     expect(screen.getByRole("button", { name: "Undo: Dying: Aria" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Dying · the timer is rolled on their turn/ })).toBeInTheDocument();
     expect((await menu("Aria")).queryByRole("menuitem", { name: "Dying…" })).toBeNull();
   });
 
-  it("the sheet's roll: 1d4 + CON, at least 1", async () => {
+  it("their turn: ▶ opens the timer sheet; the roll sets the timer from this turn (one undo step, everyone told) and the turn moves on", async () => {
+    setup([{ id: "d1", name: "Dying", icon: "dying", kind: "until", holder: "a" }], "a", 11);
+    const line = await screen.findByRole("group", { name: "Aria dying" });
+    expect(line).toHaveTextContent("Aria is dying · rolls the death timer this turn");
+    expect(within(line).getByRole("button", { name: "Roll the timer" })).toBeInTheDocument();
+    expect(within(line).queryByRole("button", { name: "Failed" })).toBeNull();
+    fireEvent.click(screen.getByLabelText("Next turn"));
+    const sheet = await screen.findByRole("form", { name: "Dying" });
+    expect(tracker().current).toBe("a");
+    fireEvent.change(within(sheet).getByLabelText("Rounds"), { target: { value: "7" } });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Set" }));
+    // Rolled on Aria's turn in round 11: the last chance is her turn in round 18 (p. 89).
+    await waitFor(() => expect(effects()).toMatchObject([{ id: "d1", kind: "rounds", rounds: 7, end: { round: 18, at: "a" } }]));
+    await waitFor(() => expect(tracker().current).toBe("b"));
+    expect(sent()).toEqual([{ event: "started", name: "Aria", rounds: 7, d4: null, con: null }]);
+  });
+
+  it("their turn: Skip for now on the timer sheet moves on with no timer; ▶ asks again on their next turn", async () => {
+    setup([{ id: "d1", name: "Dying", icon: "dying", kind: "until", holder: "a" }], "a", 11);
+    fireEvent.click(await screen.findByLabelText("Next turn"));
+    fireEvent.click(within(await screen.findByRole("form", { name: "Dying" })).getByRole("button", { name: "Skip for now →" }));
+    await waitFor(() => expect(tracker().current).toBe("b"));
+    expect(effects()).toMatchObject([{ id: "d1", kind: "until" }]);
+    for (const at of [GM_ENTRY, "g", "a"]) {
+      fireEvent.click(screen.getByLabelText("Next turn"));
+      await waitFor(() => expect(tracker().current).toBe(at));
+    }
+    fireEvent.click(screen.getByLabelText("Next turn"));
+    expect(await screen.findByRole("form", { name: "Dying" })).toBeInTheDocument();
+  });
+
+  it("dropped on their own turn: Dying… opens the sheet at once; the sheet's roll: 1d4 + CON, at least 1", async () => {
     die(0); // a 1
-    setup([], "b");
+    setup([], "a");
     fireEvent.click((await menu("Aria")).getByRole("menuitem", { name: "Dying…" }));
     const sheet = screen.getByRole("form", { name: "Dying" });
+    fireEvent.click(within(sheet).getByRole("button", { name: "+2" }));
+    expect(within(sheet).getByRole("button", { name: "Roll 1d4 + 2 CON" })).toBeInTheDocument();
     fireEvent.click(within(sheet).getByRole("button", { name: "−3" }));
     fireEvent.click(within(sheet).getByRole("button", { name: "Roll 1d4 − 3 CON" }));
-    await waitFor(() => expect(effects()).toMatchObject([{ name: "Dying", rounds: 1 }]));
+    await waitFor(() => expect(effects()).toMatchObject([{ name: "Dying", kind: "rounds", rounds: 1 }]));
     expect(sent()).toEqual([{ event: "started", name: "Aria", rounds: 1, d4: 1, con: -3 }]);
+    // From the menu the turn stays.
+    expect(tracker().current).toBe("a");
   });
 
   it("on their later turns: Roll d20 (a 20 rises), Nat 20, Stabilized, Healed", async () => {
