@@ -10,8 +10,8 @@ kind: web-app         # web-app | obsidian-plugin | script-utility | config-back
 # Current State
 
 **Updated:** 2026-11-08
-**In flight:** PR #63 `feat/death-prompt`, room-tested (TESTING rows 142 to 148 passed 2026-11-08), waiting on Matt's "merge": the death prompt by frequency (big Failed, Skip for now, opens on the dying turn), Dying in two steps (mark when they drop, roll the timer on their turn), turns-left label, and an Undo fix (two steps at once on a new map). Merged and live, unreleased: #58, #60, #61.
-**Waiting on:** Matt's "merge" for #62 (this file) and #63.
+**In flight:** nothing. Merged and live, unreleased (CHANGELOG "Unreleased"): #58 UI quick fixes, #60 list space, #61 darkness follows the lights, #63 the death prompt (by frequency, opens on the dying turn, Skip for now), Dying in two steps, turns-left label, Undo fix for two steps at once on a new map. TESTING rows 132 to 148 passed 2026-11-08.
+**Waiting on:** nothing from Matt. A release (v0.7.0) whenever he wants one: a full TESTING.md walk first.
 **Resume here:** UI design pass, next PR: stacked identical monsters (Q9 C; the resize grip B already exists), then the Light Tracker opening the ⏳ Time passes sheet. The dying counter "a round early": traced to the label ("1 round left" before a last chance), now counted in turns; the timing matched p. 89. Review and mockups: `docs/ui-review-2026-11-07/` (also https://claude.ai/artifact/LHqjWuuB7XmECsBkigG2cX). Untested: right-clicking the clock with a mouse. Also open: add-to-initiative hotkey, breadcrumbs idea (design.md), Sort-by-roll possible deletion, one unexplained in-room placement (design.md), snapping trim (low).
 **Tracked task (fix by the stacked-monsters PR; not reproduced during the death-prompt PR):** CI flake, `Effects.test.tsx` "a row's effects sit under it…" failed once on #61's merge commit (getByRole "Bless · 2 of 2 rounds left" right after clicking "Show 2 effects"), passed on rerun and 9 local runs. Suspect: a late room read resets `RowEffects`' `chosen` (or remounts it) after the click; find the cause, don't just add a waitFor.
 
