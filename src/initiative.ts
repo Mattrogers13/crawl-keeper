@@ -23,7 +23,7 @@ export const toggleInitiative = async (ids: string[]) => {
   if (updated === tracker) return full();
   await OBR.scene.setMetadata({ [TRACKER_KEY]: updated });
   // An undo step in the GM's history, shared with the panel (same tab).
-  await record(removing ? "Remove from initiative" : "Add to initiative", [{ store: "scene", key: TRACKER_KEY, before: scene[TRACKER_KEY], after: updated }], { toast: removing });
+  await record(removing ? "Remove from initiative" : "Add to initiative", [{ store: "scene", key: TRACKER_KEY, before: scene[TRACKER_KEY], after: updated }]);
   full();
   // Removing the current token passed the turn on (the marker moves with it);
   // removing a dead one takes its skull off.

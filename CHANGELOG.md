@@ -6,8 +6,9 @@ Versions follow semver; the same number is in `package.json` and `public/manifes
 
 - The round count is never cut off: the tracker's header shows the key without the "Crawl Keeper" text (Owlbear's toolbar already names it). Settings, the Light Tracker and the log keep their titles.
 - Pause: ❚❚ in the header while the lights run; paused, a slim amber "Lights paused · Resume" bar across the top replaces it (it was a red bar plus an amber ▶).
-- Reset rounds, Remove monsters, Reset clock and Remove all lights no longer ask first: each runs at once with an Undo toast. Reset all and Clear log still ask (Undo can't bring the log back).
-- Undo bar: Undo still names its step; Redo is a round icon whose tooltip names it.
+- Reset rounds, Remove monsters, Reset clock and Remove all lights no longer ask first: each runs at once, and the Undo bar under the list names it. Reset all and Clear log still ask (Undo can't bring the log back).
+- Undo bar: Undo still names its step; Redo is a round icon whose tooltip names it. The "Done: … Undo" pop-up is gone: it repeated the bar.
+- Settings, the Light Tracker and the log keep a gap between their cards and the scrollbar.
 - Manual rolls: a reminder instead of a hidden schedule. Every few crawl rounds (Settings → Remind me every, 1 to 10, default 3; every round in darkness) the card pulses on the GM's turn; it stops when you roll or move on. The Settings hint no longer mentions a danger level.
 - The empty tracker and the how-to page name the real menu path: right-click → Crawl Keeper → Add to initiative.
 

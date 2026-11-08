@@ -178,7 +178,7 @@ describe("the Light Tracker", () => {
     expect(await screen.findByText(/No lights yet/)).toBeInTheDocument();
   });
 
-  it("Put lights out spends the torches, offering Undo in a toast", async () => {
+  it("Put lights out spends the torches; the bar's Undo brings them back", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     obr.metadata = { [LIGHTS_KEY]: { lightingRule: "separate", lights: [lit("l1", "a"), lit("l2", "b", "lightSpell")] } };
     scene(["a", "b"]);
@@ -186,7 +186,7 @@ describe("the Light Tracker", () => {
     await open();
     fireEvent.click(screen.getByRole("button", { name: "Put lights out" }));
     await waitFor(() => expect(saved().lights.map((l) => l.status)).toEqual(["spent", "spent"]));
-    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo: Put lights out" }));
     await waitFor(() => expect(saved().lights.map((l) => l.status)).toEqual(["lit", "lit"]));
   });
 
@@ -228,7 +228,7 @@ describe("the Light Tracker", () => {
     await waitFor(() => expect(saved().lights).toHaveLength(0));
   });
 
-  it("Remove all lights runs at once (no confirm) and offers Undo", async () => {
+  it("Remove all lights runs at once (no confirm); the bar's Undo brings them back", async () => {
     obr.items = [token("a", { name: "Aria" }), token("b", { name: "Borin" })];
     obr.metadata = { [LIGHTS_KEY]: { lights: [lit("l1", "a"), lit("l2", "b", "lightSpell")] } };
     scene(["a", "b"]);
@@ -237,7 +237,7 @@ describe("the Light Tracker", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove all lights" }));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     await waitFor(() => expect(saved().lights).toHaveLength(0));
-    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo: Remove all lights" }));
     await waitFor(() => expect(saved().lights).toHaveLength(2));
   });
 

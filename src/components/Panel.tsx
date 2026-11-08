@@ -90,11 +90,11 @@ const Panel = ({ role }: { role: Role }) => {
       </header>
       <main className="flex min-h-0 flex-1 flex-col">
         {shown === "log" ? (
-          <div className="relative min-h-0 flex-1 overflow-y-auto">
+          <div className={SCROLL}>
             <SessionLog />
           </div>
         ) : shown === "lights" ? (
-          <div className="relative min-h-0 flex-1 overflow-y-auto">
+          <div className={SCROLL}>
             {role !== "GM" ? (
               scene.ready ? (
                 <PlayerLightsOnMap key={scene.opened} />
@@ -111,7 +111,7 @@ const Panel = ({ role }: { role: Role }) => {
           // relative: the switches' hidden inputs (sr-only, absolute) are
           // placed in here; otherwise against the page, which then scrolls
           // too (a second scrollbar, Matt's room pass 2026-10-31).
-          <div className="relative min-h-0 flex-1 overflow-y-auto">
+          <div className={SCROLL}>
             <Settings openLog={() => setView("log")} />
           </div>
         ) : scene.ready === null ? (
@@ -190,6 +190,10 @@ const LightsButton = ({ open }: { open: () => void }) => {
     </button>
   );
 };
+
+// A view that scrolls (the log, the Light Tracker, Settings): a gap between
+// its cards and the scrollbar (Matt, 2026-11-08: the bar sat on the cards).
+const SCROLL = "relative min-h-0 flex-1 overflow-y-auto pr-2";
 
 const TITLES = { tracker: "Crawl Keeper", settings: "Settings", lights: "Light Tracker", log: "Session log" };
 

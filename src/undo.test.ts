@@ -148,13 +148,10 @@ describe("undo", () => {
     expect(loadHistory()).toEqual({ undo: [], redo: [] });
   });
 
-  it("the right-click menu records its step in the same history (removing offers the toast)", async () => {
+  it("the right-click menu records its step in the same history", async () => {
     await toggleInitiative(["a"]);
     await toggleInitiative(["a"]);
-    expect(loadHistory().undo.map((s) => [s.label, s.toast])).toEqual([
-      ["Add to initiative", false],
-      ["Remove from initiative", true],
-    ]);
+    expect(loadHistory().undo.map((s) => s.label)).toEqual(["Add to initiative", "Remove from initiative"]);
     await undo();
     expect(saved().entries.map((e) => e.id)).toEqual([GM_ENTRY, "a"]);
   });

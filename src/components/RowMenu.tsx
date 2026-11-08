@@ -106,7 +106,7 @@ const RowMenu = (props: {
         ids.length === 1 ? "Remove from initiative" : `Remove ${ids.length} from initiative`,
         true,
         () => {
-          change("Remove from initiative", (t) => remove(t, ids), { toast: true });
+          change("Remove from initiative", (t) => remove(t, ids));
           props.clear();
         },
       ],

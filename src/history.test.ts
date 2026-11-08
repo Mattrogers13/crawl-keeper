@@ -7,7 +7,6 @@ const step = (id: string, extra: Partial<Step> = {}): Step => ({
   label: `Step ${id}`,
   scene: null,
   changes: [{ store: "room", key: "k", before: 1, after: 2 }],
-  toast: false,
   ...extra,
 });
 
@@ -49,7 +48,7 @@ describe("history", () => {
     expect(parseHistory(null)).toEqual(EMPTY);
     expect(parseHistory("{nope")).toEqual(EMPTY);
     expect(parseHistory("[1,2]")).toEqual(EMPTY);
-    const good = step("a", { scene: "map-1", toast: true });
+    const good = step("a", { scene: "map-1" });
     const json = JSON.stringify({
       undo: [good, { id: "x", label: "No changes", changes: [] }, { id: "y", label: "Bad store", changes: [{ store: "disk", key: "k" }] }, "junk"],
       redo: [{ label: "No id", changes: good.changes }],
