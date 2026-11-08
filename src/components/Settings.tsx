@@ -14,6 +14,7 @@ import { resetAll } from "../resetAll";
 import { readLog } from "../sessionLog";
 import { record } from "../undo";
 import { errorMessage } from "../utils";
+import { VERSION } from "../version";
 import { REMIND_MAX, parseSettings, type Settings as SettingsDoc } from "../settings";
 
 // The GM's settings (room metadata, so they follow the party across maps),
@@ -274,6 +275,7 @@ const Settings = (props: { openLog?: () => void }) => {
       </Group>
 
       <Group title="About">
+        <p className="px-4 pt-3 text-sm">Crawl Keeper v{VERSION}</p>
         <DataSize />
       </Group>
 
