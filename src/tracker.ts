@@ -38,6 +38,7 @@ export const ROLL_MAX = 99;
 // The monsters' initiative modifier: the highest DEX modifier among them.
 export const MOD_MIN = -9;
 export const MOD_MAX = 9;
+export const HP_MAX = 999;
 
 export type Entry = {
   // An item id, or GM_ENTRY for the built-in GM / Monsters row.
@@ -51,7 +52,13 @@ export type Entry = {
   // Gets the turn marker on its turn. Starts on for players and allies, off
   // for monsters; the GM changes it per token. Never the GM row.
   marker: boolean;
+  // A monster's hit points, GM only (the panel shows them to the GM).
+  // Undefined: not tracked (and absent from the saved doc, which keeps the
+  // list small). Monsters only; 0 <= cur <= max.
+  hp?: Hp;
 };
+
+export type Hp = { cur: number; max: number };
 
 export type Phase = "crawl" | "combat";
 
@@ -131,6 +138,7 @@ export const parseTracker = (raw: unknown): Tracker => {
         dead: e.dead === true,
         monster: e.monster === true,
         marker: typeof e.marker === "boolean" ? e.marker : e.monster !== true,
+        hp: parseHp(e.hp),
       }),
     );
     if (entries.length === MAX_ENTRIES) break;
@@ -182,6 +190,14 @@ const parsePrior = (raw: unknown, entries: Entry[], party: string): Record<strin
   return out;
 };
 
+// Untrusted: whole numbers, 1 <= max <= HP_MAX, 0 <= cur <= max.
+const parseHp = (raw: unknown): Hp | undefined => {
+  if (!isObject(raw)) return undefined;
+  const max = intIn(raw.max, 1, HP_MAX);
+  const cur = intIn(raw.cur, 0, HP_MAX);
+  return max === null || cur === null ? undefined : { cur: Math.min(cur, max), max };
+};
+
 const parseGmDie = (raw: unknown): GmDie | null => {
   if (!isObject(raw)) return null;
   const die = intIn(raw.die, 1, 20);
@@ -209,7 +225,7 @@ const turnFor = (t: Tracker, id: string): string | null => {
 const normalized = (e: Entry): Entry => {
   const gm = e.id === GM_ENTRY;
   const monster = e.monster && !gm;
-  return { ...e, dead: e.dead && !gm, monster, roll: monster ? null : e.roll, marker: e.marker && !gm };
+  return { ...e, dead: e.dead && !gm, monster, roll: monster ? null : e.roll, marker: e.marker && !gm, hp: monster ? e.hp : undefined };
 };
 
 const sameEntry = (a: Entry, b: Entry) =>
@@ -217,7 +233,9 @@ const sameEntry = (a: Entry, b: Entry) =>
   a.note === b.note &&
   a.dead === b.dead &&
   a.monster === b.monster &&
-  a.marker === b.marker;
+  a.marker === b.marker &&
+  a.hp?.cur === b.hp?.cur &&
+  a.hp?.max === b.hp?.max;
 
 const newEntry = (id: string, monster: boolean): Entry =>
   normalized({ id, roll: null, note: "", dead: false, monster, marker: !monster });
@@ -440,6 +458,66 @@ const updateMany = (t: Tracker, ids: string[], change: Partial<Entry>): Entry[] 
 export const setDead = (t: Tracker, ids: string[], dead: boolean): Tracker => {
   const entries = updateMany(t, ids, { dead });
   return entries ? withEntries(t, entries) : t;
+};
+
+// What the GM typed in an HP box, applied to a monster's hit points. Returns
+// the new value (null: cleared), or undefined when the text isn't one (the
+// box then puts the old text back).
+//   12      no HP yet: 12/12. With HP: current becomes 12 (up to the max).
+//   -3 +4   take 3 / heal 4 (needs HP; a no-op without)
+//   /12     the max becomes 12 (current stays, or starts full with no HP)
+//   5/12    current 5 of 12
+//   empty   stop tracking
+export const applyHpText = (hp: Hp | undefined, text: string): Hp | null | undefined => {
+  const t = text.trim().replace(/[−–]/g, "-");
+  if (t === "") return null;
+  const num = (s: string, lo: number) => (/^\d{1,3}$/.test(s) && Number(s) >= lo && Number(s) <= HP_MAX ? Number(s) : undefined);
+  let m = /^([+-])(\d{1,3})$/.exec(t);
+  if (m) {
+    if (!hp) return undefined;
+    const by = Number(m[2]) * (m[1] === "-" ? -1 : 1);
+    return { ...hp, cur: Math.max(0, Math.min(hp.max, hp.cur + by)) };
+  }
+  m = /^(\d{1,3})?\/(\d{1,3})$/.exec(t);
+  if (m) {
+    const max = num(m[2], 1);
+    const cur = m[1] === undefined ? undefined : num(m[1], 0);
+    if (max === undefined || (m[1] !== undefined && cur === undefined)) return undefined;
+    return { cur: Math.min(cur ?? hp?.cur ?? max, max), max };
+  }
+  const n = num(t, 0);
+  if (n === undefined) return undefined;
+  if (!hp) return n >= 1 ? { cur: n, max: n } : undefined;
+  return { ...hp, cur: Math.min(n, hp.max) };
+};
+
+// The same typed text on several monsters (one box on a stack's line): each
+// applies it to its own hit points. Dead monsters are left as they are.
+export const setHp = (t: Tracker, ids: string[], text: string): Tracker => {
+  let entries: Entry[] | null = null;
+  for (const id of ids) {
+    const e = (entries ?? t.entries).find((x) => x.id === id);
+    if (!e || !e.monster || e.dead) continue;
+    const hp = applyHpText(e.hp, text);
+    if (hp === undefined) continue;
+    entries = update(entries ? { ...t, entries } : t, id, { hp: hp ?? undefined }) ?? entries;
+  }
+  return entries ? { ...t, entries } : t;
+};
+
+// A monster marked just now starts with the HP of a tracked monster that is
+// the same kind (`kind` names it: stacks.ts), at full health. Others keep what they have.
+export const inheritHp = (t: Tracker, ids: string[], kind: (id: string) => string): Tracker => {
+  let entries: Entry[] | null = null;
+  for (const id of ids) {
+    const list: Entry[] = entries ?? t.entries;
+    const e = list.find((x) => x.id === id);
+    if (!e || !e.monster || e.hp) continue;
+    const k = kind(id);
+    const twin: Entry | undefined = list.find((x) => x.id !== id && x.monster && x.hp && kind(x.id) === k);
+    if (twin?.hp) entries = update(entries ? { ...t, entries } : t, id, { hp: { cur: twin.hp.max, max: twin.hp.max } }) ?? entries;
+  }
+  return entries ? { ...t, entries } : t;
 };
 
 // The turn marker on or off for these tokens' turns.

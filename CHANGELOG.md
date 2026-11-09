@@ -4,6 +4,7 @@ Versions follow semver; the same number is in `package.json` and `public/manifes
 
 ## Unreleased
 
+- Monster HP, GM only: a box on each monster's row. Type 12 to start it at 12/12 (then a number sets the current), -3 or +4 to hurt or heal, /12 for the max, empty to stop tracking. At 0 the box turns red and a skull offers Mark dead (nothing is marked by itself). A stack's line has one box for all of them ("14/24"): 12 gives each 12/12, -4 hurts every one. A monster marked later starts at the full HP of one of its kind already tracked. Each change is an Undo step.
 - The round count is never cut off: the tracker's header shows the key without the "Crawl Keeper" text (Owlbear's toolbar already names it). Settings, the Light Tracker and the log keep their titles.
 - Pause: ❚❚ in the header while the lights run; paused, a slim amber "Lights paused · Resume" bar across the top replaces it (it was a red bar plus an amber ▶).
 - Reset rounds, Remove monsters, Reset clock and Remove all lights no longer ask first: each runs at once, and the Undo bar under the list names it. Reset all and Clear log still ask (Undo can't bring the log back).
