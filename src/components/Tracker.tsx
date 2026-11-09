@@ -28,7 +28,7 @@ import RowMenu from "./RowMenu";
 import MonsterStack from "./MonsterStack";
 import { stackKey, stackName, stacks } from "../stacks";
 import { iconOf } from "../effectIcons";
-import Row, { GUTTER, INIT_SLOT, tokenInfo, type ButtonProps, type Token } from "./TrackerRow";
+import Row, { GUTTER, INIT_SLOT, hpChange, tokenInfo, type ButtonProps, type Token } from "./TrackerRow";
 import { EFFECTS_KEY, MONSTERS_FOLDED_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import {
   endFocusOf,
@@ -67,6 +67,7 @@ import { errorMessage, notify } from "../utils";
 import { changePartyToken, switchParty, type Choice } from "../partyMode";
 import {
   GM_ENTRY,
+  applyHpText,
   gmEquation,
   inTurns,
   moveTo,
@@ -94,6 +95,12 @@ import {
 // (Mark dead ends focus, Reset rounds keeps rounds left).
 export type ChangeOpts = { effects?: (e: Effects, before: TrackerDoc, after: TrackerDoc) => Effects };
 export type Change<T = TrackerDoc> = (label: string, fn: (t: T) => T, opts?: ChangeOpts) => void;
+
+// A stack's line: the living members' HP added up ("14/24"), blank when none has any.
+const stackHpText = (members: Entry[]) => {
+  const have = members.filter((m) => !m.dead && m.hp);
+  return have.length === 0 ? "" : `${have.reduce((n, m) => n + m.hp!.cur, 0)}/${have.reduce((n, m) => n + m.hp!.max, 0)}`;
+};
 
 // No lights (players: the notices tell the GM's lights only).
 const NO_LIGHTS: Light[] = [];
@@ -987,6 +994,15 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
                                 current={hasTurn}
                                 toggle={() => setOpenStacks((o) => (o.includes(st.key) ? o.filter((k) => k !== st.key) : [...o, st.key]))}
                                 gm={gm}
+                                hp={
+                                  gm
+                                    ? {
+                                        shown: stackHpText(st.members),
+                                        valid: (text) => st.members.some((m) => !m.dead && applyHpText(m.hp, text) !== undefined),
+                                        save: (text) => hpChange(liveChange, ids, text),
+                                      }
+                                    : undefined
+                                }
                                 openMenu={
                                   gm
                                     ? (x, y) => {
@@ -1035,6 +1051,10 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           party={tracker.party}
           setParty={(id) => void changePartyToken(id).catch((err) => notify(`Couldn't change the party token: ${errorMessage(err)}`, "ERROR"))}
           startDying={dyingFromMenu}
+          kindOf={(id) => {
+            const info = tokenInfo(byId.get(id));
+            return stackKey(info.name, info.image);
+          }}
           checkFocus={(id) => setCheckNow((c) => (c.includes(id) ? c : [...c, id]))}
         />
       )}

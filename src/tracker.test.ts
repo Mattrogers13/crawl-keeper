@@ -621,8 +621,8 @@ describe("Party / Split", () => {
 
 describe("size", () => {
   // About 12 kB passed in a real room (PR 1); this worst case, with a full
-  // crawl (10 exploded dice), is about 12.3 kB.
-  it("a full tracker in combat stays under 12.5 kB", () => {
+  // crawl (10 exploded dice), is about 12.3 kB, 13.4 with 3-digit HP on every monster.
+  it("a full tracker in combat stays under 13.5 kB", () => {
     const id = (i: number) => `${"x".repeat(30)}-${i}`; // Owlbear ids are shorter
     const full = parseTracker({
       entries: Array.from({ length: MAX_ENTRIES }, (_, i) => ({
@@ -631,6 +631,7 @@ describe("size", () => {
         note: "n".repeat(NOTE_MAX),
         dead: i > 1,
         monster: i > 0,
+        hp: { cur: 999, max: 999 },
       })),
       phase: "combat",
       current: id(0),
@@ -645,7 +646,7 @@ describe("size", () => {
       },
     });
     expect(full.crawl.last?.dice).toHaveLength(10);
-    expect(new Blob([JSON.stringify(full)]).size).toBeLessThan(12_500);
+    expect(new Blob([JSON.stringify(full)]).size).toBeLessThan(13_500);
   });
 });
 
