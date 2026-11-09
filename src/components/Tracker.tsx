@@ -14,7 +14,7 @@ import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifi
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 
 import { onAddEffect, takeHandoff } from "../addEffectHandoff";
-import { AddEffect, RowEffects, type EffectsChange } from "./Effects";
+import { AddEffect, EditEffectContext, RowEffects, type EffectsChange } from "./Effects";
 import { DeathPrompt, deathKey, owesDeathRoll, owesTimer, type DeathActions, type DeathDecision } from "./Dying";
 import DyingSheet from "./DyingSheet";
 import Notices from "./Notices";
@@ -115,6 +115,8 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   // The GM's row selection (click, Shift-click, Cmd/Ctrl-click) and row menu
   // (right-click or ⋯), which acts on the selection.
   const [picked, setPicked] = useState<Selection>(NO_SELECTION);
+  // The effect being edited (its menu → Edit…), over the list like Add.
+  const [editingEffect, setEditingEffect] = useState<string | null>(null);
   // The Party / Split switch asking who carries the party's light.
   const [carrierChoices, setCarrierChoices] = useState<Choice[] | null>(null);
   // The carrier question came from Combat: the answer starts combat too.
@@ -639,7 +641,17 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
     if (over) change("Move row", (t) => moveTo(t, String(active.id), String(over.id)));
   };
 
+  // Edit… on an effect: the Add sheet, filled in (one sheet at a time).
+  const openEdit = (id: string) => {
+    setAdding(null);
+    setTiming(false);
+    setDyingFor(null);
+    setDeathPrompt(false);
+    setEditingEffect(id);
+  };
+  const edited = editingEffect === null ? null : (effects.effects.find((e) => e.id === editingEffect) ?? null);
   return (
+    <EditEffectContext.Provider value={gm ? openEdit : null}>
     // Escape, or a click anywhere in the panel but a token row or the menu,
     // clears the GM's row selection.
     <div
@@ -807,7 +819,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
       {/* Only the list scrolls: the controls above stay in view. */}
       <div className="relative -mx-1 flex min-h-0 flex-1 flex-col">
       {/* The Add effects and Time passes sheets cover the list while open (the panel is short). */}
-      {gm && (adding || timing || dyingFor || deathPrompt) && (
+      {gm && (adding || timing || dyingFor || deathPrompt || edited) && (
         <div className="absolute inset-0 z-20 overflow-y-auto bg-obr-paper px-1">
           {deathPrompt ? (
             <DeathPrompt
@@ -817,6 +829,17 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
               actions={promptActions}
               skip={(h) => fromPrompt(h, skipDeath, true)}
               close={() => setDeathPrompt(false)}
+            />
+          ) : edited ? (
+            <AddEffect
+              key={edited.id}
+              editing={edited}
+              holders={edited.holder === null ? [] : [edited.holder]}
+              names={names}
+              tracker={tracker}
+              effects={effects}
+              change={changeEffects}
+              close={() => setEditingEffect(null)}
             />
           ) : adding ? (
             <AddEffect key={adding.join()} holders={adding} names={names} tracker={tracker} effects={effects} change={changeEffects} close={() => setAdding(null)} />
@@ -849,7 +872,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
           )}
         </div>
       )}
-      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-1 pt-px" inert={gm && (adding || timing || dyingFor || deathPrompt) ? true : undefined}>
+      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-1 pt-px" inert={gm && (adding || timing || dyingFor || deathPrompt || edited) ? true : undefined}>
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -983,6 +1006,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
         />
       )}
     </div>
+    </EditEffectContext.Provider>
   );
 };
 

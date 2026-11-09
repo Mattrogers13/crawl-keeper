@@ -9,6 +9,7 @@ import {
   deathRollDue,
   deathTimer,
   dyingOf,
+  editEffect,
   stabilize,
   startDying,
   stopDying,
@@ -254,6 +255,47 @@ describe("focus", () => {
     const combat = steps(toCombat(at(1, "a"), false), 4);
     expect(combat.current).toBe("m");
     expect(focusChecks(s, combat).map((e) => e.name)).toEqual(["Darkness"]);
+  });
+});
+
+describe("editing (Edit…)", () => {
+  it("rounds to ongoing, a new name and condition, hidden: in place, same id and order", () => {
+    const t = at(1, "a");
+    let s = put(emptyEffects(), t, { duration: { kind: "rounds", rounds: 3 } });
+    s = put(s, t, { name: "Web", duration: { kind: "until" } });
+    const id = s.effects[0].id;
+    const edited = editEffect(s, t, rand, id, { name: "Stuck in web", icon: "stuck", duration: { kind: "until" }, hidden: true });
+    expect(edited.effects.map((e) => e.id)).toEqual(s.effects.map((e) => e.id));
+    expect(edited.effects[0]).toMatchObject({ id, name: "Stuck in web", icon: "stuck", holder: "a", kind: "until", end: null, hidden: true });
+    expect(edited.effects[1]).toBe(s.effects[1]);
+  });
+
+  it("ongoing to rounds: counted from now on the chosen row", () => {
+    const t = at(1, "a");
+    const s = put(emptyEffects(), t, { duration: { kind: "until" } });
+    const edited = editEffect(s, t, rand, s.effects[0].id, { name: "Bless", duration: { kind: "rounds", rounds: 2 }, countsOn: "b" });
+    expect(edited.effects[0]).toMatchObject({ kind: "rounds", rounds: 2 });
+    expect(statusOf(edited.effects[0], t)).toEqual({ state: "active", left: 2 });
+  });
+
+  it("a focus keeps its kind (name and hidden only), and what ends with it still does; nothing becomes a focus", () => {
+    const t = at(1, "a");
+    let s = put(emptyEffects(), t, { name: "Hold Person", duration: { kind: "focus" } });
+    const focus = s.effects[0].id;
+    s = put(s, t, { name: "Paralyzed", holders: ["b"], duration: { kind: "until" }, endsWith: focus });
+    const edited = editEffect(s, t, rand, focus, { name: "Hold Monster", duration: { kind: "until" }, hidden: true });
+    expect(edited.effects[0]).toMatchObject({ id: focus, kind: "focus", name: "Hold Monster", hidden: true });
+    expect(parseEffects(edited).effects[1]).toMatchObject({ name: "Paralyzed", endsWith: focus });
+    expect(() => editEffect(s, t, rand, s.effects[1].id, { name: "Paralyzed", duration: { kind: "focus" } })).toThrow(/added/);
+  });
+
+  it("refuses Dying and a gone effect; bad input throws like adding", () => {
+    const t = at(1, "a");
+    const s = startDying(emptyEffects(), t, newId, "a", 3);
+    expect(() => editEffect(s, t, rand, s.effects[0].id, { name: "x", duration: { kind: "until" } })).toThrow(/own buttons/);
+    expect(() => editEffect(s, t, rand, "nope", { name: "x", duration: { kind: "until" } })).toThrow(/gone/);
+    const b = put(emptyEffects(), t, { duration: { kind: "until" } });
+    expect(() => editEffect(b, t, rand, b.effects[0].id, { name: "Bless", duration: { kind: "rounds", rounds: 0 } })).toThrow(RangeError);
   });
 });
 

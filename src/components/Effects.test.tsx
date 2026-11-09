@@ -267,6 +267,46 @@ describe("Effects (GM)", () => {
     await waitFor(() => expect(effects()).toEqual([]));
   });
 
+  it("Edit… opens the form filled in; Rounds → Ongoing with a new condition and hidden saves in place, one undo step", async () => {
+    setup([bless, hold, paralyzed]);
+    fireEvent.click(await screen.findByRole("button", { name: /^Bless · 2 of 2/ }));
+    fireEvent.click(within(screen.getByRole("menu", { name: "Bless" })).getByRole("menuitem", { name: "Edit…" }));
+    const sheet = screen.getByRole("form", { name: "Edit effect" });
+    expect(within(sheet).getByLabelText("Effect name")).toHaveValue("Bless");
+    expect(within(sheet).getByLabelText("Duration")).toHaveValue("rounds");
+    expect(within(sheet).getByLabelText("Rounds")).toHaveValue(2);
+    expect(within(sheet).queryByRole("button", { name: "+ Custom" })).toBeNull();
+    expect(within(sheet).queryByRole("option", { name: "Focus" })).toBeNull();
+    fireEvent.change(within(sheet).getByLabelText("Duration"), { target: { value: "until" } });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Blinded" }));
+    fireEvent.click(within(sheet).getByRole("button", { name: "Hide from players" }));
+    fireEvent.click(within(sheet).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(effects()[0]).toMatchObject({ id: "e1", name: "Bless", icon: "blinded", kind: "until", end: null, hidden: true }));
+    expect(screen.queryByRole("form", { name: "Edit effect" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Undo: Edit Bless" }));
+    await waitFor(() => expect(effects()[0]).toMatchObject({ id: "e1", kind: "rounds", icon: null, hidden: false }));
+  });
+
+  it("Edit… a condition's own name follows a new condition; a focus edits only its name (what ends with it stays linked)", async () => {
+    setup([hold, paralyzed]);
+    fireEvent.click(await screen.findByRole("button", { name: /^Paralyzed on Gob|^Paralyzed ·/ }));
+    fireEvent.click(within(screen.getByRole("menu", { name: "Paralyzed" })).getByRole("menuitem", { name: "Edit…" }));
+    let sheet = screen.getByRole("form", { name: "Edit effect" });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Stuck" }));
+    expect(within(sheet).getByLabelText("Effect name")).toHaveValue("Stuck");
+    fireEvent.click(within(sheet).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(effects().find((e) => e.id === "p1")).toMatchObject({ name: "Stuck", icon: "stuck", endsWith: "f1" }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Hold Person ·/ }));
+    fireEvent.click(within(screen.getByRole("menu", { name: "Hold Person" })).getByRole("menuitem", { name: "Edit…" }));
+    sheet = screen.getByRole("form", { name: "Edit effect" });
+    expect(within(sheet).getByLabelText("Duration")).toBeDisabled();
+    expect(within(sheet).queryByRole("group", { name: "Conditions" })).toBeNull();
+    fireEvent.change(within(sheet).getByLabelText("Effect name"), { target: { value: "Hold Monster" } });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(effects().find((e) => e.id === "f1")).toMatchObject({ name: "Hold Monster", kind: "focus" }));
+    expect(effects().find((e) => e.id === "p1")).toMatchObject({ endsWith: "f1" });
+  });
+
   it("Time passes ends rounds effects (p. 82), lights and effects in one undo step", async () => {
     const now = Date.now();
     obr.metadata = { [LIGHTS_KEY]: { lights: [{ id: "l1", kind: "torch", tokenId: "a", status: "lit", remainingMs: 60 * MINUTE, endsAt: now + 60 * MINUTE }] } };
