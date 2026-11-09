@@ -11,8 +11,12 @@ import type { Change } from "./Tracker";
 import LightBadge from "./LightBadge";
 import { D20Icon, GmPortrait, GripIcon, MoreIcon, SkullIcon } from "./icons";
 import type { Light } from "../lights";
+import { endFocusOf, stopDying } from "../effects";
 import {
   MOD_MAX,
+  applyHpText,
+  setDead,
+  setHp,
   MOD_MIN,
   NOTE_MAX,
   parseRoll,
@@ -253,6 +257,33 @@ const Row = (props: {
                 </button>
               )}
               {/* Monsters act on the GM / Monsters roll. */}
+              {entry.monster && token && (
+                <>
+                  {entry.hp?.cur === 0 && !entry.dead && (
+                    <button
+                      type="button"
+                      aria-label={`Mark ${name} dead`}
+                      title="At 0 HP: mark dead"
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-red-600 hover:bg-red-600/15 dark:text-red-300"
+                      onClick={() =>
+                        change("Mark dead", (t) => setDead(t, [entry.id], true), {
+                          effects: (s) => stopDying(endFocusOf(s, [entry.id]), entry.id),
+                        })
+                      }
+                    >
+                      <SkullIcon className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <HpInput
+                    key={hpText(entry.hp)}
+                    name={name}
+                    shown={hpText(entry.hp)}
+                    zero={entry.hp?.cur === 0}
+                    valid={(text) => applyHpText(entry.hp, text) !== undefined}
+                    save={(text) => change("Monster HP", (t) => setHp(t, [entry.id], text))}
+                  />
+                </>
+              )}
               {!entry.monster && (
                 <RollInput key={entry.roll ?? ""} name={name} value={entry.roll} save={(r) => change("Initiative roll", (t) => enterRoll(t, entry.id, r))} />
               )}
@@ -422,6 +453,24 @@ const RollInput = ({ name, value, save }: { name: string; value: number | null; 
     placeholder="–"
     className={`w-10 px-1 py-0.5 text-right font-mono text-base font-bold tabular-nums placeholder:font-normal placeholder:text-obr-text-secondary ${GHOST_INPUT}`}
     {...useDraft(value === null ? "" : String(value), readRoll, save)}
+  />
+);
+
+export const hpText = (hp: { cur: number; max: number } | undefined) => (hp ? `${hp.cur}/${hp.max}` : "");
+
+// A monster's hit points, GM only: "12" starts it at 12/12, then sets the
+// current; "-3" / "+4" hurt / heal; "/12" the max; "5/12" both; empty stops
+// tracking (applyHpText). On a stack's line the text goes to each of them.
+export const HpInput = (props: { name: string; shown: string; zero?: boolean; valid: (text: string) => boolean; save: (text: string) => void; stack?: boolean }) => (
+  <input
+    aria-label={props.stack ? `HP for all ${props.name}` : `HP for ${props.name}`}
+    title="12 sets it · -3 / +4 hurt / heal · /12 max · empty clears"
+    placeholder="HP"
+    inputMode="text"
+    className={`min-w-0 flex-1 px-1 py-0.5 text-right font-mono text-xs tabular-nums placeholder:text-obr-text-secondary [@media(hover:hover)]:placeholder:opacity-0 group-hover:placeholder:opacity-100 focus:placeholder:opacity-100 ${
+      props.zero ? "font-bold text-red-600 dark:text-red-300" : "text-obr-text-secondary"
+    } ${GHOST_INPUT}`}
+    {...useDraft(props.shown, (text) => (props.valid(text) ? text : undefined), props.save)}
   />
 );
 

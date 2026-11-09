@@ -6,7 +6,7 @@
 import type { ReactNode } from "react";
 
 import { ChevronIcon, MoreIcon } from "./icons";
-import { NO_CHECKBOX, RowAction, type Token } from "./TrackerRow";
+import { HpInput, INIT_SLOT, NO_CHECKBOX, RowAction, type Token } from "./TrackerRow";
 
 const MonsterStack = (props: {
   name: string;
@@ -19,6 +19,9 @@ const MonsterStack = (props: {
   current: boolean;
   toggle: () => void;
   gm: boolean;
+  // GM: the box for all of them (applyHpText on each one): the living
+  // members' total as shown, whether typed text is one, and saving it.
+  hp?: { shown: string; valid: (text: string) => boolean; save: (text: string) => void };
   // GM: the row menu for every member, at the point.
   openMenu?: (x: number, y: number) => void;
   children: ReactNode;
@@ -74,6 +77,11 @@ const MonsterStack = (props: {
             <ChevronIcon open={props.open} />
           </span>
         </button>
+        {props.hp && (
+          <span className={`${INIT_SLOT} flex items-center justify-end`}>
+            <HpInput key={props.hp.shown} stack name={props.name} {...props.hp} />
+          </span>
+        )}
         {props.openMenu ? (
           <RowAction
             label={`More for ${label}`}

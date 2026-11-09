@@ -4,7 +4,7 @@ import type { Change } from "./Tracker";
 import type { LightChange } from "../hooks/useLights";
 import { LIGHT_KINDS, addLight, formatRemaining, litOn, newLightId, outOn, relight, renew, swapLight, type LightKind, type Lights } from "../lights";
 import { dyingOf, endFocusOf, focusOf, stopDying, type Effects } from "../effects";
-import { GM_ENTRY, remove, setDead, setMarker, setMonster, type Entry } from "../tracker";
+import { GM_ENTRY, inheritHp, remove, setDead, setMarker, setMonster, type Entry } from "../tracker";
 
 // What a row can be given (a campfire goes on any token from the map's
 // right-click menu instead: docs/design.md).
@@ -39,6 +39,9 @@ const RowMenu = (props: {
   checkFocus: (effectId: string) => void;
   // Open the Dying sheet for this row (the death timer, p. 89).
   startDying: (id: string) => void;
+  // The kind of monster a token is (its stack key): a monster marked now
+  // starts with the HP of a tracked one of its kind.
+  kindOf: (id: string) => string;
 }) => {
   const { entries, close, change } = props;
   const ids = entries.map((e) => e.id);
@@ -68,7 +71,7 @@ const RowMenu = (props: {
   const one = ids.length === 1 && ids[0] !== GM_ENTRY;
   const groups: Item[][] = [
     [
-      ["Mark as monster", some((e) => !e.monster), () => change("Mark as monster", (t) => setMonster(t, ids, true))],
+      ["Mark as monster", some((e) => !e.monster), () => change("Mark as monster", (t) => inheritHp(setMonster(t, ids, true), ids, props.kindOf))],
       ["Mark as player or ally", some((e) => e.monster), () => change("Mark as player or ally", (t) => setMonster(t, ids, false))],
       // Death ends a focus, and what ends with it, and a death timer, in the same step.
       [
