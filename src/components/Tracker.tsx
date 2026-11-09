@@ -25,6 +25,9 @@ import { dicePlusActive, rollDice, rollExploding, setDicePlusEnabled, type RollT
 import { ChevronIcon, HourglassIcon, PlayIcon, PlusIcon } from "./icons";
 import Loading from "./Loading";
 import RowMenu from "./RowMenu";
+import MonsterStack from "./MonsterStack";
+import { stackKey, stackName, stacks } from "../stacks";
+import { iconOf } from "../effectIcons";
 import Row, { GUTTER, INIT_SLOT, tokenInfo, type ButtonProps, type Token } from "./TrackerRow";
 import { EFFECTS_KEY, MONSTERS_FOLDED_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import {
@@ -117,6 +120,8 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
   const [picked, setPicked] = useState<Selection>(NO_SELECTION);
   // The effect being edited (its menu → Edit…), over the list like Add.
   const [editingEffect, setEditingEffect] = useState<string | null>(null);
+  // Monster stacks this viewer opened (src/stacks.ts), by key.
+  const [openStacks, setOpenStacks] = useState<string[]>([]);
   // The Party / Split switch asking who carries the party's light.
   const [carrierChoices, setCarrierChoices] = useState<Choice[] | null>(null);
   // The carrier question came from Combat: the answer starts combat too.
@@ -964,9 +969,37 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
                       </div>
                       {showMonsters && (
                         <ol aria-label="Monsters" className="flex flex-col">
-                          {monsters.map((m) => (
-                            <Row key={m.id} effects={rowEffects(m)} {...lightProps(m)} entry={m} token={tokenFor(m)} current={m.id === current} selected={selection.ids.includes(m.id)} small {...rowProps} />
-                          ))}
+                          {stacks(monsters, (m) => stackKey(tokenFor(m)?.name ?? "", tokenFor(m)?.image ?? null)).map((st) => {
+                            const row = (m: Entry) => (
+                              <Row key={m.id} effects={rowEffects(m)} {...lightProps(m)} entry={m} token={tokenFor(m)} current={m.id === current} selected={selection.ids.includes(m.id)} small {...rowProps} />
+                            );
+                            if (st.members.length === 1) return row(st.members[0]);
+                            const ids = st.members.map((m) => m.id);
+                            const hasTurn = current !== null && ids.includes(current);
+                            return (
+                              <MonsterStack
+                                key={st.key}
+                                name={stackName(tokenFor(st.members[0])?.name ?? "")}
+                                tokens={st.members.map(tokenFor)}
+                                dead={st.members.filter((m) => m.dead).length}
+                                icons={[...new Set(st.members.flatMap((m) => (effectsOf.get(m.id) ?? []).map(iconOf)))]}
+                                open={hasTurn || openStacks.includes(st.key)}
+                                current={hasTurn}
+                                toggle={() => setOpenStacks((o) => (o.includes(st.key) ? o.filter((k) => k !== st.key) : [...o, st.key]))}
+                                gm={gm}
+                                openMenu={
+                                  gm
+                                    ? (x, y) => {
+                                        setPicked({ ids, anchor: ids[0] });
+                                        setMenu({ x, y });
+                                      }
+                                    : undefined
+                                }
+                              >
+                                {st.members.map(row)}
+                              </MonsterStack>
+                            );
+                          })}
                         </ol>
                       )}
                     </SortableContext>
