@@ -11,7 +11,7 @@ Built from Matt's `obr-extension-starter` template. React 19 + Vite + TypeScript
 - Installs: live `https://crawl-keeper.editbag.workers.dev/manifest.json`, Dev `https://dev-crawl-keeper.editbag.workers.dev/manifest.json` (`docs/obr/deploy.md`). After a Dev rebuild, reload the Owlbear room: the background page loads once per room.
 - `main` deploys the live install on every push: merged = live for users, whatever the version number or CHANGELOG says. "Unreleased" means not tagged or announced.
 - Tracked tasks and undecided review candidates: `docs/design.md` "Releases".
-- Status (2026-11-07): v0.6.0 released (tag `v0.6.0`): the party token and Party | Split (the party travels attached to the party token, wall-safe gathering from Dynamic Fog's walls, Combat splits), Hand light to…, the GM lights props, Rename…, Pause button and bar, Show-not-hide settings, spent lights stay out. v0.5.0 brought the death timer and Dice+. Next: whatever Matt picks; morale and encounter tables on hold (`docs/design.md`).
+- Status (2026-11-08): v0.7.0 releasing (tag `v0.7.0` after merge): the death prompt and two-step dying, more list space, darkness that follows the lights, identical monsters in one stack, Edit… an effect, and monster HP (row and stack boxes, dies at 0, inherits its kind's max). v0.6.0 brought the party token and Party | Split. Next: whatever Matt picks; morale and encounter tables on hold (`docs/design.md`).
 
 ## Commands
 

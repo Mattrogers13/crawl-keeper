@@ -6,9 +6,9 @@ Automated tests run against an in-memory SDK; these checks need real Owlbear. On
 
 The per-PR checklists for v0.1 (PRs 1–4) are in git history (`git log -p -- TESTING.md`).
 
-## Release checklist (current as of v0.6.0)
+## Release checklist (current as of v0.7.0)
 
-v0.1.0 was room-tested PR by PR (the old lists in git history plus checks on #7–#9), not with this list as a whole. First full end-to-end pass: 2026-10-17 (Dev, GM + player), all rows passed. v0.3.0 full pass: 2026-11-01 to 2026-11-02 (Dev `4fd459d`, GM + player, Dynamic Fog, Torchlight uninstalled), all rows passed (51–55 retired). v0.4.0 full pass: 2026-11-06 (Dev `4c57c1b`, GM + player, Dynamic Fog), all rows passed (37 retired; 88–103 run that day on the merged PRs, same code). v0.5.0 pass: 2026-11-06 (Dev `993c3ae`, GM + player, Dice+): the death timer (104–107), Dice+ (108–112) and Settings (33–34) run again; the rest stands from the v0.4.0 pass the same day (Matt's call: only those changed). v0.6.0 (2026-11-07, Dev): no full pass (Matt's call); 113–130 run on Dev that day, plus a player marked dead while together then Split (left behind, shown); rows with a blank date not room-tested.
+v0.1.0 was room-tested PR by PR (the old lists in git history plus checks on #7–#9), not with this list as a whole. First full end-to-end pass: 2026-10-17 (Dev, GM + player), all rows passed. v0.3.0 full pass: 2026-11-01 to 2026-11-02 (Dev `4fd459d`, GM + player, Dynamic Fog, Torchlight uninstalled), all rows passed (51–55 retired). v0.4.0 full pass: 2026-11-06 (Dev `4c57c1b`, GM + player, Dynamic Fog), all rows passed (37 retired; 88–103 run that day on the merged PRs, same code). v0.5.0 pass: 2026-11-06 (Dev `993c3ae`, GM + player, Dice+): the death timer (104–107), Dice+ (108–112) and Settings (33–34) run again; the rest stands from the v0.4.0 pass the same day (Matt's call: only those changed). v0.6.0 (2026-11-07, Dev): no full pass (Matt's call); 113–130 run on Dev that day, plus a player marked dead while together then Split (left behind, shown); rows with a blank date not room-tested. v0.7.0: not a full pass (Matt skipped it, 2026-11-08); the rows new since v0.6.0 (132 to 157: death prompt, list space, darkness, stacks, Edit…, monster HP) all passed on Dev on 2026-11-08, and rows from before were last run for v0.6.0.
 
 ### Tracker
 
