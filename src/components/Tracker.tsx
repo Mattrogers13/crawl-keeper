@@ -28,7 +28,7 @@ import RowMenu from "./RowMenu";
 import MonsterStack from "./MonsterStack";
 import { stackKey, stackName, stacks } from "../stacks";
 import { iconOf } from "../effectIcons";
-import Row, { GUTTER, INIT_SLOT, tokenInfo, type ButtonProps, type Token } from "./TrackerRow";
+import Row, { GUTTER, INIT_SLOT, hpChange, tokenInfo, type ButtonProps, type Token } from "./TrackerRow";
 import { EFFECTS_KEY, MONSTERS_FOLDED_KEY, SETTINGS_KEY, TRACKER_KEY } from "../constants";
 import {
   endFocusOf,
@@ -81,7 +81,6 @@ import {
   removeMonsters,
   resetRounds,
   setDead,
-  setHp,
   sortByRoll,
   toCombat,
   toCrawl,
@@ -1000,7 +999,7 @@ const Tracker = (props: { role: Role; toolSlot?: HTMLElement | null; titleSlot?:
                                     ? {
                                         shown: stackHpText(st.members),
                                         valid: (text) => st.members.some((m) => !m.dead && applyHpText(m.hp, text) !== undefined),
-                                        save: (text) => change("Monster HP", (t) => setHp(t, ids, text)),
+                                        save: (text) => hpChange(liveChange, ids, text),
                                       }
                                     : undefined
                                 }

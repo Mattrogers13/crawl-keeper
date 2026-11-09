@@ -15,7 +15,7 @@ import { endFocusOf, stopDying } from "../effects";
 import {
   MOD_MAX,
   applyHpText,
-  setDead,
+  newlyDead,
   setHp,
   MOD_MIN,
   NOTE_MAX,
@@ -259,28 +259,13 @@ const Row = (props: {
               {/* Monsters act on the GM / Monsters roll. */}
               {entry.monster && token && (
                 <>
-                  {entry.hp?.cur === 0 && !entry.dead && (
-                    <button
-                      type="button"
-                      aria-label={`Mark ${name} dead`}
-                      title="At 0 HP: mark dead"
-                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-red-600 hover:bg-red-600/15 dark:text-red-300"
-                      onClick={() =>
-                        change("Mark dead", (t) => setDead(t, [entry.id], true), {
-                          effects: (s) => stopDying(endFocusOf(s, [entry.id]), entry.id),
-                        })
-                      }
-                    >
-                      <SkullIcon className="h-3.5 w-3.5" />
-                    </button>
-                  )}
                   <HpInput
                     key={hpText(entry.hp)}
                     name={name}
                     shown={hpText(entry.hp)}
                     zero={entry.hp?.cur === 0}
                     valid={(text) => applyHpText(entry.hp, text) !== undefined}
-                    save={(text) => change("Monster HP", (t) => setHp(t, [entry.id], text))}
+                    save={(text) => hpChange(change, [entry.id], text)}
                   />
                 </>
               )}
@@ -456,6 +441,13 @@ const RollInput = ({ name, value, save }: { name: string; value: number | null; 
   />
 );
 
+// Typed HP text on these monsters: one undo step. A monster that reaches 0
+// dies in the same step (ending its focus and death timer, as Mark dead does).
+export const hpChange = (change: Change, ids: string[], text: string) =>
+  change("Monster HP", (t) => setHp(t, ids, text), {
+    effects: (s, before, after) => newlyDead(before, after).reduce((fx, id) => stopDying(endFocusOf(fx, [id]), id), s),
+  });
+
 export const hpText = (hp: { cur: number; max: number } | undefined) => (hp ? `${hp.cur}/${hp.max}` : "");
 
 // A monster's hit points, GM only: "12" starts it at 12/12, then sets the
@@ -464,7 +456,7 @@ export const hpText = (hp: { cur: number; max: number } | undefined) => (hp ? `$
 export const HpInput = (props: { name: string; shown: string; zero?: boolean; valid: (text: string) => boolean; save: (text: string) => void; stack?: boolean }) => (
   <input
     aria-label={props.stack ? `HP for all ${props.name}` : `HP for ${props.name}`}
-    title="12 sets it · -3 / +4 hurt / heal · /12 max · empty clears"
+    title="12 sets it (over the max: the max too) · -3 / +4 hurt / heal · 10-3 · /12 max · empty clears"
     placeholder="HP"
     inputMode="text"
     // The whole text selected on focus: typing "-3" replaces "7/12" instead of adding to it.

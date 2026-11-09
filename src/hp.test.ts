@@ -13,7 +13,8 @@ describe("applyHpText", () => {
   it("a plain number starts HP full, then sets the current", () => {
     expect(applyHpText(undefined, "12")).toEqual({ cur: 12, max: 12 });
     expect(applyHpText({ cur: 3, max: 12 }, "8")).toEqual({ cur: 8, max: 12 });
-    expect(applyHpText({ cur: 3, max: 12 }, "99")).toEqual({ cur: 12, max: 12 });
+    // Over the max: the max was typed wrong, both become it.
+    expect(applyHpText({ cur: 3, max: 12 }, "20")).toEqual({ cur: 20, max: 20 });
   });
   it("+ and - heal and hurt, within 0 and the max", () => {
     expect(applyHpText({ cur: 8, max: 12 }, "-3")).toEqual({ cur: 5, max: 12 });
@@ -50,6 +51,8 @@ describe("setHp", () => {
     expect(hpOf(out, "m1")).toEqual({ cur: 5, max: 10 });
     expect(hpOf(out, "m2")).toEqual({ cur: 0, max: 10 });
     expect(hpOf(out, "m3")).toEqual({ cur: 7, max: 10 });
+    // Reaching 0 kills; the dead one's HP stays.
+    expect(out.entries.filter((e) => e.dead).map((e) => e.id)).toEqual(["m2", "m3"]);
   });
   it("returns the same object when nothing changes", () => {
     const t = withMonsters({ m1: { cur: 10, max: 10 } });

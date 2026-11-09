@@ -68,14 +68,23 @@ describe("monster HP", () => {
     expect(hpOf("w")).toEqual({ cur: 4, max: 9 });
   });
 
-  it("at 0 HP a skull offers Mark dead; nothing is marked by itself", async () => {
+  it("at 0 HP the monster dies by itself (its skull goes on the map); Undo brings it back", async () => {
     setup({ w: { cur: 3, max: 9 } });
     type(await screen.findByLabelText("HP for Wolf"), "-3");
-    const skull = await screen.findByRole("button", { name: "Mark Wolf dead" });
-    expect(saved().entries.find((e) => e.id === "w")?.dead).toBe(false);
-    fireEvent.click(skull);
     await waitFor(() => expect(saved().entries.find((e) => e.id === "w")?.dead).toBe(true));
     expect(hpOf("w")).toEqual({ cur: 0, max: 9 });
+    await waitFor(() => expect(obr.items.some((i) => i.name === "Dead (Crawl Keeper)")).toBe(true));
+    fireEvent.click(screen.getByRole("button", { name: "Undo: Monster HP" }));
+    await waitFor(() => expect(saved().entries.find((e) => e.id === "w")?.dead).toBe(false));
+    expect(hpOf("w")).toEqual({ cur: 3, max: 9 });
+  });
+
+  it("a number over the max raises the max (the max was typed wrong); /N lowers it", async () => {
+    setup({ w: { cur: 5, max: 9 } });
+    type(await screen.findByLabelText("HP for Wolf"), "15");
+    await waitFor(() => expect(hpOf("w")).toEqual({ cur: 15, max: 15 }));
+    type(await screen.findByLabelText("HP for Wolf"), "/10");
+    await waitFor(() => expect(hpOf("w")).toEqual({ cur: 10, max: 10 }));
   });
 
   it("a stack's box gives all of them HP, and -3 hurts each one", async () => {
