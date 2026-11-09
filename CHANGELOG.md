@@ -2,7 +2,7 @@
 
 Versions follow semver; the same number is in `package.json` and `public/manifest.json`.
 
-## Unreleased
+## v0.7.0 (2026-11-08)
 
 - Monster HP, GM only: a box on each monster's row. Type 12 to start it at 12/12 (then a number sets the current), -3 or +4 to hurt or heal, /12 for the max, empty to stop tracking. A monster that reaches 0 dies by itself (skull on the map, one Undo brings it back); typing a number over the max raises the max (how to fix a wrong one), /6 lowers it, and 10-3 does the sum. A stack's line has one box for all of them ("14/24"): 12 gives each 12/12, -4 hurts every one. A monster marked later starts at the full HP of one of its kind already tracked. Each change is an Undo step.
 - The round count is never cut off: the tracker's header shows the key without the "Crawl Keeper" text (Owlbear's toolbar already names it). Settings, the Light Tracker and the log keep their titles.
