@@ -53,6 +53,13 @@ describe("monster HP", () => {
     await waitFor(() => expect(hpOf("w")).toEqual({ cur: 12, max: 12 }));
   });
 
+  it("focusing the box selects its text, so typing -3 replaces 7/12", async () => {
+    setup({ w: { cur: 7, max: 12 } });
+    const box = (await screen.findByLabelText("HP for Wolf")) as HTMLInputElement;
+    fireEvent.focus(box);
+    await waitFor(() => expect([box.selectionStart, box.selectionEnd]).toEqual([0, 4]));
+  });
+
   it("junk text puts the old value back and saves nothing", async () => {
     setup({ w: { cur: 4, max: 9 } });
     const box = await screen.findByLabelText("HP for Wolf");

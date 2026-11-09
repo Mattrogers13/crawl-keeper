@@ -467,6 +467,11 @@ export const HpInput = (props: { name: string; shown: string; zero?: boolean; va
     title="12 sets it · -3 / +4 hurt / heal · /12 max · empty clears"
     placeholder="HP"
     inputMode="text"
+    // The whole text selected on focus: typing "-3" replaces "7/12" instead of adding to it.
+    onFocus={(e) => {
+      const box = e.currentTarget;
+      requestAnimationFrame(() => box.select());
+    }}
     className={`min-w-0 flex-1 px-1 py-0.5 text-right font-mono text-xs tabular-nums placeholder:text-obr-text-secondary [@media(hover:hover)]:placeholder:opacity-0 group-hover:placeholder:opacity-100 focus:placeholder:opacity-100 ${
       props.zero ? "font-bold text-red-600 dark:text-red-300" : "text-obr-text-secondary"
     } ${GHOST_INPUT}`}
