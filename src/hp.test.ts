@@ -21,6 +21,11 @@ describe("applyHpText", () => {
     expect(applyHpText({ cur: 8, max: 12 }, "+9")).toEqual({ cur: 12, max: 12 });
     expect(applyHpText({ cur: 2, max: 12 }, "-30")).toEqual({ cur: 0, max: 12 });
   });
+  it("arithmetic on the shown number: 10-3", () => {
+    expect(applyHpText({ cur: 12, max: 12 }, "10-3")).toEqual({ cur: 7, max: 12 });
+    expect(applyHpText({ cur: 5, max: 12 }, "7+9")).toEqual({ cur: 12, max: 12 });
+    expect(applyHpText({ cur: 5, max: 12 }, "3-9")).toEqual({ cur: 0, max: 12 });
+  });
   it("+ and - without HP do nothing", () => {
     expect(applyHpText(undefined, "-3")).toBeUndefined();
   });

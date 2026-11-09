@@ -465,6 +465,7 @@ export const setDead = (t: Tracker, ids: string[], dead: boolean): Tracker => {
 // box then puts the old text back).
 //   12      no HP yet: 12/12. With HP: current becomes 12 (up to the max).
 //   -3 +4   take 3 / heal 4 (needs HP; a no-op without)
+//   10-3    arithmetic on a number: current becomes 7
 //   /12     the max becomes 12 (current stays, or starts full with no HP)
 //   5/12    current 5 of 12
 //   empty   stop tracking
@@ -477,6 +478,13 @@ export const applyHpText = (hp: Hp | undefined, text: string): Hp | null | undef
     if (!hp) return undefined;
     const by = Number(m[2]) * (m[1] === "-" ? -1 : 1);
     return { ...hp, cur: Math.max(0, Math.min(hp.max, hp.cur + by)) };
+  }
+  // "10-3": the sum typed out, so the current HP can be kept in the box and edited.
+  m = /^(\d{1,3})([+-])(\d{1,3})$/.exec(t);
+  if (m) {
+    const cur = Number(m[1]) + Number(m[3]) * (m[2] === "-" ? -1 : 1);
+    if (!hp) return cur >= 1 && cur <= HP_MAX ? { cur, max: cur } : undefined;
+    return { ...hp, cur: Math.max(0, Math.min(hp.max, cur)) };
   }
   m = /^(\d{1,3})?\/(\d{1,3})$/.exec(t);
   if (m) {

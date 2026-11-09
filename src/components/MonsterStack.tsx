@@ -32,7 +32,7 @@ const MonsterStack = (props: {
   return (
     <li>
       <div
-        className={`group flex min-h-[34px] items-center gap-2 border-b border-obr-text/10 py-0.5 pr-1 ${props.gm ? "hover:bg-obr-text/5" : "pl-1"}`}
+        className={`group flex min-h-[34px] items-center gap-2 border-b border-obr-text/10 py-0.5 pr-1 ${props.gm ? "hover:bg-obr-text/5" : "pl-1"} ${props.open ? "bg-obr-text/5" : ""}`}
         onContextMenu={
           props.openMenu
             ? (e) => {
@@ -54,7 +54,7 @@ const MonsterStack = (props: {
           aria-label={props.open ? `Fold ${label}` : `Show ${label}`}
           disabled={props.current}
           title={props.current ? "Shown while one of them has the turn" : undefined}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          className={`flex min-w-0 flex-1 items-center gap-2 text-left ${props.open ? "opacity-60" : ""}`}
           onClick={props.toggle}
         >
           {image ? (
@@ -97,7 +97,7 @@ const MonsterStack = (props: {
         )}
       </div>
       {props.open && (
-        <ol aria-label={label} className="flex flex-col">
+        <ol aria-label={label} className="flex flex-col border-l-2 border-obr-text/15 ml-3">
           {props.children}
         </ol>
       )}
