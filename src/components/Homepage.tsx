@@ -45,7 +45,9 @@ const Homepage = () => {
           </li>
           <li>
             Monsters are listed under the <b>GM / Monsters</b> row and act on its roll. Put the highest DEX modifier among
-            them in its <b>DEX</b> box and click the d20 to roll d20 + that (core pp. 83, 88).
+            them in its <b>DEX</b> box and click the d20 to roll d20 + that (core pp. 83, 88). Identical monsters (the same
+            name, give or take a number, and the same art) share one line, "Zombie ×3": click it to list them, or
+            right-click it to act on all of them at once.
           </li>
           <li>
             Type each player's roll in their row (click the number to edit it). The list sorts itself, highest first, as each
