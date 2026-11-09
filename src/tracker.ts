@@ -463,7 +463,7 @@ export const setDead = (t: Tracker, ids: string[], dead: boolean): Tracker => {
 // What the GM typed in an HP box, applied to a monster's hit points. Returns
 // the new value (null: cleared), or undefined when the text isn't one (the
 // box then puts the old text back).
-//   12      no HP yet: 12/12. With HP: current becomes 12 (up to the max).
+//   12      no HP yet: 12/12. With HP: current becomes 12; over the max, the max too.
 //   -3 +4   take 3 / heal 4 (needs HP; a no-op without)
 //   10-3    arithmetic on a number: current becomes 7
 //   /12     the max becomes 12 (current stays, or starts full with no HP)
@@ -496,11 +496,13 @@ export const applyHpText = (hp: Hp | undefined, text: string): Hp | null | undef
   const n = num(t, 0);
   if (n === undefined) return undefined;
   if (!hp) return n >= 1 ? { cur: n, max: n } : undefined;
-  return { ...hp, cur: Math.min(n, hp.max) };
+  // A plain number over the max is the max typed wrong: both become it.
+  return n > hp.max ? { cur: n, max: n } : { ...hp, cur: n };
 };
 
 // The same typed text on several monsters (one box on a stack's line): each
-// applies it to its own hit points. Dead monsters are left as they are.
+// applies it to its own hit points. Dead monsters are left as they are. One
+// that reaches 0 dies (its skull goes on the map with it).
 export const setHp = (t: Tracker, ids: string[], text: string): Tracker => {
   let entries: Entry[] | null = null;
   for (const id of ids) {
@@ -510,8 +512,15 @@ export const setHp = (t: Tracker, ids: string[], text: string): Tracker => {
     if (hp === undefined) continue;
     entries = update(entries ? { ...t, entries } : t, id, { hp: hp ?? undefined }) ?? entries;
   }
-  return entries ? { ...t, entries } : t;
+  if (!entries) return t;
+  const hurt = { ...t, entries };
+  const fallen = entries.filter((e) => ids.includes(e.id) && !e.dead && e.hp?.cur === 0).map((e) => e.id);
+  return fallen.length > 0 ? setDead(hurt, fallen, true) : hurt;
 };
+
+// Who died between two states of the tracker.
+export const newlyDead = (before: Tracker, after: Tracker): string[] =>
+  after.entries.filter((e) => e.dead && !before.entries.find((b) => b.id === e.id)?.dead).map((e) => e.id);
 
 // A monster marked just now starts with the HP of a tracked monster that is
 // the same kind (`kind` names it: stacks.ts), at full health. Others keep what they have.
