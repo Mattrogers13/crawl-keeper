@@ -2,7 +2,7 @@
 // not on a row, the turn's reminders (focus checks, effects ending), and the
 // GM's Add effect form. The rules are in effects.ts; the tracker owns the
 // writes (Tracker.tsx's changeEffects).
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 
 import { FOCUS } from "./CrawlBar";
 import { ChevronIcon, EyeIcon, HiddenIcon } from "./icons";
@@ -11,6 +11,7 @@ import { cryptoRand } from "../crawl";
 import { sayDeath } from "../deathNotices";
 import {
   addEffects,
+  editEffect,
   AlreadyFocusingError,
   CONDITIONS,
   CONDITION_IDS,
@@ -58,9 +59,13 @@ export const describe = (e: Effect, t: Tracker, holder?: string) => {
   return [holder ? `${e.name} on ${holder}` : e.name, time, e.hidden ? "hidden from players" : "", hint ?? ""].filter(Boolean).join(" · ");
 };
 
+// The GM's Edit… sheet for an effect (Tracker opens it over the list).
+export const EditEffectContext = createContext<((id: string) => void) | null>(null);
+
 // The GM's actions for one effect.
 const ChipMenu = (props: { effect: Effect; tracker: Tracker; x: number; y: number; close: () => void; change: EffectsChange; holderName?: string }) => {
   const { effect: e, close, change } = props;
+  const openEdit = useContext(EditEffectContext);
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: props.x, top: props.y });
   const st = statusOf(e, props.tracker);
@@ -123,6 +128,19 @@ const ChipMenu = (props: { effect: Effect; tracker: Tracker; x: number; y: numbe
             Set
           </button>
         </form>
+      )}
+      {openEdit && e.icon !== "dying" && (
+        <button
+          type="button"
+          role="menuitem"
+          className={item}
+          onClick={() => {
+            close();
+            openEdit(e.id);
+          }}
+        >
+          Edit…
+        </button>
       )}
       {e.icon === "dying" && e.holder !== null ? (
         <>
@@ -307,6 +325,8 @@ const draftName = (d: Draft) => d.name.trim() || (d.icon ? CONDITIONS[d.icon].la
 // chosen tokens (each gets each), or free-standing. A condition pill adds
 // its effect (or takes it out again); + Custom adds a blank one. One undo
 // step for all of them, all or nothing.
+// `editing`: the same sheet as Edit… for one effect (the effect's menu),
+// filled in from it; Save changes it in place (editEffect).
 export const AddEffect = (props: {
   holders: string[];
   names: Map<string, string>;
@@ -314,9 +334,23 @@ export const AddEffect = (props: {
   effects: Effects;
   change: EffectsChange;
   close: () => void;
+  editing?: Effect;
 }) => {
-  const { holders, names, tracker } = props;
+  const { holders, names, tracker, editing } = props;
   const keys = useRef(0);
+  const fromEffect = (e: Effect): Draft => {
+    const st = statusOf(e, tracker);
+    return {
+      key: keys.current++,
+      name: e.name,
+      icon: e.kind === "focus" ? null : e.icon,
+      duration: e.kind === "focus" ? "focus" : e.kind === "until" ? (e.endsWith ? `with:${e.endsWith}` : "until") : "rounds",
+      rounds: String(st.state === "active" && st.left !== null ? st.left : e.rounds || 1),
+      dice: e.dice ?? "1d4",
+      countsOn: e.end ? (e.end.at ?? TOP) : (tracker.current ?? TOP),
+      hidden: e.hidden,
+    };
+  };
   const blank = (icon: Condition | null = null): Draft => ({
     key: keys.current++,
     name: icon ? CONDITIONS[icon].label : "",
@@ -327,7 +361,7 @@ export const AddEffect = (props: {
     countsOn: tracker.current ?? TOP,
     hidden: false,
   });
-  const [drafts, setDrafts] = useState<Draft[]>(() => [blank()]);
+  const [drafts, setDrafts] = useState<Draft[]>(() => [editing ? fromEffect(editing) : blank()]);
   const [error, setError] = useState("");
   const [asking, setAsking] = useState<Effect | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -340,10 +374,18 @@ export const AddEffect = (props: {
   }, [drafts]);
 
   const focusAllowed = holders.length > 0;
-  const focuses = props.effects.effects.filter((e) => e.kind === "focus");
+  const focuses = props.effects.effects.filter((e) => e.kind === "focus" && e.id !== editing?.id);
   const edit = (key: number, patch: Partial<Draft>) => setDrafts((ds) => ds.map((d) => (d.key === key ? { ...d, ...patch } : d)));
   const drop = (key: number) => setDrafts((ds) => (ds.length > 1 ? ds.filter((d) => d.key !== key) : [blank()]));
   const pick = (c: Condition) => {
+    // Editing: the one effect's condition changes (its name too, if it was
+    // the condition's own name).
+    if (editing) {
+      const d = drafts[0];
+      if (d.icon === c) return edit(d.key, { icon: null });
+      const ownName = !d.name.trim() || (d.icon !== null && d.name === CONDITIONS[d.icon].label);
+      return edit(d.key, { icon: c, ...(ownName ? { name: CONDITIONS[c].label } : {}) });
+    }
     const there = drafts.find((d) => d.icon === c);
     if (there) return drop(there.key);
     // A blank effect takes the pick; else a new one.
@@ -381,6 +423,15 @@ export const AddEffect = (props: {
   const what = drafts.length > 2 ? `${drafts.length} effects` : named.map((n) => n || "effect").join(", ");
   const add = (replaceFocus: boolean) => {
     setError("");
+    if (editing) {
+      try {
+        props.change(`Edit ${named[0] || editing.name}`, (e, t) => editEffect(e, t, cryptoRand, editing.id, input(drafts[0], false)));
+        props.close();
+      } catch (err) {
+        setError(errorMessage(err));
+      }
+      return;
+    }
     try {
       props.change(holders.length > 1 ? `Add ${what} ×${holders.length}` : `Add ${what}`, (e, t) =>
         drafts.reduce((s, d, i) => {
@@ -411,18 +462,19 @@ export const AddEffect = (props: {
   return (
     <form
       ref={formRef}
-      aria-label="Add effect"
+      aria-label={editing ? "Edit effect" : "Add effect"}
       className="flex min-h-full flex-col gap-2 bg-obr-paper px-1 pt-1 pb-2 text-sm"
       onSubmit={submit}
       onKeyDown={(ev) => ev.key === "Escape" && props.close()}
     >
       <div className="flex items-center gap-2">
-        <span className="font-medium">Add effects</span>
+        <span className="font-medium">{editing ? "Edit effect" : "Add effects"}</span>
         <span className="min-w-0 flex-1 truncate text-xs text-obr-text-secondary">{target}</span>
         <button type="button" aria-label="Close" className="rounded-md p-1 text-obr-text-secondary hover:bg-obr-text/10" onClick={props.close}>
           ✕
         </button>
       </div>
+      {editing?.kind !== "focus" && (
       <div role="group" aria-label="Conditions" className="flex flex-wrap gap-1">
         {CONDITION_IDS.filter((c) => c !== "focus" && c !== "dying").map((c) => {
           const on = drafts.some((d) => d.icon === c);
@@ -439,10 +491,13 @@ export const AddEffect = (props: {
             </button>
           );
         })}
-        <button type="button" className="h-6 rounded-full bg-obr-bg px-2 text-xs hover:bg-obr-text/10" onClick={custom}>
-          + Custom
-        </button>
+        {!editing && (
+          <button type="button" className="h-6 rounded-full bg-obr-bg px-2 text-xs hover:bg-obr-text/10" onClick={custom}>
+            + Custom
+          </button>
+        )}
       </div>
+      )}
       {drafts.map((d, i) => (
         <fieldset
           key={d.key}
@@ -478,25 +533,29 @@ export const AddEffect = (props: {
             >
               {d.hidden ? <HiddenIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
             </button>
-            <button
-              type="button"
-              aria-label="Remove this effect"
-              className="flex h-7 w-6 shrink-0 items-center justify-center rounded-md text-obr-text-secondary hover:bg-obr-text/10"
-              onClick={() => drop(d.key)}
-            >
-              ✕
-            </button>
+            {!editing && (
+              <button
+                type="button"
+                aria-label="Remove this effect"
+                className="flex h-7 w-6 shrink-0 items-center justify-center rounded-md text-obr-text-secondary hover:bg-obr-text/10"
+                onClick={() => drop(d.key)}
+              >
+                ✕
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-1.5">
             <select
               aria-label="Duration"
               value={d.duration}
+              // A focus stays one (editEffect): only its name and hidden change.
+              disabled={editing?.kind === "focus"}
               onChange={(ev) => edit(d.key, { duration: ev.target.value as DurationChoice })}
               className={`${field} ${d.duration.startsWith("with:") ? "min-w-0 flex-1" : "w-[84px] shrink-0"}`}
             >
               <option value="rounds">Rounds</option>
               <option value="roll">Roll</option>
-              {focusAllowed && (
+              {focusAllowed && (!editing || editing.kind === "focus") && (
                 // A caster holds one focus: one per batch.
                 <option value="focus" disabled={!!focusing && focusing !== d}>
                   Focus
@@ -569,7 +628,7 @@ export const AddEffect = (props: {
             Cancel
           </button>
           <button type="submit" className="h-8 rounded-full bg-obr-primary px-4 text-xs font-medium text-obr-primary-contrast">
-            {drafts.length > 1 ? `Add ${drafts.length} effects` : "Add"}
+            {editing ? "Save" : drafts.length > 1 ? `Add ${drafts.length} effects` : "Add"}
           </button>
         </div>
       )}

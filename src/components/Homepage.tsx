@@ -165,7 +165,7 @@ const Homepage = () => {
           </li>
           <li>
             Effects sit under their row; two or more fold to one line and open on that row's turn. Click one to set its
-            rounds left or remove it. Icons show on the tokens (Settings can turn them off). Everyone gets a notice when an
+            rounds left, Edit… it (name, condition, duration, hidden) or remove it. Icons show on the tokens (Settings can turn them off). Everyone gets a notice when an
             effect runs out, and Time passes ends every rounds effect (p. 82).
           </li>
           <li>

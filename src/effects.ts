@@ -272,6 +272,29 @@ export const endFocusOf = (s: Effects, holders: string[]): Effects => {
 export const pruneEffects = (s: Effects, exists: (id: string) => boolean): Effects =>
   without(s, new Set(s.effects.filter((e) => e.holder !== null && !exists(e.holder)).map((e) => e.id)));
 
+// Edit… (the effect's menu; Matt, 2026-11-08): the Add form's fields over
+// one effect, saved in place under its id, so what ends with it still does.
+// Rounds count from now, as when added. A focus stays a focus (its name and
+// hidden change); nothing becomes one here. Dying has its own buttons.
+export const editEffect = (state: Effects, t: Tracker, rand: Rand, id: string, input: NewEffect): Effects => {
+  const s = settle(state, t);
+  const old = s.effects.find((e) => e.id === id);
+  if (!old) throw new Error("That effect is gone");
+  if (old.icon === "dying") throw new TypeError("Dying changes from its own buttons");
+  if (old.kind === "focus") {
+    const name = input.name.trim().slice(0, NAME_MAX) || old.name;
+    return { ...s, effects: s.effects.map((e) => (e === old ? { ...e, name, hidden: input.hidden === true } : e)) };
+  }
+  if (input.duration.kind === "focus") throw new TypeError("Focus is chosen when the effect is added");
+  const made = addEffects({ ...s, effects: s.effects.filter((e) => e !== old) }, t, () => id, rand, {
+    ...input,
+    holders: old.holder === null ? [] : [old.holder],
+    replaceFocus: false,
+  });
+  const edited = made.effects.find((e) => e.id === id)!;
+  return { ...s, effects: s.effects.map((e) => (e === old ? edited : e)) };
+};
+
 // The GM edits a rounds effect's rounds left (1 to 99), from now.
 export const setRoundsLeft = (s: Effects, t: Tracker, id: string, left: number): Effects => {
   if (!Number.isInteger(left) || left < 1 || left > ROUNDS_MAX) throw new RangeError(`1 to ${ROUNDS_MAX} rounds`);
